@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    background-color: #FFFDF6;
+    color: #243C2C;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-sm {
+    @apply px-4 py-1.5 text-sm;
+  }
+  .btn-md {
+    @apply px-6 py-2.5 text-sm;
+  }
+  .btn-lg {
+    @apply px-8 py-3 text-base;
+  }
+  .btn-primary {
+    @apply btn bg-green-main text-white hover:bg-green-dark focus-visible:ring-green-main active:scale-95;
+  }
+  .btn-secondary {
+    @apply btn bg-green-light text-green-dark hover:bg-green-100 focus-visible:ring-green-main active:scale-95;
+  }
+  .btn-outline {
+    @apply btn border-2 border-green-main text-green-dark hover:bg-green-light focus-visible:ring-green-main active:scale-95;
+  }
+  .btn-danger {
+    @apply btn bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500 active:scale-95;
+  }
+  .btn-ghost {
+    @apply btn text-green-dark hover:bg-green-light focus-visible:ring-green-main active:scale-95;
+  }
+  .btn-pink {
+    @apply btn bg-pink-main text-text-main hover:bg-pink-400 focus-visible:ring-pink-main active:scale-95;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-white rounded-3xl shadow-card p-6;
+  }
+  .card-sm {
+    @apply bg-white rounded-2xl shadow-card p-4;
+  }
+  .card-hover {
+    @apply card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-2xl border border-green-100 bg-white text-text-main placeholder:text-text-light focus:outline-none focus:border-green-main focus:ring-2 focus:ring-green-main/20 transition-all duration-150;
+  }
+  .input-error {
+    @apply border-red-400 focus:border-red-500 focus:ring-red-200;
+  }
+  .label {
+    @apply block text-sm font-semibold text-text-main mb-1.5;
+  }
+  .error-msg {
+    @apply text-xs text-red-500 mt-1;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .badge-green {
+    @apply badge bg-green-light text-green-dark;
+  }
+  .badge-pink {
+    @apply badge bg-pink-light text-pink-700;
+  }
+  .badge-yellow {
+    @apply badge bg-yellow-100 text-yellow-800;
+  }
+  .badge-red {
+    @apply badge bg-red-100 text-red-700;
+  }
+  .badge-gray {
+    @apply badge bg-gray-100 text-gray-600;
+  }
+  .badge-blue {
+    @apply badge bg-blue-100 text-blue-700;
+  }
+
+  /* Section */
+  .section-title {
+    @apply text-xl font-bold text-text-main;
+  }
+  .page-title {
+    @apply text-2xl font-bold text-text-main;
+  }
+
+  /* Divider */
+  .divider {
+    @apply border-t border-green-50;
+  }
+
+  /* Decorative blobs */
+  .blob {
+    @apply absolute rounded-full opacity-20 pointer-events-none;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #4D9363 transparent;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-fade-in { animation: fadeIn 0.25s ease both; }
+.animate-slide-up { animation: slideUp 0.3s ease both; }
+.animate-scale-in { animation: scaleIn 0.2s ease both; }
