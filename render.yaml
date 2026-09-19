@@ -20,3 +20,4 @@ services:
         generateValue: true
       - key: SERPAPI_API_KEY
         sync: false
+
