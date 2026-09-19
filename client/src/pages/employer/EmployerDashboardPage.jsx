@@ -5,31 +5,29 @@ import {
   Plus, ChevronRight, ShieldCheck, DollarSign, Star
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getJobs, getApplications, getShifts, getSwapRequests } from '@/services';
+import { getJobs, getApplications, getShifts } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
+import { formatVND } from '@/utils';
 
 export default function EmployerDashboardPage() {
   const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [shifts, setShifts] = useState([]);
-  const [swaps, setSwaps] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboard() {
       try {
         setLoading(true);
-        const [jobsRes, appsRes, shiftsRes, swapsRes] = await Promise.all([
-          getJobs({ storeName: user?.name }),
-          getApplications({ storeId: user?.id }),
-          getShifts({ storeId: user?.id }),
-          getSwapRequests()
+        const [jobsRes, appsRes, shiftsRes] = await Promise.all([
+          getJobs({ storeName: user?.name, employerId: user?.id }),
+          getApplications({ storeId: user?.id, storeName: user?.name, employerId: user?.id }),
+          getShifts({ storeId: user?.id, storeName: user?.name, employerId: user?.id }),
         ]);
-        setJobs(jobsRes?.jobs || []);
+        setJobs(jobsRes?.jobs || jobsRes || []);
         setApplications(appsRes || []);
         setShifts(shiftsRes || []);
-        setSwaps(swapsRes || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -40,7 +38,7 @@ export default function EmployerDashboardPage() {
   }, [user]);
 
   const pendingApps = applications.filter(a => a.status === 'pending');
-  const activeJobs = jobs.filter(j => j.status === 'active' || !j.status);
+  const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'approved' || !j.status);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
@@ -113,15 +111,15 @@ export default function EmployerDashboardPage() {
 
         <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Yêu cầu đổi ca</span>
+            <span className="text-xs font-medium text-text-muted">Quản lý nhân viên ca</span>
             <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <ArrowLeftRight className="w-5 h-5" />
+              <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-text-main">{swaps.length}</div>
-            <Link to="/employer/swap" className="text-xs text-purple-600 font-semibold hover:underline mt-1 block">
-              Xem đổi ca →
+            <div className="text-2xl font-bold text-text-main">{shifts.length}</div>
+            <Link to="/employer/shifts" className="text-xs text-purple-600 font-semibold hover:underline mt-1 block">
+              Xem lịch ca & điểm danh →
             </Link>
           </div>
         </div>
@@ -146,7 +144,7 @@ export default function EmployerDashboardPage() {
             ) : (
               <div className="divide-y divide-green-50">
                 {applications.slice(0, 4).map((app) => (
-                  <div key={app.id} className="py-3.5 flex items-center justify-between gap-4">
+                  <div key={app._id || app.id} className="py-3.5 flex items-center justify-between gap-4">
                     <div>
                       <h4 className="text-sm font-bold text-text-main">{app.studentName || 'Sinh viên FPT'}</h4>
                       <p className="text-xs text-text-muted mt-0.5">
@@ -181,11 +179,15 @@ export default function EmployerDashboardPage() {
             </div>
 
             <div className="space-y-3">
-              {jobs.slice(0, 3).map((job) => (
-                <div key={job.id} className="p-3.5 rounded-2xl bg-cream/50 border border-green-50">
+              {jobs.slice(0, 5).map((job) => (
+                <div key={job._id || job.id} className="p-3.5 rounded-2xl bg-cream/50 border border-green-50">
                   <h4 className="text-xs font-bold text-text-main line-clamp-1">{job.title}</h4>
-                  <p className="text-[11px] text-green-dark font-medium mt-1">{job.salaryText}</p>
-                  <p className="text-[10px] text-text-muted mt-0.5">📍 {job.location}</p>
+                  <p className="text-[11px] text-green-dark font-medium mt-1">
+                    {job.salaryAmount ? `${formatVND(job.salaryAmount)}/${job.salaryUnit === 'hour' ? 'giờ' : 'ca'}` : (job.salaryText || '25.000đ/giờ')}
+                  </p>
+                  <p className="text-[10px] text-text-muted mt-0.5">
+                    📍 {job.address || (typeof job.location === 'string' ? job.location : 'Hòa Lạc, Thạch Thất')}
+                  </p>
                 </div>
               ))}
             </div>

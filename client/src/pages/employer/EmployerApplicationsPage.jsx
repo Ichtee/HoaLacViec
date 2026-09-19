@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Users, CheckCircle, XCircle, Clock, Eye, Calendar, Sparkles, MapPin,
-  Building2, MessageSquare, ShieldCheck
+  Building2, MessageSquare, ShieldCheck, Phone, MessageCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -26,7 +26,7 @@ export default function EmployerApplicationsPage() {
   async function loadApps() {
     try {
       setLoading(true);
-      const data = await getApplications({ storeId: user?.id });
+      const data = await getApplications({ storeId: user?.id, storeName: user?.name, employerId: user?.id });
       setApplications(data || []);
     } catch (err) {
       console.error(err);
@@ -38,7 +38,7 @@ export default function EmployerApplicationsPage() {
   async function handleStatusChange(appId, newStatus) {
     try {
       await updateApplication(appId, { status: newStatus, note: noteInput });
-      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus, note: noteInput } : a));
+      setApplications(prev => prev.map(a => (a.id === appId || a._id === appId) ? { ...a, status: newStatus, note: noteInput } : a));
       setToast({
         type: newStatus === 'approved' ? 'success' : 'info',
         message: `Đã cập nhật trạng thái ứng viên thành: ${newStatus === 'approved' ? 'Trúng tuyển' : 'Từ chối'}`
@@ -106,7 +106,7 @@ export default function EmployerApplicationsPage() {
         <div className="space-y-4">
           {filtered.map(app => (
             <div
-              key={app.id}
+              key={app._id || app.id}
               className="bg-white p-6 rounded-3xl border border-green-50 shadow-card hover:border-pink-200 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
               <div className="space-y-2">
@@ -123,14 +123,25 @@ export default function EmployerApplicationsPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <Badge variant="outline" size="sm">🎓 FPT Hòa Lạc</Badge>
-                  <span className="text-green-main font-semibold bg-green-50 px-2.5 py-0.5 rounded-full text-[11px]">
+                  <Badge variant="outline" size="sm">🎓 Sinh viên Hòa Lạc</Badge>
+                  {app.studentPhone && (
+                    <span className="inline-flex items-center gap-1 font-bold text-gray-800 bg-gray-100 px-2.5 py-0.5 rounded-full text-[11px]">
+                      <Phone className="w-3 h-3 text-pink-main" /> {app.studentPhone}
+                    </span>
+                  )}
+                  <span className="text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full text-[11px]">
                     ✨ Matching Lịch Ca: 95%
                   </span>
                 </div>
+
+                {(app.note || app.coverLetter) && (
+                  <p className="text-xs text-text-muted bg-gray-50/80 border border-gray-100 p-2.5 rounded-xl line-clamp-2 max-w-xl font-medium">
+                    {app.note || app.coverLetter}
+                  </p>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 self-end md:self-center">
+              <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
                 <Badge
                   variant={
                     app.status === 'approved' || app.status === 'accepted'
@@ -148,11 +159,32 @@ export default function EmployerApplicationsPage() {
                     : 'Đang chờ duyệt'}
                 </Badge>
 
+                {app.studentPhone && (
+                  <div className="flex items-center gap-1">
+                    <a
+                      href={`tel:${app.studentPhone}`}
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all"
+                      title="Gọi điện cho ứng viên"
+                    >
+                      <Phone className="w-3.5 h-3.5" /> Gọi
+                    </a>
+                    <a
+                      href={`https://zalo.me/${app.studentPhone.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                      title="Nhắn Zalo"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" /> Zalo
+                    </a>
+                  </div>
+                )}
+
                 <button
                   onClick={() => { setSelectedApp(app); setNoteInput(app.note || ''); }}
-                  className="px-4 py-2 rounded-xl bg-pink-main text-white text-xs font-semibold hover:bg-pink-dark transition-all shadow-sm"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white text-xs font-bold transition-all shadow-sm"
                 >
-                  Xem CV & Phê duyệt
+                  Xem CV & Duyệt
                 </button>
               </div>
             </div>
@@ -170,13 +202,25 @@ export default function EmployerApplicationsPage() {
           <div className="space-y-4 text-xs">
             <div className="p-4 rounded-2xl bg-cream/60 space-y-2">
               <h4 className="text-sm font-bold text-text-main">Vị trí: {selectedApp.jobTitle || selectedApp.title}</h4>
-              <p className="text-text-muted">Sinh viên: <strong>{selectedApp.studentName}</strong> (Mã SV: HE163456)</p>
-              <p className="text-text-muted">Khu vực: <strong>KTX Dom A - ĐH FPT Hòa Lạc</strong></p>
+              <p className="text-text-muted">Sinh viên: <strong>{selectedApp.studentName}</strong></p>
+              {selectedApp.studentPhone && (
+                <p className="text-text-muted flex items-center gap-1.5">
+                  <span>Số điện thoại / Zalo:</span>
+                  <a href={`tel:${selectedApp.studentPhone}`} className="font-bold text-blue-600 hover:underline">
+                    {selectedApp.studentPhone}
+                  </a>
+                </p>
+              )}
+              {selectedApp.studentEmail && (
+                <p className="text-text-muted">Email: <strong>{selectedApp.studentEmail}</strong></p>
+              )}
             </div>
 
             <div>
-              <label className="font-bold text-text-main block mb-1">Thư ứng tuyển / Lời nhắn:</label>
-              <p className="p-3 rounded-xl bg-gray-50 text-text-muted italic">{selectedApp.coverLetter || 'Mong muốn được thử sức tại cửa hàng...'}</p>
+              <label className="font-bold text-text-main block mb-1">Ca mong muốn & Giới thiệu bản thân:</label>
+              <p className="p-3 rounded-xl bg-gray-50 text-text-main whitespace-pre-line font-medium leading-relaxed">
+                {selectedApp.note || selectedApp.coverLetter || 'Chưa có ghi chú thêm.'}
+              </p>
             </div>
 
             <div>
@@ -192,15 +236,15 @@ export default function EmployerApplicationsPage() {
 
             <div className="flex items-center justify-between pt-3 border-t border-green-50">
               <button
-                onClick={() => handleStatusChange(selectedApp.id, 'rejected')}
+                onClick={() => handleStatusChange(selectedApp._id || selectedApp.id, 'rejected')}
                 className="px-4 py-2 rounded-xl bg-red-50 text-red-600 font-semibold hover:bg-red-100"
               >
                 Từ chối ứng tuyển
               </button>
 
               <button
-                onClick={() => handleStatusChange(selectedApp.id, 'approved')}
-                className="px-5 py-2 rounded-xl bg-green-main text-white font-semibold hover:bg-green-dark shadow-sm"
+                onClick={() => handleStatusChange(selectedApp._id || selectedApp.id, 'approved')}
+                className="px-5 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 shadow-md transition-all"
               >
                 Trúng tuyển & Phân ca
               </button>

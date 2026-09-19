@@ -125,7 +125,7 @@ export function computeMatchScore(job, studentAvailability, studentLocation) {
     else if (dist <= 2000) distScore = 60;
     else if (dist <= 5000) distScore = 40;
     else distScore = 10;
-    reasons.push(`Cách vị trí demo khoảng ${formatDistance(dist)}`);
+    reasons.push(`Cách vị trí của bạn khoảng ${formatDistance(dist)}`);
   } else {
     reasons.push('Chưa có thông tin vị trí để tính khoảng cách');
   }
@@ -133,7 +133,7 @@ export function computeMatchScore(job, studentAvailability, studentLocation) {
   // --- Bus route (20%) ---
   if (job.busRoutes && job.busRoutes.length > 0) {
     busScore = 70;
-    reasons.push(`Có tuyến xe buýt mẫu phù hợp (dữ liệu demo)`);
+    reasons.push(`Có tuyến xe buýt kết nối phù hợp`);
   } else {
     reasons.push('Không có dữ liệu xe buýt cho vị trí này');
   }

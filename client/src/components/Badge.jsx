@@ -3,11 +3,17 @@ import { clsx } from 'clsx';
 export function Badge({ children, variant = 'green', className, ...props }) {
   const variantClass = {
     green: 'badge-green',
+    success: 'badge-green',
     pink: 'badge-pink',
     yellow: 'badge-yellow',
+    warning: 'badge-yellow',
     red: 'badge-red',
+    danger: 'badge-red',
     gray: 'badge-gray',
+    default: 'badge-gray',
+    outline: 'badge-gray',
     blue: 'badge-blue',
+    info: 'badge-blue',
   }[variant] || 'badge-gray';
 
   return (

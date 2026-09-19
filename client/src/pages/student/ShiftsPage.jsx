@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Calendar, Clock, MapPin, CheckCircle, ArrowLeftRight, QrCode, ShieldCheck,
-  AlertTriangle, Check, User
+  Calendar, Clock, MapPin, CheckCircle, QrCode, ShieldCheck,
+  AlertTriangle, Check, User, ShoppingBag
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getShifts, checkIn, checkOut, createSwapRequest } from '@/services';
+import { getShifts, checkIn, checkOut } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
@@ -15,10 +15,7 @@ export default function StudentShiftsPage() {
   const { user } = useAuth();
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedShift, setSelectedShift] = useState(null);
   const [checkInModalShift, setCheckInModalShift] = useState(null);
-  const [swapModalShift, setSwapModalShift] = useState(null);
-  const [swapReason, setSwapReason] = useState('');
   const [toast, setToast] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -42,7 +39,10 @@ export default function StudentShiftsPage() {
     try {
       setActionLoading(true);
       await checkIn(shiftId);
-      setShifts(prev => prev.map(s => s.id === shiftId ? { ...s, status: 'checked_in', checkInTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) } : s));
+      setShifts(prev => prev.map(s => (s._id === shiftId || s.id === shiftId)
+        ? { ...s, status: 'checked_in', checkInTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) }
+        : s
+      ));
       setToast({ type: 'success', message: 'Điểm danh vào ca (Check-in GPS Hòa Lạc) thành công!' });
       setCheckInModalShift(null);
     } catch (err) {
@@ -56,32 +56,14 @@ export default function StudentShiftsPage() {
     try {
       setActionLoading(true);
       await checkOut(shiftId);
-      setShifts(prev => prev.map(s => s.id === shiftId ? { ...s, status: 'completed', checkOutTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) } : s));
-      setToast({ type: 'success', message: 'Điểm danh ra ca (Check-out) thành công! Số giờ làm đã ghi nhận vào sổ đối soát.' });
+      setShifts(prev => prev.map(s => (s._id === shiftId || s.id === shiftId)
+        ? { ...s, status: 'completed', checkOutTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) }
+        : s
+      ));
+      setToast({ type: 'success', message: 'Điểm danh ra ca (Check-out) thành công! Số giờ làm đã được xác nhận.' });
       setCheckInModalShift(null);
     } catch (err) {
       setToast({ type: 'error', message: 'Lỗi khi check-out.' });
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleCreateSwap() {
-    if (!swapModalShift) return;
-    try {
-      setActionLoading(true);
-      await createSwapRequest({
-        shiftId: swapModalShift.id,
-        reason: swapReason,
-        studentId: user.id,
-        studentName: user.name
-      });
-      setShifts(prev => prev.map(s => s.id === swapModalShift.id ? { ...s, isSwapping: true } : s));
-      setToast({ type: 'success', message: 'Đã đăng ca làm lên Sàn Đổi Ca thành công!' });
-      setSwapModalShift(null);
-      setSwapReason('');
-    } catch (err) {
-      setToast({ type: 'error', message: 'Lỗi khi tạo yêu cầu đổi ca.' });
     } finally {
       setActionLoading(false);
     }
@@ -98,15 +80,15 @@ export default function StudentShiftsPage() {
             <Calendar className="w-6 h-6 text-green-main" /> Lịch làm việc & Điểm danh Ca
           </h1>
           <p className="text-xs text-text-muted mt-1">
-            Theo dõi danh sách ca làm được phân công, thực hiện check-in GPS hoặc đăng bài đổi ca.
+            Theo dõi danh sách ca làm được phân công và thực hiện check-in GPS tại cửa hàng.
           </p>
         </div>
 
         <Link
-          to="/student/swap"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-cream hover:bg-green-50 text-green-dark text-xs font-semibold border border-green-100 transition-colors self-start sm:self-center"
+          to="/student/tasks"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 transition-colors self-start sm:self-center"
         >
-          <ArrowLeftRight className="w-4 h-4 text-green-main" /> Chợ đổi ca sinh viên →
+          <ShoppingBag className="w-4 h-4 text-orange-600" /> Chợ việc vặt sinh viên →
         </Link>
       </div>
 
@@ -123,61 +105,55 @@ export default function StudentShiftsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {shifts.map(shift => (
             <div
-              key={shift.id}
-              className={clsx(
-                'bg-white p-6 rounded-3xl border transition-all shadow-card flex flex-col justify-between space-y-4',
-                shift.status === 'checked_in'
-                  ? 'border-green-main ring-2 ring-green-main/10'
-                  : 'border-green-50 hover:border-green-200'
-              )}
+              key={shift._id || shift.id}
+              className="bg-white p-6 rounded-3xl border border-green-50 hover:border-green-300 transition-all shadow-card flex flex-col justify-between space-y-4"
             >
-              <div>
-                <div className="flex items-center justify-between mb-3">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-green-dark bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                    {shift.date}
+                  </span>
                   <Badge
                     variant={
                       shift.status === 'completed'
-                        ? 'success'
+                        ? 'green'
                         : shift.status === 'checked_in'
-                        ? 'primary'
-                        : 'warning'
+                        ? 'warning'
+                        : 'info'
                     }
                     size="sm"
                   >
                     {shift.status === 'completed'
-                      ? 'Đã hoàn thành'
+                      ? 'Hoàn thành'
                       : shift.status === 'checked_in'
-                      ? 'Đang làm ca (Checked-in)'
-                      : 'Lịch sắp tới'}
+                      ? 'Đang làm việc'
+                      : 'Đã lên lịch'}
                   </Badge>
-
-                  {shift.isSwapping && (
-                    <span className="text-[11px] font-semibold text-yellow-700 bg-yellow-50 px-2.5 py-0.5 rounded-full">
-                      🔄 Đang rao đổi ca
-                    </span>
-                  )}
                 </div>
 
-                <h3 className="text-lg font-bold text-text-main">{shift.storeName || 'Store Hòa Lạc'}</h3>
-                <p className="text-xs font-semibold text-green-dark mt-0.5">{shift.role || 'Nhân viên bán ca'}</p>
+                <div>
+                  <h3 className="font-bold text-base text-text-main leading-snug">
+                    {shift.storeName || 'Cửa hàng tuyển dụng'}
+                  </h3>
+                  <p className="text-xs text-text-muted mt-0.5">{shift.role || 'Nhân viên bán ca'}</p>
+                </div>
 
-                <div className="mt-4 space-y-2 text-xs text-text-muted">
-                  <p className="flex items-center gap-2 font-medium text-text-main">
-                    📅 Ngày làm: <span className="font-bold">{shift.date}</span>
-                  </p>
-                  <p className="flex items-center gap-2 font-medium text-text-main">
-                    ⏰ Khung ca: <span className="font-bold text-green-dark">{shift.startTime} - {shift.endTime}</span> ({shift.hours} giờ)
-                  </p>
-                  <p className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0" /> {shift.location || 'Thôn 3, Tân Xã, Thạch Thất'}
+                <div className="space-y-1.5 text-xs text-text-muted pt-1">
+                  <p className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-green-main shrink-0" />
+                    <span className="font-semibold text-text-main">
+                      {shift.startTime} – {shift.endTime}
+                    </span>
+                    <span>({shift.hours || 4} tiếng)</span>
                   </p>
                   <p className="flex items-center gap-1 text-green-700 font-semibold">
-                    💰 Tiền ca: {(shift.wageRate || 25000) * (shift.hours || 4)}đ ({shift.wageRate || 25000}đ/h)
+                    💰 Tiền ca: {((shift.wageRate || 25000) * (shift.hours || 4)).toLocaleString('vi-VN')}đ ({Number(shift.wageRate || 25000).toLocaleString('vi-VN')}đ/h)
                   </p>
                 </div>
               </div>
 
               {/* Actions Footer */}
-              <div className="pt-4 border-t border-green-50 flex flex-wrap items-center justify-between gap-2">
+              <div className="pt-4 border-t border-green-50 flex items-center justify-between">
                 <button
                   onClick={() => setCheckInModalShift(shift)}
                   className={clsx(
@@ -195,17 +171,8 @@ export default function StudentShiftsPage() {
                     ? 'Đã kết thúc ca'
                     : shift.status === 'checked_in'
                     ? 'Check-out ra ca'
-                    : 'Check-in điểm danh'}
+                    : 'Check-in điểm danh GPS'}
                 </button>
-
-                {shift.status === 'scheduled' && !shift.isSwapping && (
-                  <button
-                    onClick={() => setSwapModalShift(shift)}
-                    className="px-3.5 py-2.5 rounded-xl bg-pink-50 text-pink-main hover:bg-pink-100 text-xs font-semibold transition-colors flex items-center gap-1"
-                  >
-                    <ArrowLeftRight className="w-3.5 h-3.5" /> Rao đổi ca
-                  </button>
-                )}
               </div>
             </div>
           ))}
@@ -220,18 +187,23 @@ export default function StudentShiftsPage() {
           title={checkInModalShift.status === 'checked_in' ? 'Điểm danh Check-Out Ra Ca' : 'Điểm danh Check-In Vào Ca'}
         >
           <div className="space-y-4 text-xs">
-            <div className="p-4 rounded-2xl bg-green-50 border border-green-100 text-center space-y-2">
-              <ShieldCheck className="w-10 h-10 text-green-main mx-auto" />
-              <h4 className="text-sm font-bold text-green-dark">Xác thực GPS & QR Code cửa hàng</h4>
-              <p className="text-text-muted">
-                Hệ thống xác nhận vị trí của bạn đang tại: <br />
-                <strong className="text-text-main">{checkInModalShift.location || 'Thôn 3, Tân Xã (Bán kính 50m)'}</strong>
+            <div className="p-4 bg-green-50 rounded-2xl border border-green-100 space-y-2">
+              <div className="flex items-center gap-2 text-green-dark font-bold text-sm">
+                <ShieldCheck className="w-5 h-5 text-green-main" />
+                Định vị GPS Hòa Lạc (Bán kính hợp lệ: 150m)
+              </div>
+              <p className="text-text-muted leading-relaxed">
+                Hệ thống xác thực tọa độ GPS của bạn trùng khớp với địa chỉ cửa hàng: <strong className="text-text-main">{checkInModalShift.storeName}</strong>.
               </p>
+              <div className="flex items-center gap-1.5 text-green-800 font-semibold pt-1">
+                <Check className="w-4 h-4 text-green-600" />
+                Vị trí: Hợp lệ (Khu vực ĐH FPT / KCN Cao Hòa Lạc)
+              </div>
             </div>
 
-            <div className="space-y-1.5 p-3 rounded-xl bg-gray-50">
-              <p>📍 Khoảng cách tới cửa hàng: <strong className="text-green-700">12 mét (Hợp lệ)</strong></p>
-              <p>🕒 Giờ hiện tại: <strong className="text-text-main">{new Date().toLocaleTimeString('vi-VN')}</strong></p>
+            <div className="space-y-1 text-text-muted">
+              <p>• Ca làm: <strong className="text-text-main">{checkInModalShift.startTime} - {checkInModalShift.endTime}</strong></p>
+              <p>• Thời gian thực tế: <strong className="text-text-main">{new Date().toLocaleTimeString('vi-VN')} ({new Date().toLocaleDateString('vi-VN')})</strong></p>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
@@ -244,7 +216,7 @@ export default function StudentShiftsPage() {
 
               {checkInModalShift.status === 'checked_in' ? (
                 <button
-                  onClick={() => handleCheckOut(checkInModalShift.id)}
+                  onClick={() => handleCheckOut(checkInModalShift._id || checkInModalShift.id)}
                   disabled={actionLoading}
                   className="px-4 py-2.5 rounded-xl bg-yellow-500 text-white font-semibold hover:bg-yellow-600 disabled:opacity-50"
                 >
@@ -252,55 +224,13 @@ export default function StudentShiftsPage() {
                 </button>
               ) : (
                 <button
-                  onClick={() => handleCheckIn(checkInModalShift.id)}
+                  onClick={() => handleCheckIn(checkInModalShift._id || checkInModalShift.id)}
                   disabled={actionLoading}
                   className="px-4 py-2.5 rounded-xl bg-green-main text-white font-semibold hover:bg-green-dark disabled:opacity-50"
                 >
                   {actionLoading ? 'Đang xác thực GPS...' : 'Xác nhận Check-In Vào Ca'}
                 </button>
               )}
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Swap Request Modal */}
-      {swapModalShift && (
-        <Modal
-          isOpen={true}
-          onClose={() => setSwapModalShift(null)}
-          title="Đăng ca lên Sàn Đổi Ca"
-        >
-          <div className="space-y-4 text-xs">
-            <p className="text-text-muted">
-              Đăng ca ngày <strong className="text-text-main">{swapModalShift.date} ({swapModalShift.startTime} - {swapModalShift.endTime})</strong> lên chợ để bạn học sinh viên khác đăng ký làm thay.
-            </p>
-
-            <div>
-              <label className="block font-bold text-text-main mb-1">Lý do cần đổi ca:</label>
-              <textarea
-                rows={3}
-                value={swapReason}
-                onChange={e => setSwapReason(e.target.value)}
-                placeholder="Ví dụ: Trùng lịch thi môn PRF192 tại giảng đường Alpha..."
-                className="w-full p-3 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-green-main resize-none"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setSwapModalShift(null)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-text-muted font-semibold"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleCreateSwap}
-                disabled={actionLoading || !swapReason.trim()}
-                className="px-4 py-2 rounded-xl bg-pink-main text-white font-semibold hover:bg-pink-dark disabled:opacity-50"
-              >
-                {actionLoading ? 'Đang đăng bài...' : 'Đăng lên Sàn Đổi Ca'}
-              </button>
             </div>
           </div>
         </Modal>

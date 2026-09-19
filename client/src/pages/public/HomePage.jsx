@@ -221,10 +221,10 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register?role=employer" className="btn-primary btn btn-lg">
-              Đăng tin ngay
+              Đăng tin tuyển dụng ngay
             </Link>
-            <Link to="/login?role=employer&demo=true" className="btn-outline btn btn-lg">
-              Dùng tài khoản demo
+            <Link to="/login?role=employer" className="btn-outline btn btn-lg">
+              Đăng nhập quản lý
             </Link>
           </div>
         </div>

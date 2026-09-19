@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Leaf } from 'lucide-react';
+import { Leaf, Phone, User, Mail, Lock, Building, GraduationCap, MapPin } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { Input } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
 
-const ROLE_LABELS = { student: 'Sinh viên', employer: 'Nhà tuyển dụng' };
+const ROLE_LABELS = { student: 'Sinh viên', employer: 'Chủ cửa hàng / Nhà tuyển dụng' };
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -17,6 +17,8 @@ export default function RegisterPage() {
   const [role, setRole] = useState(defaultRole);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [extraInfo, setExtraInfo] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,10 +26,14 @@ export default function RegisterPage() {
 
   function validate() {
     const e = {};
-    if (!name.trim()) e.name = 'Vui lòng nhập họ tên.';
+    if (!name.trim()) e.name = role === 'employer' ? 'Vui lòng nhập tên cửa hàng.' : 'Vui lòng nhập họ và tên.';
     if (!email.trim()) e.email = 'Vui lòng nhập email.';
     else if (!/^\S+@\S+\.\S+$/.test(email)) e.email = 'Email không hợp lệ.';
-    if (!password) e.password = 'Vui lòng nhập mật khẩu demo.';
+    if (!phone.trim()) e.phone = 'Vui lòng nhập số điện thoại để liên hệ.';
+    else if (!/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(phone.replace(/\s+/g, ''))) {
+      e.phone = 'Số điện thoại không hợp lệ (10 chữ số).';
+    }
+    if (!password) e.password = 'Vui lòng nhập mật khẩu.';
     else if (password.length < 6) e.password = 'Mật khẩu tối thiểu 6 ký tự.';
     if (password !== confirm) e.confirm = 'Mật khẩu xác nhận không khớp.';
     return e;
@@ -36,41 +42,53 @@ export default function RegisterPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
     setLoading(true);
     setErrors({});
     try {
-      await register({ role, name, email });
+      const payload = {
+        role,
+        name,
+        email,
+        phone,
+        password,
+        ...(role === 'student' ? { university: extraInfo || 'Đại học FPT Hòa Lạc' } : { address: extraInfo || 'Tân Xã, Thạch Thất' })
+      };
+      await register(payload);
       navigate(role === 'student' ? '/student' : '/employer');
     } catch (err) {
-      setErrors({ submit: err.message });
+      setErrors({ submit: err.message || 'Lỗi khi đăng ký tài khoản.' });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-light via-cream to-pink-light flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-cream to-pink-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-green-main flex items-center justify-center">
+        <div className="text-center mb-6">
+          <Link to="/" className="inline-flex items-center gap-2 mb-3">
+            <div className="w-12 h-12 rounded-2xl bg-green-main flex items-center justify-center shadow-md">
               <Leaf className="w-6 h-6 text-white" />
             </div>
           </Link>
-          <h1 className="text-2xl font-bold text-green-dark">Tạo tài khoản demo</h1>
-          <p className="text-text-muted text-sm mt-1">Không cần email thật — chỉ để trải nghiệm</p>
+          <h1 className="text-2xl font-bold text-green-dark">Đăng ký tài khoản</h1>
+          <p className="text-text-muted text-xs mt-1">Kết nối việc làm & hỗ trợ sinh viên tại khu vực Hòa Lạc</p>
         </div>
 
-        <div className="card shadow-modal">
+        <div className="card shadow-modal bg-white rounded-3xl p-6 border border-green-100">
           {/* Role tabs */}
           <div className="flex gap-1 p-1 bg-green-50 rounded-2xl mb-5">
             {(['student', 'employer']).map((r) => (
               <button
                 key={r}
+                type="button"
                 onClick={() => { setRole(r); setErrors({}); }}
                 className={clsx(
-                  'flex-1 py-2 rounded-xl text-sm font-semibold transition-all',
+                  'flex-1 py-2 rounded-xl text-xs font-bold transition-all',
                   role === r ? 'bg-white shadow-sm text-green-dark' : 'text-text-muted hover:text-green-dark'
                 )}
               >
@@ -79,67 +97,96 @@ export default function RegisterPage() {
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
             <Input
               id="reg-name"
-              label={role === 'employer' ? 'Tên cửa hàng' : 'Họ và tên'}
+              label={role === 'employer' ? 'Tên cửa hàng / Doanh nghiệp' : 'Họ và tên của bạn'}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={role === 'employer' ? 'Café XYZ' : 'Nguyễn Văn A'}
+              placeholder={role === 'employer' ? 'Ví dụ: Cà phê Highland FPT' : 'Nguyễn Văn A'}
               required
               error={errors.name}
             />
-            <Input
-              id="reg-email"
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              error={errors.email}
-            />
-            <Input
-              id="reg-password"
-              label="Mật khẩu (demo — không lưu thật)"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Tối thiểu 6 ký tự"
-              required
-              error={errors.password}
-            />
-            <Input
-              id="reg-confirm"
-              label="Xác nhận mật khẩu"
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Nhập lại mật khẩu"
-              required
-              error={errors.confirm}
-            />
-            {errors.submit && <p className="error-msg">{errors.submit}</p>}
 
-            <div className="p-3 bg-yellow-50 rounded-2xl text-xs text-yellow-800">
-              ⚠ Đây là môi trường demo. Mật khẩu không được lưu trữ — bạn có thể nhập bất kỳ giá trị nào.
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                id="reg-email"
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@gmail.com"
+                required
+                error={errors.email}
+              />
+
+              <Input
+                id="reg-phone"
+                label="Số điện thoại"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0981234567"
+                required
+                error={errors.phone}
+              />
             </div>
 
-            <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full">
-              Tạo tài khoản
+            {role === 'student' ? (
+              <Input
+                id="reg-uni"
+                label="Trường đang học / Ký túc xá"
+                value={extraInfo}
+                onChange={(e) => setExtraInfo(e.target.value)}
+                placeholder="ĐH FPT, KTX ĐHQG, BKHN..."
+              />
+            ) : (
+              <Input
+                id="reg-addr"
+                label="Địa chỉ cửa hàng tại Hòa Lạc"
+                value={extraInfo}
+                onChange={(e) => setExtraInfo(e.target.value)}
+                placeholder="Thôn 3 Tân Xã, Cổng 1 FPT..."
+              />
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                id="reg-password"
+                label="Mật khẩu"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Tối thiểu 6 ký tự"
+                required
+                error={errors.password}
+              />
+
+              <Input
+                id="reg-confirm"
+                label="Xác nhận mật khẩu"
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="Nhập lại"
+                required
+                error={errors.confirm}
+              />
+            </div>
+
+            {errors.submit && (
+              <p className="p-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-semibold">{errors.submit}</p>
+            )}
+
+            <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full mt-2">
+              Hoàn tất đăng ký
             </Button>
           </form>
 
-          <p className="text-center text-sm text-text-muted mt-5">
+          <p className="text-center text-xs text-text-muted mt-5">
             Đã có tài khoản?{' '}
-            <Link to="/login" className="text-green-main font-semibold hover:underline">Đăng nhập</Link>
+            <Link to="/login" className="text-green-main font-bold hover:underline">Đăng nhập ngay</Link>
           </p>
-
-          {role === 'admin' && (
-            <p className="text-center text-xs text-text-light mt-2">
-              Tài khoản Admin không đăng ký công khai. Dùng tài khoản demo tại trang đăng nhập.
-            </p>
-          )}
         </div>
       </div>
     </div>

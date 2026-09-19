@@ -16,6 +16,9 @@ import JobDetailPage from '@/pages/public/JobDetailPage.jsx';
 import LoginPage from '@/pages/public/LoginPage.jsx';
 import RegisterPage from '@/pages/public/RegisterPage.jsx';
 import NotFoundPage from '@/pages/public/NotFoundPage.jsx';
+import BlogListPage from '@/pages/public/BlogListPage.jsx';
+import BlogDetailPage from '@/pages/public/BlogDetailPage.jsx';
+import MicroTasksPage from '@/pages/public/MicroTasksPage.jsx';
 
 // Student Pages
 import StudentDashboard from '@/pages/student/DashboardPage.jsx';
@@ -23,9 +26,7 @@ import StudentProfilePage from '@/pages/student/ProfilePage.jsx';
 import SavedJobsPage from '@/pages/student/SavedJobsPage.jsx';
 import ApplicationsPage from '@/pages/student/ApplicationsPage.jsx';
 import StudentShiftsPage from '@/pages/student/ShiftsPage.jsx';
-import SwapMarketplacePage from '@/pages/student/SwapMarketplacePage.jsx';
 import StudentReviewsPage from '@/pages/student/ReviewsPage.jsx';
-import StudentPayrollPage from '@/pages/student/PayrollPage.jsx';
 
 // Employer Pages
 import EmployerDashboardPage from '@/pages/employer/EmployerDashboardPage.jsx';
@@ -33,8 +34,6 @@ import StoreProfilePage from '@/pages/employer/StoreProfilePage.jsx';
 import EmployerJobsPage from '@/pages/employer/EmployerJobsPage.jsx';
 import EmployerApplicationsPage from '@/pages/employer/EmployerApplicationsPage.jsx';
 import EmployerShiftsPage from '@/pages/employer/EmployerShiftsPage.jsx';
-import EmployerSwapPage from '@/pages/employer/EmployerSwapPage.jsx';
-import EmployerPayrollPage from '@/pages/employer/EmployerPayrollPage.jsx';
 
 // Admin Pages
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage.jsx';
@@ -52,6 +51,9 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/jobs" element={<JobListPage />} />
           <Route path="/jobs/:id" element={<JobDetailPage />} />
+          <Route path="/tasks" element={<MicroTasksPage />} />
+          <Route path="/blogs" element={<BlogListPage />} />
+          <Route path="/blogs/:id" element={<BlogDetailPage />} />
           <Route
             path="/login"
             element={
@@ -82,12 +84,11 @@ export default function App() {
           <Route index element={<StudentDashboard />} />
           <Route path="profile" element={<StudentProfilePage />} />
           <Route path="jobs" element={<JobListPage />} />
+          <Route path="tasks" element={<MicroTasksPage />} />
           <Route path="saved" element={<SavedJobsPage />} />
           <Route path="applications" element={<ApplicationsPage />} />
           <Route path="shifts" element={<StudentShiftsPage />} />
-          <Route path="swap" element={<SwapMarketplacePage />} />
           <Route path="reviews" element={<StudentReviewsPage />} />
-          <Route path="payroll" element={<StudentPayrollPage />} />
         </Route>
 
         {/* Employer Portal */}
@@ -104,8 +105,6 @@ export default function App() {
           <Route path="jobs" element={<EmployerJobsPage />} />
           <Route path="applications" element={<EmployerApplicationsPage />} />
           <Route path="shifts" element={<EmployerShiftsPage />} />
-          <Route path="swap" element={<EmployerSwapPage />} />
-          <Route path="payroll" element={<EmployerPayrollPage />} />
         </Route>
 
         {/* Admin Portal */}

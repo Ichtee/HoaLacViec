@@ -1,0 +1,286 @@
+/**
+ * Real API client connecting to Express.js + MongoDB backend
+ * Base URL is /api (proxied to http://localhost:5000 by Vite)
+ */
+
+const API_BASE = '/api';
+
+function getAuthHeaders() {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+async function request(endpoint, options = {}) {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...options.headers,
+    },
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Yêu cầu thất bại');
+  }
+  return data;
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────
+export async function apiLogin(email, password) {
+  const data = await request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  if (data.token) {
+    localStorage.setItem('token', data.token);
+  }
+  return data.user;
+}
+
+export async function apiRegister(userData) {
+  const data = await request('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(userData),
+  });
+  if (data.token) {
+    localStorage.setItem('token', data.token);
+  }
+  return data.user;
+}
+
+export async function apiGetMe() {
+  return request('/auth/me');
+}
+
+// ─── JOBS ─────────────────────────────────────────────────────────
+export async function apiGetJobs(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const data = await request(`/jobs${query ? `?${query}` : ''}`);
+  return data.jobs || data;
+}
+
+export async function apiGetJob(id, studentId) {
+  const query = studentId ? `?studentId=${studentId}` : '';
+  return request(`/jobs/${id}${query}`);
+}
+
+export async function apiCreateJob(jobData) {
+  return request('/jobs', {
+    method: 'POST',
+    body: JSON.stringify(jobData),
+  });
+}
+
+export async function apiResolveMapLink(input) {
+  return request('/jobs/resolve-map-link', {
+    method: 'POST',
+    body: JSON.stringify({ input }),
+  });
+}
+
+export async function apiSearchPlaces(query, center) {
+  return request('/jobs/search-places', {
+    method: 'POST',
+    body: JSON.stringify({ query, center }),
+  });
+}
+
+export async function apiUpdateJob(id, jobData) {
+  return request(`/jobs/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(jobData),
+  });
+}
+
+export async function apiDeleteJob(id) {
+  return request(`/jobs/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// ─── APPLICATIONS ─────────────────────────────────────────────────
+export async function apiApply(studentId, jobId, note, candidateData = {}) {
+  const session = JSON.parse(sessionStorage.getItem('hlv_auth_session') || localStorage.getItem('hlv_auth_session') || '{}');
+  const user = session.user || {};
+  return request('/applications', {
+    method: 'POST',
+    body: JSON.stringify({
+      studentId,
+      studentName: candidateData.name || user.name || 'Sinh viên',
+      studentPhone: candidateData.phone || user.phone || '',
+      studentEmail: candidateData.email || user.email || '',
+      jobId,
+      note,
+    }),
+  });
+}
+
+export async function apiGetApplications(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/applications${query ? `?${query}` : ''}`);
+}
+
+export async function apiUpdateApplication(id, updates) {
+  return request(`/applications/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function apiWithdrawApplication(id) {
+  return request(`/applications/${id}/withdraw`, {
+    method: 'PUT',
+  });
+}
+
+// ─── SHIFTS ───────────────────────────────────────────────────────
+export async function apiGetShifts(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/shifts${query ? `?${query}` : ''}`);
+}
+
+export async function apiCreateShift(shiftData) {
+  return request('/shifts', {
+    method: 'POST',
+    body: JSON.stringify(shiftData),
+  });
+}
+
+export async function apiCheckIn(shiftId) {
+  return request(`/shifts/${shiftId}/checkin`, { method: 'POST' });
+}
+
+export async function apiCheckOut(shiftId) {
+  return request(`/shifts/${shiftId}/checkout`, { method: 'POST' });
+}
+
+export async function apiApproveAttendance(shiftId) {
+  return request(`/shifts/${shiftId}/approve`, { method: 'POST' });
+}
+
+// ─── MICRO-TASKS (VIỆC VẶT SINH VIÊN) ─────────────────────────────
+export async function apiGetTasks(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/tasks${query ? `?${query}` : ''}`);
+}
+
+export async function apiGetTask(id) {
+  return request(`/tasks/${id}`);
+}
+
+export async function apiCreateTask(taskData) {
+  return request('/tasks', {
+    method: 'POST',
+    body: JSON.stringify(taskData),
+  });
+}
+
+export async function apiAcceptTask(id, payload) {
+  return request(`/tasks/${id}/accept`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiCompleteTask(id) {
+  return request(`/tasks/${id}/complete`, { method: 'POST' });
+}
+
+export async function apiDeleteTask(id) {
+  return request(`/tasks/${id}`, { method: 'DELETE' });
+}
+
+// ─── BLOGS ────────────────────────────────────────────────────────
+export async function apiGetBlogs(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/blogs${query ? `?${query}` : ''}`);
+}
+
+export async function apiGetBlog(idOrSlug) {
+  return request(`/blogs/${idOrSlug}`);
+}
+
+export async function apiCreateBlog(blogData) {
+  return request('/blogs', {
+    method: 'POST',
+    body: JSON.stringify(blogData),
+  });
+}
+
+// ─── PROFILES & AVAILABILITY ──────────────────────────────────────
+export async function apiGetStudentProfile(userId) {
+  return request(`/profiles/student/${userId}`);
+}
+
+export async function apiUpdateStudentProfile(userId, data) {
+  return request(`/profiles/student/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiGetAvailability(userId) {
+  return request(`/profiles/availability/${userId}`);
+}
+
+export async function apiUpsertAvailability(userId, slots) {
+  return request(`/profiles/availability/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(slots),
+  });
+}
+
+export async function apiGetEmployerProfile(userId) {
+  return request(`/profiles/employer/${userId}`);
+}
+
+export async function apiUpdateEmployerProfile(userId, data) {
+  return request(`/profiles/employer/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// ─── ADMIN ────────────────────────────────────────────────────────
+export async function apiGetAllUsers() {
+  return request('/admin/users');
+}
+
+export async function apiAdminGetJobs() {
+  return request('/admin/jobs');
+}
+
+export async function apiAdminUpdateJob(id, data) {
+  return request(`/admin/jobs/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiGetVerificationRequests() {
+  return request('/admin/verifications');
+}
+
+export async function apiApproveVerification(id) {
+  return request(`/admin/verifications/${id}/approve`, {
+    method: 'POST',
+  });
+}
+
+// ─── REVIEWS ──────────────────────────────────────────────────────
+export async function apiGetReviews(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/reviews${query ? `?${query}` : ''}`);
+}
+
+export async function apiCreateReview(reviewData) {
+  return request('/reviews', {
+    method: 'POST',
+    body: JSON.stringify(reviewData),
+  });
+}
+

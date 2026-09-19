@@ -5,22 +5,23 @@ import { clsx } from 'clsx';
 export function Modal({ isOpen, onClose, title, children, size = 'md', className }) {
   const overlayRef = useRef(null);
   const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!isOpen) return;
-    const prev = document.activeElement;
+    // Only focus the close button when the modal first opens (not on every re-render)
     closeRef.current?.focus();
     const handler = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', handler);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
-      prev?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]); // ← Only depends on isOpen, not onClose
 
   if (!isOpen) return null;
 

@@ -2,7 +2,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import {
   MapPin, Clock, DollarSign, Users, Star, CheckCircle, Shield,
-  Bookmark, BookmarkCheck, Send, ArrowLeft, Bus, AlertTriangle, Calendar
+  Bookmark, BookmarkCheck, Send, ArrowLeft, Bus, AlertTriangle, Calendar, Navigation, ExternalLink,
+  Phone, MessageCircle
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
 import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile } from '@/services';
@@ -19,15 +20,25 @@ import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDist
 export default function JobDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, isStudent, profileId } = useAuth();
+  const { isAuthenticated, isStudent, profileId, user } = useAuth();
 
   const [saved, setSaved] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [candidateName, setCandidateName] = useState('');
+  const [candidatePhone, setCandidatePhone] = useState('');
+  const [candidateShift, setCandidateShift] = useState('Ca Sáng (7h - 12h)');
   const [applyNote, setApplyNote] = useState('');
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState('');
   const [applySuccess, setApplySuccess] = useState(false);
   const [matchResult, setMatchResult] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      if (!candidateName && user.name) setCandidateName(user.name);
+      if (!candidatePhone && user.phone) setCandidatePhone(user.phone);
+    }
+  }, [user]);
 
   const { data: job, loading, error } = useAsync(() => getJob(id), [id]);
 
@@ -47,18 +58,30 @@ export default function JobDetailPage() {
 
   async function handleSave() {
     if (!isAuthenticated) { navigate('/login'); return; }
-    const result = await toggleSaveJob(profileId, job.id);
+    const targetId = job._id || job.id;
+    const result = await toggleSaveJob(profileId, targetId);
     setSaved(result.saved);
   }
 
-  async function handleApply() {
+  async function handleApply(e) {
+    if (e && e.preventDefault) e.preventDefault();
     if (!isAuthenticated) { navigate(`/login?redirect=/jobs/${id}`); return; }
     if (!isStudent) return;
+    if (!candidatePhone.trim()) {
+      setApplyError('Vui lòng nhập số điện thoại hoặc Zalo liên hệ.');
+      return;
+    }
     setApplying(true);
     setApplyError('');
     try {
-      await applyToJob(profileId, job.id, applyNote);
+      const targetId = job._id || job.id;
+      const combinedNote = `[Ca mong muốn: ${candidateShift}]${applyNote ? ` ${applyNote}` : ''}`;
+      await applyToJob(profileId, targetId, combinedNote, {
+        name: candidateName,
+        phone: candidatePhone,
+      });
       setApplySuccess(true);
+      setApplyOpen(false);
     } catch (err) {
       setApplyError(err.message);
     } finally {
@@ -73,6 +96,16 @@ export default function JobDetailPage() {
   const emp = job.employer;
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
   const unitLabel = SALARY_UNIT_LABELS[job.salaryUnit] || '';
+  const contactPhone = job.contactPhone || emp?.contactPhone || emp?.phone || job.phone;
+
+  // Construct search destination for Google Maps: use full address directly
+  const fullAddress = job.address || emp?.address || '';
+  const mapSearchQuery = fullAddress
+    || (job.storeName ? `${job.storeName}, Hòa Lạc, Thạch Thất, Hà Nội` : '')
+    || (job.location?.lat && job.location?.lng ? `${job.location.lat},${job.location.lng}` : 'Hòa Lạc, Thạch Thất, Hà Nội');
+
+  const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSearchQuery)}`;
+  const googleMapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapSearchQuery)}`;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -106,7 +139,11 @@ export default function JobDetailPage() {
 
             <div className="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-green-50">
               <Info icon={DollarSign} label="Mức lương" value={`${formatVND(job.salaryAmount)}${unitLabel}`} />
-              <Info icon={MapPin} label="Địa điểm" value={emp?.address?.split(',')[0] || 'Hòa Lạc'} />
+              <Info
+                icon={MapPin}
+                label="Khu vực"
+                value={job.address ? job.address.split(',').slice(-2).join(', ').trim() : 'Hòa Lạc'}
+              />
               <Info icon={Users} label="Số vị trí" value={`${job.slots} người`} />
               <Info icon={Clock} label="Hạn nộp" value={formatDate(job.closesAt)} />
             </div>
@@ -199,7 +236,7 @@ export default function JobDetailPage() {
             <div className="p-4 bg-blue-50 rounded-2xl flex items-start gap-3">
               <Bus className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-blue-800">Tuyến xe buýt (dữ liệu demo)</p>
+                <p className="text-sm font-semibold text-blue-800">Tuyến xe buýt kết nối</p>
                 <p className="text-xs text-blue-600 mt-0.5">{job.busRoutes.join(', ')}</p>
               </div>
             </div>
@@ -246,8 +283,58 @@ export default function JobDetailPage() {
                 <p className="text-xs text-green-dark font-medium">Cửa hàng đã được Admin xác thực</p>
               </div>
             )}
-            <div className="space-y-2 text-sm text-text-muted">
-              <p className="flex items-start gap-2"><MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />{emp?.address}</p>
+            <div className="space-y-3 text-sm text-text-muted">
+              <div>
+                <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-green-main shrink-0" /> Địa chỉ làm việc:
+                </p>
+                <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs font-medium text-text-main leading-relaxed break-words">
+                  {fullAddress || 'Khu CNC Hòa Lạc, Thạch Thất, Hà Nội'}
+                </div>
+              </div>
+
+              {/* Single clean Google Maps Directions Button */}
+              <a
+                href={googleMapsNavUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                title="Mở chỉ đường Google Maps từ vị trí của bạn đến quán"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Chỉ đường trên Google Maps</span>
+              </a>
+
+              {/* Direct Phone & Zalo */}
+              {contactPhone && (
+                <div className="pt-3 border-t border-gray-100 space-y-2">
+                  <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-pink-main shrink-0" /> Số điện thoại / Zalo quán:
+                  </p>
+                  <div className="p-2.5 rounded-xl bg-pink-50/60 border border-pink-100 flex items-center justify-between gap-2">
+                    <span className="font-bold text-sm text-text-main tracking-wide">{contactPhone}</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a
+                        href={`tel:${contactPhone}`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all"
+                        title="Gọi trực tiếp cho chủ quán"
+                      >
+                        <Phone className="w-3 h-3" /> Gọi ngay
+                      </a>
+                      <a
+                        href={`https://zalo.me/${contactPhone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                        title="Nhắn tin Zalo"
+                      >
+                        <MessageCircle className="w-3 h-3" /> Zalo
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {emp?.rating > 0 && (
                 <p className="flex items-center gap-2">
                   <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
@@ -261,24 +348,105 @@ export default function JobDetailPage() {
       </div>
 
       {/* Apply modal */}
-      <Modal isOpen={applyOpen} onClose={() => setApplyOpen(false)} title="Ứng tuyển vị trí này" size="sm">
-        <div className="mb-4 p-4 bg-green-50 rounded-2xl">
-          <p className="font-semibold text-text-main">{job.title}</p>
-          <p className="text-sm text-text-muted">{emp?.storeName}</p>
-        </div>
-        <Textarea
-          id="apply-note"
-          label="Lời giới thiệu (không bắt buộc)"
-          value={applyNote}
-          onChange={(e) => setApplyNote(e.target.value)}
-          placeholder="Chia sẻ ngắn về bản thân hoặc lý do muốn ứng tuyển..."
-          rows={3}
-        />
-        {applyError && <p className="error-msg mt-2">{applyError}</p>}
-        <div className="flex gap-3 justify-end mt-5">
-          <Button variant="ghost" onClick={() => setApplyOpen(false)}>Hủy</Button>
-          <Button variant="primary" onClick={handleApply} loading={applying}>Gửi đơn</Button>
-        </div>
+      <Modal isOpen={applyOpen} onClose={() => setApplyOpen(false)} title="Ứng tuyển công việc" size="md">
+        <form onSubmit={handleApply} className="space-y-4 text-xs">
+          {/* Job summary card */}
+          <div className="p-3 bg-green-50/70 border border-green-100 rounded-2xl flex items-center justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-green-dark">Vị trí ứng tuyển:</span>
+              <h4 className="font-bold text-sm text-text-main mt-0.5">{job.title}</h4>
+              <p className="text-text-muted">{emp?.storeName || job.storeName}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <span className="text-[10px] font-bold text-green-dark">Mức lương:</span>
+              <p className="font-bold text-sm text-orange-600">{formatVND(job.salaryAmount)}{unitLabel}</p>
+            </div>
+          </div>
+
+          {/* Form fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-text-main mb-1">
+                Họ và tên sinh viên <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={candidateName}
+                onChange={e => setCandidateName(e.target.value)}
+                placeholder="Ví dụ: Nguyễn Văn A"
+                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-text-main mb-1">
+                Số điện thoại / Zalo <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                value={candidatePhone}
+                onChange={e => setCandidatePhone(e.target.value)}
+                placeholder="Ví dụ: 0987654321"
+                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-text-main mb-1">
+              Ca làm việc mong muốn
+            </label>
+            <select
+              value={candidateShift}
+              onChange={e => setCandidateShift(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main bg-white"
+            >
+              <option value="Ca Sáng (7h - 12h)">Ca Sáng (7h - 12h)</option>
+              <option value="Ca Chiều (12h - 17h)">Ca Chiều (12h - 17h)</option>
+              <option value="Ca Tối (17h - 22h)">Ca Tối (17h - 22h)</option>
+              <option value="Ca Xoay / Linh hoạt theo lịch học">Ca Xoay / Linh hoạt theo lịch học</option>
+              <option value="Full-time cuối tuần (Thứ 7 & CN)">Full-time cuối tuần (Thứ 7 & CN)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-bold text-text-main mb-1">
+              Kinh nghiệm & Giới thiệu bản thân
+            </label>
+            <textarea
+              rows={3}
+              value={applyNote}
+              onChange={e => setApplyNote(e.target.value)}
+              placeholder="Ví dụ: Em từng làm phục vụ quán cafe 3 tháng, chăm chỉ, đúng giờ, có xe máy đi lại..."
+              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main resize-none text-xs text-text-main"
+            />
+          </div>
+
+          <div className="p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-blue-800 flex items-center gap-1.5">
+            <span>🛡️</span>
+            <span>Số điện thoại/Zalo của bạn sẽ được gửi trực tiếp đến chủ quán để sắp xếp phỏng vấn.</span>
+          </div>
+
+          {applyError && <p className="text-red-500 font-semibold text-xs">{applyError}</p>}
+
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => setApplyOpen(false)}
+              className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-text-muted font-bold"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={applying}
+              className="px-5 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold disabled:opacity-50 shadow-sm"
+            >
+              {applying ? 'Đang gửi hồ sơ...' : 'Xác nhận nộp đơn'}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

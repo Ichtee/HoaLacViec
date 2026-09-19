@@ -1,13 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Eye, EyeOff, Leaf } from 'lucide-react';
-import { clsx } from 'clsx';
+import { Eye, EyeOff, Leaf, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { Input } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
-import { DEMO_CREDENTIALS } from '@/mocks/seed.js';
-
-const ROLE_LABELS = { student: 'Sinh viên', employer: 'Nhà tuyển dụng', admin: 'Quản trị viên' };
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -15,131 +10,153 @@ export default function LoginPage() {
   const location = useLocation();
   const from = location.state?.from?.pathname || null;
 
-  const [role, setRole] = useState('student');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const redirectAfterLogin = (sessionRole) => {
-    if (from) { navigate(from, { replace: true }); return; }
-    const dashboards = { student: '/student', employer: '/employer', admin: '/admin' };
+    if (from) {
+      navigate(from, { replace: true });
+      return;
+    }
+    const dashboards = {
+      student: '/student',
+      employer: '/employer',
+      admin: '/admin',
+    };
     navigate(dashboards[sessionRole] || '/');
   };
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!email.trim()) { setError('Vui lòng nhập email.'); return; }
+    if (!email.trim()) {
+      setError('Vui lòng nhập địa chỉ email.');
+      return;
+    }
+    if (!password) {
+      setError('Vui lòng nhập mật khẩu.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      const session = await login(email.trim(), role);
-      redirectAfterLogin(session.user.role);
+      const session = await login(email.trim(), password);
+      redirectAfterLogin(session.user?.role);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
     } finally {
       setLoading(false);
     }
   }
-
-  async function handleDemo(cred) {
-    setLoading(true);
-    setError('');
-    try {
-      const session = await login(cred.email, cred.role);
-      redirectAfterLogin(session.user.role);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const demoCreds = DEMO_CREDENTIALS.filter((c) => c.role === role);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-light via-cream to-pink-light flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Brand */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-green-main flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-cream to-pink-50 flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-md space-y-6 animate-fade-in">
+        {/* Brand Header */}
+        <div className="text-center space-y-2">
+          <Link to="/" className="inline-flex items-center gap-2 group">
+            <div className="w-12 h-12 rounded-2xl bg-green-main flex items-center justify-center shadow-soft group-hover:bg-green-dark transition-all">
               <Leaf className="w-6 h-6 text-white" />
             </div>
           </Link>
-          <h1 className="text-2xl font-bold text-green-dark">Đăng nhập</h1>
-          <p className="text-text-muted text-sm mt-1">Demo — không cần mật khẩu thật</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-text-main tracking-tight">
+            Đăng nhập tài khoản
+          </h1>
+          <p className="text-xs sm:text-sm text-text-muted">
+            Chào mừng bạn đến với nền tảng việc làm & việc vặt sinh viên Hòa Lạc
+          </p>
         </div>
 
-        <div className="card shadow-modal">
-          {/* Role tabs */}
-          <div className="flex gap-1 p-1 bg-green-50 rounded-2xl mb-5">
-            {(['student', 'employer', 'admin']).map((r) => (
-              <button
-                key={r}
-                onClick={() => { setRole(r); setEmail(''); setError(''); }}
-                className={clsx(
-                  'flex-1 py-2 rounded-xl text-sm font-semibold transition-all',
-                  role === r ? 'bg-white shadow-sm text-green-dark' : 'text-text-muted hover:text-green-dark'
-                )}
-              >
-                {ROLE_LABELS[r]}
-              </button>
-            ))}
-          </div>
-
-          {/* Demo credentials */}
-          <div className="mb-5">
-            <p className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wide">Tài khoản demo</p>
-            <div className="space-y-2">
-              {demoCreds.map((c) => (
-                <button
-                  key={c.email}
-                  onClick={() => handleDemo(c)}
-                  className="w-full flex items-center gap-3 p-3 rounded-2xl border border-green-100 hover:border-green-main hover:bg-green-50 transition-all text-left"
-                  disabled={loading}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-green-main text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-                    {c.name[0]}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-text-main">{c.name}</p>
-                    <p className="text-xs text-text-muted">{c.email}</p>
-                  </div>
-                </button>
-              ))}
+        {/* Login Form Card */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-green-50 shadow-modal space-y-5">
+          {error && (
+            <div className="p-3.5 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-600 font-medium leading-relaxed">
+              {error}
             </div>
-          </div>
-
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px bg-green-100" />
-            <span className="text-xs text-text-muted">hoặc nhập email</span>
-            <div className="flex-1 h-px bg-green-100" />
-          </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              id="login-email"
-              label="Email demo"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={demoCreds[0]?.email || 'email@demo.com'}
-              required
-              error={error}
-            />
-            <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full">
-              Đăng nhập
-            </Button>
+            {/* Email Field */}
+            <div>
+              <label className="block text-xs font-bold text-text-main mb-1.5">
+                Địa chỉ Email
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@student.fpt.edu.vn hoặc email của bạn"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all placeholder-gray-400"
+                />
+              </div>
+            </div>
+
+            {/* Password Field */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-text-main">
+                  Mật khẩu
+                </label>
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert('Vui lòng liên hệ bộ phận hỗ trợ qua email hotro@hoalacviec.vn để được hỗ trợ đặt lại mật khẩu.');
+                  }}
+                  className="text-[11px] font-medium text-green-main hover:underline"
+                >
+                  Quên mật khẩu?
+                </a>
+              </div>
+              <div className="relative">
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu của bạn"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all placeholder-gray-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit Button */}
+            <div className="pt-2">
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                loading={loading}
+                className="w-full justify-center shadow-sm"
+              >
+                Đăng nhập <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
           </form>
 
-          <div className="mt-4 p-3 bg-yellow-50 rounded-2xl text-xs text-yellow-800">
-            ⚠ Đây là phiên demo. Không nhập mật khẩu hoặc thông tin thật.
+          {/* Register Link */}
+          <div className="pt-2 text-center">
+            <p className="text-xs text-text-muted">
+              Chưa có tài khoản?{' '}
+              <Link to="/register" className="text-green-main font-bold hover:underline">
+                Đăng ký tài khoản mới ngay
+              </Link>
+            </p>
           </div>
-
-          <p className="text-center text-sm text-text-muted mt-5">
-            Chưa có tài khoản?{' '}
-            <Link to="/register" className="text-green-main font-semibold hover:underline">Đăng ký ngay</Link>
-          </p>
         </div>
       </div>
     </div>

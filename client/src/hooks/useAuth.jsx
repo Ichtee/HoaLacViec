@@ -2,17 +2,15 @@ import { createContext, useContext, useState, useCallback } from 'react';
 import { login as serviceLogin, register as serviceRegister } from '@/services';
 
 /**
- * AuthContext — demo session management
- * NOTE: This is NOT a production authentication system.
- * Sessions are in-memory only. No passwords are stored.
+ * AuthContext — Authentication & session management
  */
 const AuthContext = createContext(null);
 
-const SESSION_KEY = 'hlv_demo_session';
+const SESSION_KEY = 'hlv_auth_session';
 
 function loadSession() {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -20,16 +18,24 @@ function loadSession() {
 }
 
 function saveSession(session) {
-  if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  else sessionStorage.removeItem(SESSION_KEY);
+  if (session) {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } else {
+    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem('token');
+  }
 }
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => loadSession());
 
-  const login = useCallback(async (email, role) => {
-    const result = await serviceLogin(email, role);
-    const newSession = { user: result.user, profileId: result.profileId };
+  const login = useCallback(async (email, password) => {
+    const result = await serviceLogin(email, password);
+    const user = result?.user || result;
+    const profileId = result?.profileId || user?.profileId || user?.profile?._id || user?.profile?.id || null;
+    const newSession = { user, profileId };
     setSession(newSession);
     saveSession(newSession);
     return newSession;
@@ -37,7 +43,9 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (data) => {
     const result = await serviceRegister(data);
-    const newSession = { user: result.user, profileId: result.profileId };
+    const user = result?.user || result;
+    const profileId = result?.profileId || user?.profileId || null;
+    const newSession = { user, profileId };
     setSession(newSession);
     saveSession(newSession);
     return newSession;

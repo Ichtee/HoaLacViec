@@ -8,10 +8,10 @@ export const JOB_TYPES = {
 };
 
 export const JOB_TYPE_LABELS = {
-  [JOB_TYPES.PART_TIME]: 'Bán thời gian',
-  [JOB_TYPES.SHIFT]: 'Theo ca',
+  [JOB_TYPES.SHIFT]: 'Theo ca linh hoạt',
+  [JOB_TYPES.PART_TIME]: 'Part-time cố định',
   [JOB_TYPES.HOURLY]: 'Theo giờ',
-  [JOB_TYPES.EVENT]: 'Sự kiện',
+  [JOB_TYPES.EVENT]: 'Sự kiện / Tiệc',
   [JOB_TYPES.INTERNSHIP]: 'Thực tập',
 };
 
@@ -112,12 +112,12 @@ export const ROLES = {
 
 // Area zones in Hoa Lac
 export const AREAS = [
-  { value: 'ktx_dhqg', label: 'KTX ĐHQG' },
-  { value: 'fpt_university', label: 'ĐH FPT Hòa Lạc' },
-  { value: 'hust_campus', label: 'BKHN Hòa Lạc' },
-  { value: 'green_park', label: 'Green Park Residences' },
-  { value: 'thach_that', label: 'Trung tâm Thạch Thất' },
-  { value: 'dai_mo', label: 'Khu vực Đại Mỗ' },
+  { value: 'tan_xa', label: 'Xã Tân Xã (Hồ Tân Xã / Phố trọ FPT)' },
+  { value: 'thach_hoa', label: 'Xã Thạch Hòa (Cổng 11 / KTX ĐHQG)' },
+  { value: 'fpt_university', label: 'Khu CNC Hòa Lạc & ĐH FPT' },
+  { value: 'binh_yen', label: 'Xã Bình Yên' },
+  { value: 'ha_bang', label: 'Xã Hạ Bằng' },
+  { value: 'thach_that', label: 'Trung tâm Huyện Thạch Thất' },
 ];
 
 // Payroll rounding rule (document for consistency)

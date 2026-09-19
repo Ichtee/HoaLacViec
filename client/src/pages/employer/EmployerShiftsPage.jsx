@@ -34,7 +34,7 @@ export default function EmployerShiftsPage() {
   async function loadShifts() {
     try {
       setLoading(true);
-      const data = await getShifts({ storeId: user?.id });
+      const data = await getShifts({ storeId: user?.id, storeName: user?.name, employerId: user?.id });
       setShifts(data || []);
     } catch (err) {
       console.error(err);
@@ -49,8 +49,9 @@ export default function EmployerShiftsPage() {
       setSubmitting(true);
       const newShift = await createShift({
         ...formData,
-        storeName: user?.name || 'Highland Coffee Tân Xã',
+        storeName: user?.name || 'Cửa hàng',
         storeId: user?.id,
+        employerId: user?.id,
         status: 'scheduled'
       });
       setShifts(prev => [newShift, ...prev]);
@@ -65,7 +66,7 @@ export default function EmployerShiftsPage() {
 
   async function handleApproveShift(shiftId) {
     await approveAttendance(shiftId);
-    setShifts(prev => prev.map(s => s.id === shiftId ? { ...s, status: 'completed' } : s));
+    setShifts(prev => prev.map(s => (s._id === shiftId || s.id === shiftId) ? { ...s, status: 'completed' } : s));
     setToast({ type: 'success', message: 'Đã xác nhận hoàn thành công cho sinh viên!' });
   }
 
@@ -105,7 +106,7 @@ export default function EmployerShiftsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {shifts.map(shift => (
             <div
-              key={shift.id}
+              key={shift._id || shift.id}
               className="bg-white p-6 rounded-3xl border border-green-50 shadow-card space-y-4 hover:border-pink-200 transition-all"
             >
               <div className="flex items-center justify-between">
@@ -144,7 +145,7 @@ export default function EmployerShiftsPage() {
               {shift.status !== 'completed' && (
                 <div className="pt-2 flex justify-end">
                   <button
-                    onClick={() => handleApproveShift(shift.id)}
+                    onClick={() => handleApproveShift(shift._id || shift.id)}
                     className="px-4 py-2 rounded-xl bg-green-main text-white text-xs font-semibold hover:bg-green-dark transition-all"
                   >
                     Xác nhận duyệt công ca làm

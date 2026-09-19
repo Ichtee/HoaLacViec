@@ -31,7 +31,7 @@ export default function StudentDashboard() {
         setShifts(allShifts || []);
         setApplications(allApps || []);
         setSavedJobs(allSaved || []);
-        setRecommendedJobs(allJobs?.jobs || []);
+        setRecommendedJobs(Array.isArray(allJobs) ? allJobs : (allJobs?.jobs || []));
       } catch (err) {
         console.error("Failed to load dashboard data", err);
       } finally {

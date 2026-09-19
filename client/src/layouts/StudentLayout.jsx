@@ -2,23 +2,21 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
   Leaf, LayoutDashboard, Search, Bookmark, FileText,
-  Calendar, ArrowLeftRight, Star, DollarSign, User,
+  Calendar, ShoppingBag, Star, User,
   Menu, X, LogOut, ChevronLeft, Bell
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { resetDemoData } from '@/services';
 
 const STUDENT_NAV = [
   { to: '/student', label: 'Tổng quan', icon: LayoutDashboard, end: true },
   { to: '/student/profile', label: 'Hồ sơ', icon: User },
   { to: '/student/jobs', label: 'Tìm việc', icon: Search },
+  { to: '/student/tasks', label: 'Chợ việc vặt', icon: ShoppingBag },
   { to: '/student/saved', label: 'Đã lưu', icon: Bookmark },
   { to: '/student/applications', label: 'Đơn ứng tuyển', icon: FileText },
   { to: '/student/shifts', label: 'Lịch làm', icon: Calendar },
-  { to: '/student/swap', label: 'Sàn đổi ca', icon: ArrowLeftRight },
   { to: '/student/reviews', label: 'Đánh giá', icon: Star },
-  { to: '/student/payroll', label: 'Đối soát lương', icon: DollarSign },
 ];
 
 function SidebarLink({ to, icon: Icon, label, end }) {
@@ -30,7 +28,7 @@ function SidebarLink({ to, icon: Icon, label, end }) {
         clsx(
           'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
           isActive
-            ? 'bg-green-main text-white shadow-sm'
+            ? 'bg-green-main text-white shadow-sm font-semibold'
             : 'text-text-muted hover:bg-green-50 hover:text-green-dark'
         )
       }
@@ -51,27 +49,20 @@ export default function StudentLayout() {
     navigate('/');
   }
 
-  function handleReset() {
-    if (confirm('Khôi phục dữ liệu demo?')) {
-      resetDemoData();
-      window.location.reload();
-    }
-  }
-
   const sidebar = (
     <aside className="flex flex-col h-full">
       {/* Brand */}
       <div className="px-4 py-5 border-b border-green-50 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-xl bg-green-main flex items-center justify-center">
+        <div className="w-8 h-8 rounded-xl bg-green-main flex items-center justify-center shadow-sm">
           <Leaf className="w-4 h-4 text-white" />
         </div>
         <span className="font-bold text-green-dark">Hoa Lạc Việc</span>
       </div>
 
       {/* User badge */}
-      <div className="px-4 py-3 bg-green-50 mx-3 my-3 rounded-2xl">
-        <p className="text-xs text-text-muted">Sinh viên</p>
-        <p className="font-semibold text-text-main text-sm truncate">{user?.name}</p>
+      <div className="px-4 py-3 bg-green-50 mx-3 my-3 rounded-2xl border border-green-100/50">
+        <p className="text-[11px] font-semibold text-green-dark">Sinh viên Hòa Lạc</p>
+        <p className="font-bold text-text-main text-sm truncate mt-0.5">{user?.name}</p>
       </div>
 
       {/* Nav */}
@@ -82,11 +73,8 @@ export default function StudentLayout() {
       </nav>
 
       {/* Bottom */}
-      <div className="p-3 border-t border-green-50 space-y-1">
-        <button onClick={handleReset} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-yellow-700 hover:bg-yellow-50 transition-colors">
-          <span className="text-base">🔄</span> Khôi phục demo
-        </button>
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 transition-colors">
+      <div className="p-3 border-t border-green-50">
+        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 font-medium transition-colors">
           <LogOut className="w-4 h-4" /> Đăng xuất
         </button>
       </div>
@@ -115,44 +103,32 @@ export default function StudentLayout() {
         </>
       )}
 
-      {/* Main */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        {/* Mobile top bar */}
-        <div className="lg:hidden sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-green-50 px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl hover:bg-green-50">
+      {/* Main content */}
+      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+        {/* Top header */}
+        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-green-50 h-16 flex items-center justify-between px-4 sm:px-6">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-2 rounded-xl hover:bg-green-50"
+            aria-label="Menu"
+          >
             <Menu className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-green-main flex items-center justify-center">
-              <Leaf className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="font-bold text-green-dark text-sm">Hoa Lạc Việc</span>
-          </div>
-        </div>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="flex items-center gap-3 ml-auto">
+            <span className="text-xs text-text-muted hidden sm:inline">
+              Chào mừng, <strong className="text-text-main">{user?.name}</strong>
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-green-main text-white flex items-center justify-center font-bold text-sm shadow-sm">
+              {user?.name?.[0] || 'S'}
+            </div>
+          </div>
+        </header>
+
+        {/* Page content */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
-
-        {/* Mobile bottom nav */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-green-50 px-2 py-2 z-20">
-          <div className="flex items-center justify-around">
-            {STUDENT_NAV.slice(0, 5).map((n) => (
-              <NavLink
-                key={n.to}
-                to={n.to}
-                end={n.end}
-                className={({ isActive }) =>
-                  clsx('flex flex-col items-center gap-0.5 p-2 rounded-xl transition-all', isActive ? 'text-green-main' : 'text-text-light')
-                }
-              >
-                <n.icon className="w-5 h-5" />
-                <span className="text-[10px]">{n.label.split(' ')[0]}</span>
-              </NavLink>
-            ))}
-          </div>
-        </div>
-        <div className="lg:hidden h-20" /> {/* bottom nav spacer */}
       </div>
     </div>
   );
