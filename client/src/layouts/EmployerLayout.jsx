@@ -45,11 +45,10 @@ export default function EmployerLayout() {
 
   const sidebar = (
     <aside className="flex flex-col h-full">
-      <div className="px-4 py-5 border-b border-green-50 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-xl bg-pink-main flex items-center justify-center shadow-sm">
-          <Leaf className="w-4 h-4 text-white" />
-        </div>
-        <span className="font-bold text-green-dark">Hoa Lạc Việc</span>
+      <div className="px-4 py-4 border-b border-green-50 flex items-center gap-2">
+        <Link to="/" className="inline-flex items-center">
+          <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
+        </Link>
       </div>
       <div className="px-4 py-3 bg-pink-50 mx-3 my-3 rounded-2xl border border-pink-100/50">
         <p className="text-[11px] font-semibold text-pink-dark">Nhà tuyển dụng</p>

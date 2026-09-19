@@ -37,11 +37,12 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-9 h-9 rounded-xl bg-green-main flex items-center justify-center group-hover:bg-green-dark transition-colors shadow-sm">
-              <Leaf className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-lg text-green-dark hidden sm:block">Hoa Lạc Việc</span>
+          <Link to="/" className="flex items-center gap-2 group py-1">
+            <img
+              src="/logo.png"
+              alt="Hoa Lạc Việc"
+              className="h-10 sm:h-11 w-auto object-contain transition-transform group-hover:scale-105"
+            />
           </Link>
 
           {/* Desktop nav */}
@@ -152,10 +153,9 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-green-main flex items-center justify-center shadow-sm">
-                <Leaf className="w-5 h-5 text-white" />
+              <div className="bg-white/95 px-3 py-1.5 rounded-2xl shadow-sm inline-flex items-center">
+                <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
               </div>
-              <span className="font-bold text-lg">Hoa Lạc Việc</span>
             </div>
             <p className="text-green-200 text-sm leading-relaxed">
               Nền tảng việc làm & hỗ trợ sinh viên tại Khu Công nghệ cao Hòa Lạc. Kết nối việc làm part-time, ca linh hoạt và dịch vụ việc vặt sinh viên.

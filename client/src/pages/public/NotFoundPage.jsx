@@ -4,8 +4,8 @@ import { Leaf, ArrowLeft } from 'lucide-react';
 export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-16 h-16 rounded-3xl bg-green-main text-white flex items-center justify-center mb-6 shadow-md animate-bounce">
-        <Leaf className="w-8 h-8" />
+      <div className="mb-6 animate-bounce">
+        <img src="/logo.png" alt="Hoa Lạc Việc" className="h-20 w-auto mx-auto object-contain drop-shadow-md" />
       </div>
       <h1 className="text-6xl font-extrabold text-green-dark tracking-tight">404</h1>
       <h2 className="text-2xl font-bold text-text-main mt-2">Trang không tồn tại</h2>

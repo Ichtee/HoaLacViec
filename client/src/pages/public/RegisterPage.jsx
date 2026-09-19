@@ -70,10 +70,12 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-cream to-pink-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <Link to="/" className="inline-flex items-center gap-2 mb-3">
-            <div className="w-12 h-12 rounded-2xl bg-green-main flex items-center justify-center shadow-md">
-              <Leaf className="w-6 h-6 text-white" />
-            </div>
+          <Link to="/" className="inline-block group mb-2">
+            <img
+              src="/logo.png"
+              alt="Hoa Lạc Việc"
+              className="h-16 w-auto mx-auto object-contain transition-transform group-hover:scale-105 drop-shadow-sm"
+            />
           </Link>
           <h1 className="text-2xl font-bold text-green-dark">Đăng ký tài khoản</h1>
           <p className="text-text-muted text-xs mt-1">Kết nối việc làm & hỗ trợ sinh viên tại khu vực Hòa Lạc</p>

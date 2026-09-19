@@ -18,11 +18,11 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <aside className="w-60 bg-green-dark text-white flex flex-col fixed inset-y-0 left-0 z-30">
-        <div className="px-4 py-5 border-b border-green-700 flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
-            <Leaf className="w-4 h-4 text-white" />
-          </div>
-          <span className="font-bold text-sm">Admin — HLV</span>
+        <div className="px-4 py-4 border-b border-green-700 flex items-center justify-between">
+          <Link to="/" className="bg-white/95 px-2.5 py-1 rounded-xl inline-flex items-center">
+            <img src="/logo.png" alt="Hoa Lạc Việc" className="h-8 w-auto object-contain" />
+          </Link>
+          <span className="font-bold text-[11px] uppercase tracking-wider text-green-200">Admin</span>
         </div>
         <nav className="flex-1 px-3 py-3 space-y-0.5">
           {ADMIN_NAV.map((n) => (

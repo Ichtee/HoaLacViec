@@ -57,10 +57,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <Link to="/" className="inline-flex items-center gap-2 group">
-            <div className="w-12 h-12 rounded-2xl bg-green-main flex items-center justify-center shadow-soft group-hover:bg-green-dark transition-all">
-              <Leaf className="w-6 h-6 text-white" />
-            </div>
+          <Link to="/" className="inline-block group">
+            <img
+              src="/logo.png"
+              alt="Hoa Lạc Việc"
+              className="h-16 w-auto mx-auto object-contain transition-transform group-hover:scale-105 drop-shadow-sm"
+            />
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-text-main tracking-tight">
             Đăng nhập tài khoản
