@@ -16,19 +16,26 @@ function getAuthHeaders() {
 }
 
 async function request(endpoint, options = {}) {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      ...getAuthHeaders(),
-      ...options.headers,
-    },
-  });
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        ...getAuthHeaders(),
+        ...options.headers,
+      },
+    });
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || 'Yêu cầu thất bại');
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`);
+    }
+    return data;
+  } catch (err) {
+    if (err.name === 'TypeError' && (err.message.includes('fetch') || err.message.includes('NetworkError'))) {
+      throw new Error('Không thể kết nối máy chủ. Máy chủ có thể đang khởi động lại (mất ~30s), vui lòng thử lại sau giây lát.');
+    }
+    throw err;
   }
-  return data;
 }
 
 // ─── AUTH ─────────────────────────────────────────────────────────
