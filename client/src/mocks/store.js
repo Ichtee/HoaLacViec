@@ -125,40 +125,61 @@ function removeById(collection, id) {
 const delay = (ms = 200) => new Promise((r) => setTimeout(r, ms));
 
 // ─── AUTH ─────────────────────────────────────────────────────────
-export async function mockLogin(email, role) {
+export async function mockLogin(email, passwordOrRole) {
   await delay(300);
-  const cred = DEMO_CREDENTIALS.find(
-    (c) => c.email.toLowerCase() === email.toLowerCase() && c.role === role
-  );
-  if (!cred) throw new Error('Email hoặc vai trò không đúng.');
-  const user = read('users').find((u) => u.id === cred.userId);
-  if (!user) throw new Error('Tài khoản không tồn tại.');
-  // Return session (no real JWT — demo only)
-  return { user, profileId: cred.profileId };
+  const normalizedEmail = (email || '').toLowerCase().trim();
+  const users = read('users');
+  const user = users.find((u) => (u.email || '').toLowerCase().trim() === normalizedEmail);
+
+  if (!user) {
+    const cred = DEMO_CREDENTIALS.find(
+      (c) => c.email.toLowerCase() === normalizedEmail
+    );
+    if (!cred) throw new Error('Email không tồn tại trong hệ thống.');
+    const credUser = users.find((u) => u.id === cred.userId);
+    return { user: credUser, profileId: cred.profileId };
+  }
+
+  // If password was entered, check password (or allow demo role match)
+  if (user.password && passwordOrRole && user.password !== passwordOrRole && user.role !== passwordOrRole) {
+    throw new Error('Mật khẩu không chính xác.');
+  }
+
+  let profileId = null;
+  if (user.role === 'student') {
+    const sp = read('studentProfiles').find((p) => p.userId === user.id);
+    profileId = sp?.id || null;
+  } else if (user.role === 'employer') {
+    const ep = read('employerProfiles').find((p) => p.userId === user.id);
+    profileId = ep?.id || null;
+  }
+
+  return { user, profileId };
 }
 
-export async function mockRegister({ role, name, email }) {
+export async function mockRegister({ role, name, email, phone = '', password = '123456', university = '', address = '' }) {
   await delay(300);
-  const exists = read('users').some((u) => u.email.toLowerCase() === email.toLowerCase());
+  const normalizedEmail = (email || '').toLowerCase().trim();
+  const exists = read('users').some((u) => (u.email || '').toLowerCase().trim() === normalizedEmail);
   if (exists) throw new Error('Email đã được sử dụng.');
   const id = `user-${Date.now()}`;
-  const newUser = { id, role, name, email, createdAt: new Date().toISOString() };
+  const newUser = { id, role, name, email: normalizedEmail, phone, password, createdAt: new Date().toISOString() };
   insertOne('users', newUser);
   if (role === 'student') {
     const profileId = `sp-${Date.now()}`;
     insertOne('studentProfiles', {
-      id: profileId, userId: id, university: '', yearOfStudy: 1, major: '',
-      area: '', location: null, bio: '', skills: [], transport: '', reputationScore: 0,
-      reputationCount: 0, profileComplete: false,
+      id: profileId, userId: id, university: university || 'Đại học FPT Hòa Lạc', yearOfStudy: 1, major: '',
+      area: 'fpt_university', location: null, bio: '', skills: [], transport: 'xe_may', reputationScore: 5.0,
+      reputationCount: 0, profileComplete: true,
     });
     return { user: newUser, profileId };
   }
   if (role === 'employer') {
     const profileId = `ep-${Date.now()}`;
     insertOne('employerProfiles', {
-      id: profileId, userId: id, storeName: name, storeType: '', address: '',
-      area: '', location: null, contactName: '', contactPhone: '', description: '',
-      verified: false, verifiedAt: null, checkinRadius: 200, busRoutes: [], rating: 0, ratingCount: 0,
+      id: profileId, userId: id, storeName: name, storeType: 'Cửa hàng', address: address || 'Khu CNC Hòa Lạc',
+      area: 'fpt_university', location: null, contactName: name, contactPhone: phone, description: '',
+      verified: true, verifiedAt: new Date().toISOString(), checkinRadius: 200, busRoutes: [], rating: 5.0, ratingCount: 0,
     });
     return { user: newUser, profileId };
   }

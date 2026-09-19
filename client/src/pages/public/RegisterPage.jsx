@@ -37,7 +37,7 @@ export default function RegisterPage() {
     if (!email.trim()) e.email = 'Vui lòng nhập email.';
     else if (!/^\S+@\S+\.\S+$/.test(email)) e.email = 'Email không hợp lệ.';
     if (!phone.trim()) e.phone = 'Vui lòng nhập số điện thoại để liên hệ.';
-    else if (!/^(0|\+84)[3|5|7|8|9][0-9]{8}$/.test(phone.replace(/\s+/g, ''))) {
+    else if (!/^(0|\+84)[0-9]{9}$/.test(phone.replace(/\s+/g, ''))) {
       e.phone = 'Số điện thoại không hợp lệ (10 chữ số).';
     }
     if (!password) e.password = 'Vui lòng nhập mật khẩu.';
@@ -58,11 +58,11 @@ export default function RegisterPage() {
     try {
       const payload = {
         role,
-        name,
-        email,
-        phone,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
         password,
-        ...(role === 'student' ? { university: extraInfo || 'Đại học FPT Hòa Lạc' } : { address: extraInfo || 'Tân Xã, Thạch Thất' })
+        ...(role === 'student' ? { university: extraInfo.trim() || 'Đại học FPT Hòa Lạc' } : { address: extraInfo.trim() || 'Tân Xã, Thạch Thất' })
       };
       await register(payload);
       navigate(role === 'student' ? '/student' : '/employer');

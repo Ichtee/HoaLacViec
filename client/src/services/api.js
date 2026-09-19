@@ -33,9 +33,10 @@ async function request(endpoint, options = {}) {
 
 // ─── AUTH ─────────────────────────────────────────────────────────
 export async function apiLogin(email, password) {
+  const normalizedEmail = (email || '').trim().toLowerCase();
   const data = await request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email: normalizedEmail, password }),
   });
   if (data.token) {
     localStorage.setItem('token', data.token);
@@ -44,9 +45,13 @@ export async function apiLogin(email, password) {
 }
 
 export async function apiRegister(userData) {
+  const normalizedEmail = (userData.email || '').trim().toLowerCase();
   const data = await request('/auth/register', {
     method: 'POST',
-    body: JSON.stringify(userData),
+    body: JSON.stringify({
+      ...userData,
+      email: normalizedEmail,
+    }),
   });
   if (data.token) {
     localStorage.setItem('token', data.token);
