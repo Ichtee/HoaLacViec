@@ -52,7 +52,16 @@ app.use('/api/profiles', profileRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewRoutes);
 
-// Health check
+// Root & Health check
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Hoa Lac Viec Backend API',
+    status: 'online',
+    version: '1.0.0',
+    health: '/api/health',
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
