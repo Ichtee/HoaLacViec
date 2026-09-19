@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Leaf, Phone, User, Mail, Lock, Building, GraduationCap, MapPin } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -15,6 +15,13 @@ export default function RegisterPage() {
   const defaultRole = params.get('role') || 'student';
 
   const [role, setRole] = useState(defaultRole);
+
+  useEffect(() => {
+    const r = params.get('role');
+    if (r === 'employer' || r === 'student') {
+      setRole(r);
+    }
+  }, [params]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');

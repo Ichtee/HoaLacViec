@@ -29,6 +29,12 @@ export default function JobListPage() {
   const [minSalary, setMinSalary] = useState(''); // in VND/hour
   const [selectedJobId, setSelectedJobId] = useState(null);
 
+  useEffect(() => {
+    setSearch(params.get('search') || '');
+    setType(params.get('type') || '');
+    setArea(params.get('area') || '');
+  }, [params]);
+
   // GPS User Location State (No default preset location!)
   const [userLocation, setUserLocation] = useState(null);
   const [geoStatus, setGeoStatus] = useState('loading'); // 'loading' | 'granted' | 'denied' | 'unavailable'

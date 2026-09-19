@@ -6,18 +6,19 @@ import {
 } from 'lucide-react';
 import { JOB_TYPES, JOB_TYPE_LABELS } from '@/constants';
 import { useAsync } from '@/hooks';
+import { useAuth } from '@/hooks/useAuth.jsx';
 import { getJobs } from '@/services';
 import { JobCard } from '@/components/JobCard.jsx';
 import { LoadingPage } from '@/components/Feedback.jsx';
 import { formatVND } from '@/utils';
 
 const CATEGORIES = [
-  { icon: Coffee, label: 'Café & F&B', type: JOB_TYPES.SHIFT, color: 'bg-amber-100 text-amber-700' },
-  { icon: ShoppingBag, label: 'Bán lẻ', type: JOB_TYPES.PART_TIME, color: 'bg-blue-100 text-blue-700' },
-  { icon: Dumbbell, label: 'Thể thao', type: JOB_TYPES.PART_TIME, color: 'bg-green-light text-green-dark' },
-  { icon: BookOpen, label: 'Thực tập', type: JOB_TYPES.INTERNSHIP, color: 'bg-purple-100 text-purple-700' },
-  { icon: Music, label: 'Sự kiện', type: JOB_TYPES.EVENT, color: 'bg-pink-light text-pink-700' },
-  { icon: Clock, label: 'Theo giờ', type: JOB_TYPES.HOURLY, color: 'bg-orange-100 text-orange-700' },
+  { icon: Coffee, label: 'Café & Trà sữa', to: '/jobs?search=Cafe', color: 'bg-amber-100 text-amber-700' },
+  { icon: ShoppingBag, label: 'Bách hóa & Bán lẻ', to: '/jobs?search=Bán hàng', color: 'bg-blue-100 text-blue-700' },
+  { icon: Clock, label: 'Việc theo ca', to: '/jobs?type=shift', color: 'bg-emerald-100 text-emerald-700' },
+  { icon: Dumbbell, label: 'Gym & Thể thao', to: '/jobs?search=Gym', color: 'bg-green-light text-green-dark' },
+  { icon: Zap, label: 'Chợ việc vặt SV', to: '/tasks', color: 'bg-purple-100 text-purple-700' },
+  { icon: BookOpen, label: 'Cẩm nang & Kinh nghiệm', to: '/blogs', color: 'bg-pink-light text-pink-700' },
 ];
 
 const FEATURES = [
@@ -45,6 +46,7 @@ const STEPS = [
 ];
 
 export default function HomePage() {
+  const { isAuthenticated, role } = useAuth();
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
@@ -147,7 +149,7 @@ export default function HomePage() {
           {CATEGORIES.map((c) => (
             <Link
               key={c.label}
-              to={`/jobs?type=${c.type}`}
+              to={c.to}
               className="card-sm hover:shadow-card-hover transition-all duration-200 flex flex-col items-center gap-2 py-5 text-center hover:-translate-y-0.5"
             >
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${c.color}`}>
@@ -217,8 +219,8 @@ export default function HomePage() {
           ))}
         </div>
         <div className="text-center mt-12">
-          <Link to="/register" className="btn-primary btn btn-lg">
-            Bắt đầu ngay <ArrowRight className="w-5 h-5" />
+          <Link to="/jobs" className="btn-primary btn btn-lg inline-flex items-center gap-2">
+            Khám phá việc làm ngay <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
       </section>
@@ -231,12 +233,25 @@ export default function HomePage() {
             Đăng tin tuyển dụng miễn phí và tiếp cận hàng nghìn sinh viên đang tìm việc bán thời gian.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register?role=employer" className="btn-primary btn btn-lg">
-              Đăng tin tuyển dụng ngay
-            </Link>
-            <Link to="/login?role=employer" className="btn-outline btn btn-lg">
-              Đăng nhập quản lý
-            </Link>
+            {isAuthenticated && role === 'employer' ? (
+              <>
+                <Link to="/employer/jobs" className="btn-primary btn btn-lg">
+                  Đăng tin tuyển dụng mới
+                </Link>
+                <Link to="/employer" className="btn-outline btn btn-lg">
+                  Quản lý tin & Ứng viên
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/register?role=employer" className="btn-primary btn btn-lg">
+                  Đăng tin tuyển dụng ngay
+                </Link>
+                <Link to="/login" className="btn-outline btn btn-lg">
+                  Đăng nhập chủ quán
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
