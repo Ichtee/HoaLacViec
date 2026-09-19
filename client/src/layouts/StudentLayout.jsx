@@ -52,9 +52,9 @@ export default function StudentLayout() {
   const sidebar = (
     <aside className="flex flex-col h-full">
       {/* Brand */}
-      <div className="px-4 py-4 border-b border-green-50 flex items-center gap-2">
-        <Link to="/" className="inline-flex items-center">
-          <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
+      <div className="px-4 py-3.5 border-b border-green-50 flex items-center justify-center sm:justify-start">
+        <Link to="/" className="inline-flex items-center group">
+          <img src="/logo.png" alt="Hoa Lạc Việc" className="h-12 w-auto object-contain transition-transform group-hover:scale-105" />
         </Link>
       </div>
 

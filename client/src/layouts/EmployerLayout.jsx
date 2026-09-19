@@ -45,9 +45,9 @@ export default function EmployerLayout() {
 
   const sidebar = (
     <aside className="flex flex-col h-full">
-      <div className="px-4 py-4 border-b border-green-50 flex items-center gap-2">
-        <Link to="/" className="inline-flex items-center">
-          <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
+      <div className="px-4 py-3.5 border-b border-green-50 flex items-center justify-center sm:justify-start">
+        <Link to="/" className="inline-flex items-center group">
+          <img src="/logo.png" alt="Hoa Lạc Việc" className="h-12 w-auto object-contain transition-transform group-hover:scale-105" />
         </Link>
       </div>
       <div className="px-4 py-3 bg-pink-50 mx-3 my-3 rounded-2xl border border-pink-100/50">

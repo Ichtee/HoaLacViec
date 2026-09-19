@@ -41,7 +41,7 @@ export function Navbar() {
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
-              className="h-10 sm:h-11 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-12 w-auto object-contain transition-transform group-hover:scale-105"
             />
           </Link>
 
@@ -153,8 +153,8 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="bg-white/95 px-3 py-1.5 rounded-2xl shadow-sm inline-flex items-center">
-                <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
+              <div className="bg-white px-3.5 py-2 rounded-2xl shadow-sm inline-flex items-center">
+                <img src="/logo.png" alt="Hoa Lạc Việc" className="h-11 w-auto object-contain" />
               </div>
             </div>
             <p className="text-green-200 text-sm leading-relaxed">

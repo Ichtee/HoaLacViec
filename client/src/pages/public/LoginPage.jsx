@@ -61,7 +61,7 @@ export default function LoginPage() {
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
-              className="h-16 w-auto mx-auto object-contain transition-transform group-hover:scale-105 drop-shadow-sm"
+              className="h-20 sm:h-24 w-auto mx-auto object-contain transition-transform group-hover:scale-105"
             />
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-text-main tracking-tight">

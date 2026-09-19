@@ -5,7 +5,7 @@ export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-6 text-center">
       <div className="mb-6 animate-bounce">
-        <img src="/logo.png" alt="Hoa Lạc Việc" className="h-20 w-auto mx-auto object-contain drop-shadow-md" />
+        <img src="/logo.png" alt="Hoa Lạc Việc" className="h-24 w-auto mx-auto object-contain" />
       </div>
       <h1 className="text-6xl font-extrabold text-green-dark tracking-tight">404</h1>
       <h2 className="text-2xl font-bold text-text-main mt-2">Trang không tồn tại</h2>

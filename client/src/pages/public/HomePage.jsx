@@ -129,16 +129,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Hero Brand Panoramic Banner */}
-          <div className="mt-8 sm:mt-12 max-w-4xl mx-auto px-2 sm:px-0">
-            <div className="rounded-3xl overflow-hidden shadow-xl border-4 border-white/90 bg-white hover:shadow-2xl transition-all duration-300">
-              <img
-                src="/banner.png"
-                alt="Hoa Lạc Việc Banner"
-                className="w-full h-auto object-cover hover:scale-[1.01] transition-transform duration-300"
-              />
-            </div>
-          </div>
+
         </div>
       </section>
 

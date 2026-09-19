@@ -81,7 +81,7 @@ export default function RegisterPage() {
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
-              className="h-16 w-auto mx-auto object-contain transition-transform group-hover:scale-105 drop-shadow-sm"
+              className="h-20 sm:h-24 w-auto mx-auto object-contain transition-transform group-hover:scale-105"
             />
           </Link>
           <h1 className="text-2xl font-bold text-green-dark">Đăng ký tài khoản</h1>
