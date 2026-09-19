@@ -3,7 +3,9 @@
  * Base URL is /api (proxied to http://localhost:5000 by Vite)
  */
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+  : '/api';
 
 function getAuthHeaders() {
   const token = localStorage.getItem('token');
