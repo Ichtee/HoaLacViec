@@ -37,23 +37,22 @@ export function RequireRole({ role, children }) {
             </p>
             <div className="pt-3 flex flex-col gap-2.5">
               <button
-                onClick={async () => {
-                  logout();
-                  await login('admin@hoalacviec.vn', '123456');
-                  window.location.href = '/admin';
-                }}
-                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm transition-all"
-              >
-                Chuyển sang tài khoản Admin ngay (1-Click)
-              </button>
-              <button
                 onClick={() => {
                   const dashboards = { student: '/student', employer: '/employer' };
                   window.location.href = dashboards[userRole] || '/';
                 }}
-                className="w-full py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 font-semibold text-xs transition-colors"
+                className="w-full py-2.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-sm transition-all"
               >
                 Quay lại trang của tôi
+              </button>
+              <button
+                onClick={() => {
+                  logout();
+                  window.location.href = '/login';
+                }}
+                className="w-full py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-600 font-semibold text-xs transition-colors"
+              >
+                Đăng xuất để đăng nhập tài khoản khác
               </button>
             </div>
           </div>

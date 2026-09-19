@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, Leaf, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
@@ -150,50 +151,8 @@ export default function LoginPage() {
             </div>
           </form>
 
-          {/* Quick Demo Fill */}
-          <div className="pt-2 border-t border-gray-100">
-            <p className="text-[11px] text-gray-500 font-medium text-center mb-2">
-              💡 Điền nhanh tài khoản mẫu để test:
-            </p>
-            <div className="grid grid-cols-3 gap-1.5 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('khoa.nguyen@student.fpt.edu.vn');
-                  setPassword('123456');
-                  setError('');
-                }}
-                className="px-2 py-1.5 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-medium transition-colors text-center"
-              >
-                🎓 Sinh viên
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('cafexanh@hoalacviec.vn');
-                  setPassword('123456');
-                  setError('');
-                }}
-                className="px-2 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium transition-colors text-center"
-              >
-                🏪 Tuyển dụng
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail('admin@hoalacviec.vn');
-                  setPassword('123456');
-                  setError('');
-                }}
-                className="px-2 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-medium transition-colors text-center"
-              >
-                🛡️ Admin
-              </button>
-            </div>
-          </div>
-
           {/* Register Link */}
-          <div className="pt-1 text-center">
+          <div className="pt-2 text-center">
             <p className="text-xs text-text-muted">
               Chưa có tài khoản?{' '}
               <Link to="/register" className="text-green-main font-bold hover:underline">

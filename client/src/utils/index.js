@@ -190,7 +190,7 @@ export function hasTimeConflict(start1, end1, start2, end2) {
   return start1 < end2 && end1 > start2;
 }
 
-/** Generate relative dates for mock data (always in the future) */
+/** Generate relative dates (always in the future) */
 export function relativeDate(dayOffset, hour = 9, minute = 0) {
   const d = new Date();
   d.setDate(d.getDate() + dayOffset);
