@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, Leaf, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -16,6 +16,17 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [slowNotice, setSlowNotice] = useState(false);
+
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      timer = setTimeout(() => setSlowNotice(true), 3000);
+    } else {
+      setSlowNotice(false);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const redirectAfterLogin = (sessionRole) => {
     if (from) {
@@ -148,6 +159,11 @@ export default function LoginPage() {
               >
                 Đăng nhập <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
+              {slowNotice && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-center mt-2.5 animate-fade-in">
+                  ⏳ Máy chủ Render đang thức dậy (mất ~30s sau thời gian nghỉ). Vui lòng đợi trong giây lát...
+                </p>
+              )}
             </div>
           </form>
 

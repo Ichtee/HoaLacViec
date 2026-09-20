@@ -30,6 +30,17 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [slowNotice, setSlowNotice] = useState(false);
+
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      timer = setTimeout(() => setSlowNotice(true), 3000);
+    } else {
+      setSlowNotice(false);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   function validate() {
     const e = {};
@@ -190,6 +201,11 @@ export default function RegisterPage() {
             <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full mt-2">
               Hoàn tất đăng ký
             </Button>
+            {slowNotice && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-center mt-2.5 animate-fade-in">
+                ⏳ Máy chủ Render đang thức dậy (mất ~30s sau thời gian nghỉ). Vui lòng đợi trong giây lát...
+              </p>
+            )}
           </form>
 
           <p className="text-center text-xs text-text-muted mt-5">

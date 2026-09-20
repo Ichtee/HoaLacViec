@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Layouts
@@ -43,6 +44,11 @@ import AdminReportsPage from '@/pages/admin/AdminReportsPage.jsx';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage.jsx';
 
 export default function App() {
+  useEffect(() => {
+    // Pre-warm Render backend on initial app load to minimize cold-start latency
+    fetch('https://hoalacviec.onrender.com/api/health').catch(() => {});
+  }, []);
+
   return (
     <Router>
       <Routes>
