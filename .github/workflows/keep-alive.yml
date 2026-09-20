@@ -2,8 +2,9 @@ name: Keep Backend Alive
 
 on:
   schedule:
-    # Runs every 10 minutes (cron: UTC time)
-    - cron: '*/10 * * * *'
+    # Runs every 10 minutes from 00:00 to 16:00 UTC (07:00 to 23:59 GMT+7 Vietnam Time)
+    # Total: ~17 hours/day * 30 days = ~510 hours/month (Well within Render's 750 free hours)
+    - cron: '*/10 0-16 * * *'
   workflow_dispatch:
 
 jobs:
