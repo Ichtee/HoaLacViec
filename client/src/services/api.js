@@ -164,16 +164,29 @@ export async function apiCreateShift(shiftData) {
   });
 }
 
-export async function apiCheckIn(shiftId) {
-  return request(`/shifts/${shiftId}/checkin`, { method: 'POST' });
+export async function apiCheckIn(shiftId, coords = {}) {
+  return request(`/shifts/${shiftId}/checkin`, {
+    method: 'POST',
+    body: JSON.stringify(coords),
+  });
 }
 
-export async function apiCheckOut(shiftId) {
-  return request(`/shifts/${shiftId}/checkout`, { method: 'POST' });
+export async function apiCheckOut(shiftId, coords = {}) {
+  return request(`/shifts/${shiftId}/checkout`, {
+    method: 'POST',
+    body: JSON.stringify(coords),
+  });
 }
 
 export async function apiApproveAttendance(shiftId) {
   return request(`/shifts/${shiftId}/approve`, { method: 'POST' });
+}
+
+export async function apiDisputeShift(shiftId, reason) {
+  return request(`/shifts/${shiftId}/dispute`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
 }
 
 // ─── MICRO-TASKS (VIỆC VẶT SINH VIÊN) ─────────────────────────────
