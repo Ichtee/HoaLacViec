@@ -1,6 +1,7 @@
 import express from 'express';
 import { Review } from '../models/Review.js';
 import { User } from '../models/User.js';
+import { authenticate } from '../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -46,22 +47,28 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/reviews
-router.post('/', async (req, res) => {
+// POST /api/reviews (Authenticated)
+router.post('/', authenticate, async (req, res) => {
   try {
-    const { reviewerId, reviewerName, reviewerRole, targetId, rating, comment } = req.body;
+    const { targetId, rating, comment, tags, storeName } = req.body;
 
-    if (!reviewerId || !targetId || !rating || !comment) {
-      return res.status(400).json({ error: 'Thiếu thông tin đánh giá bắt buộc' });
+    if (!targetId || !rating || !comment) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp đối tượng đánh giá, số sao và nhận xét.' });
+    }
+
+    if (targetId.toString() === req.user._id.toString()) {
+      return res.status(400).json({ error: 'Bạn không thể tự đánh giá chính mình.' });
     }
 
     const review = await Review.create({
-      reviewerId,
-      reviewerName: reviewerName || 'Thành viên',
-      reviewerRole: reviewerRole || 'student',
+      reviewerId: req.user._id,
+      reviewerName: req.user.name || 'Thành viên',
+      reviewerRole: req.user.role || 'student',
       targetId,
-      rating: Number(rating),
+      rating: Math.min(5, Math.max(1, Number(rating))),
       comment: comment.trim(),
+      tags: Array.isArray(tags) ? tags : [],
+      storeName: storeName || '',
     });
 
     res.status(201).json(review);

@@ -6,6 +6,7 @@ import { Availability } from '../models/Availability.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { resolveGoogleMapInput } from '../utils/parseMapLink.js';
 import { searchGoogleMapsPlaces } from '../services/serpApi.js';
+import { authenticate, authorize } from '../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -243,9 +244,20 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/jobs (Employer create job)
-router.post('/', async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'employer' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ nhà tuyển dụng hoặc quản trị viên mới có quyền đăng tin tuyển dụng.' });
+    }
+
     const data = { ...req.body };
+
+    // Resolve employer identity from authenticated user
+    const profile = await EmployerProfile.findOne({ userId: req.user._id });
+    data.employerId = profile ? profile._id : req.user._id;
+    if (profile?.storeName && !data.storeName) {
+      data.storeName = profile.storeName;
+    }
 
     // Normalize salary
     if (!data.salaryAmount && (data.salaryMin || data.salaryText)) {
@@ -253,9 +265,11 @@ router.post('/', async (req, res) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Normalize status: map 'active' to 'approved'
-    if (data.status === 'active' || !data.status) {
-      data.status = 'approved';
+    // Status: if profile is verified or admin, approve; else pending
+    if (req.user.role === 'admin' || profile?.verified) {
+      data.status = data.status || 'approved';
+    } else {
+      data.status = 'pending';
     }
 
     // Normalize requirements & benefits if given as string
@@ -284,9 +298,22 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/jobs/:id
-router.put('/:id', async (req, res) => {
+// PUT /api/jobs/:id (Update job - Owner or Admin)
+router.put('/:id', authenticate, async (req, res) => {
   try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+
+    if (req.user.role !== 'admin') {
+      const profile = await EmployerProfile.findOne({ userId: req.user._id });
+      const allowedOwnerIds = [req.user._id.toString()];
+      if (profile) allowedOwnerIds.push(profile._id.toString());
+
+      if (job.employerId && !allowedOwnerIds.includes(job.employerId.toString())) {
+        return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa tin tuyển dụng này.' });
+      }
+    }
+
     const updated = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(updated);
   } catch (err) {
@@ -325,9 +352,22 @@ router.post('/search-places', async (req, res) => {
   }
 });
 
-// DELETE /api/jobs/:id
-router.delete('/:id', async (req, res) => {
+// DELETE /api/jobs/:id (Delete job - Owner or Admin)
+router.delete('/:id', authenticate, async (req, res) => {
   try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+
+    if (req.user.role !== 'admin') {
+      const profile = await EmployerProfile.findOne({ userId: req.user._id });
+      const allowedOwnerIds = [req.user._id.toString()];
+      if (profile) allowedOwnerIds.push(profile._id.toString());
+
+      if (job.employerId && !allowedOwnerIds.includes(job.employerId.toString())) {
+        return res.status(403).json({ error: 'Bạn không có quyền xóa tin tuyển dụng này.' });
+      }
+    }
+
     await Job.findByIdAndDelete(req.params.id);
     res.json({ message: 'Đã xóa công việc' });
   } catch (err) {

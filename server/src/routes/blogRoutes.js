@@ -1,5 +1,6 @@
 import express from 'express';
 import { Blog } from '../models/Blog.js';
+import { authenticate, authorize } from '../middlewares/auth.js';
 
 const router = express.Router();
 
@@ -49,8 +50,8 @@ router.get('/:idOrSlug', async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy bài viết' });
     }
 
-    // Increment views
-    blog.views += 1;
+    // Increment views safely
+    blog.views = (blog.views || 0) + 1;
     await blog.save();
 
     // Related blogs
@@ -65,8 +66,8 @@ router.get('/:idOrSlug', async (req, res) => {
   }
 });
 
-// POST /api/blogs (Tạo bài viết)
-router.post('/', async (req, res) => {
+// POST /api/blogs (Tạo bài viết - Chỉ Admin)
+router.post('/', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { title, slug, summary, content, category, coverImage, tags, featured } = req.body;
     const cleanSlug = slug || title.toLowerCase()

@@ -49,44 +49,113 @@ export function parseGoogleCoordinates(input) {
   return null;
 }
 
+function isSafeMapsUrl(urlStr) {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    // Block IP addresses (IPv4 & IPv6), localhost, and local hostnames
+    if (
+      /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) ||
+      hostname.startsWith('[') ||
+      hostname === 'localhost' ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal')
+    ) {
+      return false;
+    }
+    // Must belong to google.com or goo.gl domains
+    return /^(.*\.)?(google\.com|goo\.gl)$/i.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
 export async function resolveGoogleMapInput(input) {
   if (!input || typeof input !== 'string') return null;
   const trimmed = input.trim();
 
-  // First try direct regex parsing (fastest, no network call)
+  // 1. Direct regex parsing (fastest, zero network call)
   const direct = parseGoogleCoordinates(trimmed);
   if (direct) return direct;
 
-  // If it's a URL (http / https), follow redirects
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    try {
-      const response = await fetch(trimmed, {
+  // 2. Validate URL before making any network request (SSRF prevention)
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return null;
+  }
+
+  if (!isSafeMapsUrl(trimmed)) {
+    console.warn('[SSRF Protection] Blocked unsafe or non-Google Maps URL:', trimmed);
+    return null;
+  }
+
+  try {
+    let currentUrl = trimmed;
+    let redirects = 0;
+    const maxRedirects = 5;
+
+    while (redirects < maxRedirects) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const response = await fetch(currentUrl, {
         method: 'GET',
-        redirect: 'follow',
+        redirect: 'manual',
+        signal: controller.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept-Language': 'vi,en;q=0.9'
-        }
+          'Accept-Language': 'vi,en;q=0.9',
+        },
       });
-      const finalUrl = response.url;
-      const parsedFromFinal = parseGoogleCoordinates(finalUrl);
+      clearTimeout(timeoutId);
+
+      // Check if redirect
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) break;
+
+        const nextUrl = new URL(location, currentUrl).toString();
+        if (!isSafeMapsUrl(nextUrl)) {
+          console.warn('[SSRF Protection] Blocked redirect to unsafe URL:', nextUrl);
+          return null;
+        }
+
+        currentUrl = nextUrl;
+        redirects++;
+
+        // Test if coordinates are in URL query/path directly
+        const parsedRedirect = parseGoogleCoordinates(currentUrl);
+        if (parsedRedirect) return parsedRedirect;
+        continue;
+      }
+
+      // If successful response, check final URL
+      const parsedFromFinal = parseGoogleCoordinates(currentUrl);
       if (parsedFromFinal) return parsedFromFinal;
 
-      // Sometimes coordinates are inside page HTML meta/scripts
-      const html = await response.text();
-      const protoInHtml = html.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+      // Extract coordinates from HTML (limit to first 256KB to avoid memory exhaustion)
+      const text = await response.text();
+      const limitedText = text.slice(0, 262144);
+
+      const protoInHtml = limitedText.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
       if (protoInHtml) {
         return { lat: parseFloat(protoInHtml[1]), lng: parseFloat(protoInHtml[2]) };
       }
-      const atInHtml = html.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      const atInHtml = limitedText.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
       if (atInHtml) {
         return { lat: parseFloat(atInHtml[1]), lng: parseFloat(atInHtml[2]) };
       }
-      const previewMatch = html.match(/google\.com\/maps\/preview\/place\/[^"]*@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      const previewMatch = limitedText.match(/google\.com\/maps\/preview\/place\/[^"]*@(-?\d+\.\d+),(-?\d+\.\d+)/);
       if (previewMatch) {
         return { lat: parseFloat(previewMatch[1]), lng: parseFloat(previewMatch[2]) };
       }
-    } catch (e) {
+
+      break;
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') {
       console.warn('Failed to resolve short map link:', e.message);
     }
   }

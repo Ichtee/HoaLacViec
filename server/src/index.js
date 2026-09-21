@@ -1,7 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import { connectDB } from './config/db.js';
 
 import authRoutes from './routes/authRoutes.js';
@@ -22,23 +25,55 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middlewares
+// Security Middlewares
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  'http://127.0.0.1:5173',
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || (origin && origin.endsWith('.vercel.app')) || process.env.NODE_ENV !== 'production') {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      (origin && (origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com'))) ||
+      process.env.NODE_ENV !== 'production'
+    ) {
       return callback(null, true);
     }
-    return callback(null, true);
+    return callback(new Error('Chặn truy cập bởi chính sách CORS'));
   },
   credentials: true,
 }));
-app.use(express.json());
+
+// Rate limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // 30 attempts per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Quá nhiều yêu cầu đăng nhập/đăng ký. Vui lòng thử lại sau 15 phút.' },
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600, // 600 requests per 15 mins per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api', generalLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(morgan('dev'));
 
 // API Routes
@@ -63,18 +98,27 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
+  const isDbConnected = mongoose.connection.readyState === 1;
+  res.status(isDbConnected ? 200 : 503).json({
+    status: isDbConnected ? 'ok' : 'degraded',
     service: 'Hoa Lac Viec Backend API',
     time: new Date().toISOString(),
-    database: 'MongoDB Connected',
+    database: isDbConnected ? 'MongoDB Connected' : 'MongoDB Disconnected',
   });
 });
 
-// Error handling middleware
+// Centralized error handling middleware
 app.use((err, req, res, next) => {
+  if (err.message && err.message.includes('CORS')) {
+    return res.status(403).json({ error: err.message });
+  }
   console.error('[Server Error]', err);
-  res.status(500).json({ error: err.message || 'Lỗi hệ thống máy chủ' });
+  const status = err.status || 500;
+  res.status(status).json({
+    error: process.env.NODE_ENV === 'production' && status === 500
+      ? 'Đã xảy ra sự cố nội bộ trên máy chủ.'
+      : err.message || 'Lỗi hệ thống máy chủ',
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
