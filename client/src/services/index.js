@@ -81,8 +81,11 @@ export async function reviewVerification(id, action, reason) {
   return Promise.resolve();
 }
 
-export const getReports = async () => [];
-export const resolveReport = async () => ({ resolved: true });
+export {
+  apiGetReports as getReports,
+  apiCreateReport as createReport,
+  apiResolveReport as resolveReport,
+} from './api.js';
 
 function getLocalSavedJobIds() {
   try {

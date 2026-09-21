@@ -401,3 +401,23 @@ export async function apiDeleteNotification(id) {
   return request(`/notifications/${id}`, { method: 'DELETE' });
 }
 
+// ─── REPORTS ──────────────────────────────────────────────────────
+export async function apiGetReports(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/reports${query ? `?${query}` : ''}`);
+}
+
+export async function apiCreateReport(reportData) {
+  return request('/reports', {
+    method: 'POST',
+    body: JSON.stringify(reportData),
+  });
+}
+
+export async function apiResolveReport(id, resolutionData) {
+  return request(`/reports/${id}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify(resolutionData),
+  });
+}
+

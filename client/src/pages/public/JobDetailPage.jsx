@@ -3,10 +3,10 @@ import { useState, useEffect } from 'react';
 import {
   MapPin, Clock, DollarSign, Users, Star, CheckCircle, Shield,
   Bookmark, BookmarkCheck, Send, ArrowLeft, Bus, AlertTriangle, Calendar, Navigation, ExternalLink,
-  Phone, MessageCircle
+  Phone, MessageCircle, Flag
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
-import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile } from '@/services';
+import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JobCard, MatchScoreBar } from '@/components/JobCard.jsx';
 import { VerifiedBadge, Badge } from '@/components/Badge.jsx';
@@ -32,6 +32,40 @@ export default function JobDetailPage() {
   const [applyError, setApplyError] = useState('');
   const [applySuccess, setApplySuccess] = useState(false);
   const [matchResult, setMatchResult] = useState(null);
+
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('Lừa đảo / Yêu cầu đặt cọc phí');
+  const [reportContent, setReportContent] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+
+  async function handleReportSubmit(e) {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      navigate(`/login?redirect=/jobs/${id}`);
+      return;
+    }
+    try {
+      setSubmittingReport(true);
+      await createReport({
+        targetType: 'job',
+        targetId: job._id || job.id,
+        target: `${job.title} (${job.storeName || ''})`,
+        reason: reportReason,
+        content: reportContent,
+      });
+      setReportSuccess(true);
+      setTimeout(() => {
+        setReportOpen(false);
+        setReportSuccess(false);
+        setReportContent('');
+      }, 2000);
+    } catch (err) {
+      alert(err.message || 'Lỗi gửi báo cáo');
+    } finally {
+      setSubmittingReport(false);
+    }
+  }
 
   useEffect(() => {
     if (user) {
@@ -151,15 +185,21 @@ export default function JobDetailPage() {
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 mt-5">
               {!applySuccess ? (
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={() => isAuthenticated ? setApplyOpen(true) : navigate(`/login?redirect=/jobs/${id}`)}
-                  leftIcon={<Send className="w-4 h-4" />}
-                  className="flex-1"
-                >
-                  Ứng tuyển ngay
-                </Button>
+                isAuthenticated && !isStudent ? (
+                  <div className="flex-1 px-4 py-3 bg-gray-100 rounded-2xl text-xs text-gray-500 font-medium text-center flex items-center justify-center">
+                    Tài khoản {user?.role === 'employer' ? 'Nhà tuyển dụng' : 'Quản trị viên'} (Chỉ dành cho sinh viên ứng tuyển)
+                  </div>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={() => isAuthenticated ? setApplyOpen(true) : navigate(`/login?redirect=/jobs/${id}`)}
+                    leftIcon={<Send className="w-4 h-4" />}
+                    className="flex-1"
+                  >
+                    Ứng tuyển ngay
+                  </Button>
+                )
               ) : (
                 <div className="flex-1 flex items-center gap-2 px-6 py-3 bg-green-light rounded-full">
                   <CheckCircle className="w-5 h-5 text-green-main" />
@@ -344,6 +384,26 @@ export default function JobDetailPage() {
               {emp?.description && <p className="text-xs leading-relaxed mt-2">{emp.description}</p>}
             </div>
           </div>
+
+          {/* Safety & Report Scam */}
+          <div className="card bg-red-50/40 border border-red-100 p-4">
+            <div className="flex items-start gap-2.5">
+              <Shield className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-xs">
+                <p className="font-bold text-gray-800">Cảnh báo an toàn</p>
+                <p className="text-gray-500 text-[11px] leading-relaxed">
+                  Tuyệt đối không nộp bất kỳ khoản phí giữ chỗ hoặc giao CCCD/thẻ sinh viên gốc cho người tuyển dụng.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-bold pt-1 transition-colors"
+                >
+                  <Flag className="w-3.5 h-3.5" /> Báo cáo tin có dấu hiệu lừa đảo
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -447,6 +507,67 @@ export default function JobDetailPage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Report Scam / Violation Modal */}
+      <Modal isOpen={reportOpen} onClose={() => setReportOpen(false)} title="Báo cáo tin tuyển dụng vi phạm" size="md">
+        {reportSuccess ? (
+          <div className="p-6 text-center space-y-2">
+            <CheckCircle className="w-10 h-10 text-green-main mx-auto" />
+            <h4 className="font-bold text-base text-text-main">Đã gửi báo cáo thành công!</h4>
+            <p className="text-xs text-text-muted">
+              Cảm ơn bạn đã đóng góp giúp môi trường việc làm sinh viên Hòa Lạc an toàn và minh bạch.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleReportSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-bold text-text-main mb-1">Lý do báo cáo vi phạm:</label>
+              <select
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
+              >
+                <option value="Lừa đảo / Yêu cầu đặt cọc phí">Lừa đảo / Yêu cầu đặt cọc tiền giữ chỗ</option>
+                <option value="Thông tin mức lương sai sự thật">Thông tin mức lương / địa chỉ sai lệch thực tế</option>
+                <option value="Yêu cầu giữ giấy tờ tùy thân gốc">Yêu cầu giữ CCCD / Thẻ sinh viên gốc</option>
+                <option value="Thái độ đe dọa / Quấy rối">Thái độ không chuẩn mực / Quấy rối</option>
+                <option value="Lý do khác">Lý do khác</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-text-main mb-1">
+                Mô tả chi tiết bằng chứng <span className="text-red-500">*</span>:
+              </label>
+              <textarea
+                rows={4}
+                required
+                value={reportContent}
+                onChange={(e) => setReportContent(e.target.value)}
+                placeholder="Mô tả cụ thể sự việc đã xảy ra, tin nhắn hoặc bằng chứng trao đổi..."
+                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-gray-100 text-text-muted font-semibold hover:bg-gray-200"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submittingReport}
+                className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50"
+              >
+                {submittingReport ? 'Đang gửi...' : 'Gửi báo cáo vi phạm'}
+              </button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );
