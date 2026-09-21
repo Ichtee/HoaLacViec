@@ -21,5 +21,7 @@ const employerProfileSchema = new mongoose.Schema({
   ratingCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
+employerProfileSchema.index({ userId: 1 }, { unique: true });
+
 export const EmployerProfile = mongoose.model('EmployerProfile', employerProfileSchema);
 

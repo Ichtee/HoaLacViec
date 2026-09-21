@@ -10,6 +10,7 @@ import { Blog } from '../models/Blog.js';
 import { Shift } from '../models/Shift.js';
 import { Application } from '../models/Application.js';
 import { Review } from '../models/Review.js';
+import { EmployerVerification } from '../models/EmployerVerification.js';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ async function seed() {
       User.deleteMany({}),
       StudentProfile.deleteMany({}),
       EmployerProfile.deleteMany({}),
+      EmployerVerification.deleteMany({}),
       Job.deleteMany({}),
       Availability.deleteMany({}),
       MicroTask.deleteMany({}),
@@ -135,6 +137,31 @@ async function seed() {
       rating: 4.5,
       ratingCount: 18,
     });
+
+    await EmployerVerification.create([
+      {
+        employerUserId: employerUser._id,
+        storeName: 'Café Xanh Hòa Lạc',
+        legalName: 'Nguyễn Văn Cường',
+        taxCode: '0108991234',
+        idCardNumber: '001201004567',
+        businessAddress: 'Tầng 1, Tòa A, KĐT FPT Hòa Lạc',
+        contactPhone: '0901231001',
+        status: 'approved',
+        reviewedAt: new Date(),
+      },
+      {
+        employerUserId: employerUser2._id,
+        storeName: 'Bách Hóa SV Market',
+        legalName: 'Lê Thị Thu Hà',
+        taxCode: '0109123456',
+        idCardNumber: '001202007890',
+        businessAddress: 'Số 12 Đường Nội Khu, KCN Cao Hòa Lạc',
+        contactPhone: '0912342002',
+        status: 'approved',
+        reviewedAt: new Date(),
+      },
+    ]);
 
     // 3. Availability for student 1
     await Availability.create({

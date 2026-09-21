@@ -642,7 +642,17 @@ export default function EmployerJobsPage() {
                       </h3>
                     </div>
 
-                    {isClosed ? (
+                    {job.status === 'pending' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        Chờ duyệt
+                      </span>
+                    ) : job.status === 'rejected' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 shrink-0" title={job.rejectionReason || 'Chưa đạt tiêu chuẩn'}>
+                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                        Bị từ chối
+                      </span>
+                    ) : isClosed ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-700 border border-gray-300 shrink-0">
                         <span className="w-2 h-2 rounded-full bg-gray-500"></span>
                         Đã đóng
@@ -654,6 +664,18 @@ export default function EmployerJobsPage() {
                       </span>
                     )}
                   </div>
+
+                  {job.status === 'rejected' && job.rejectionReason && (
+                    <div className="mt-2 p-2 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs">
+                      <strong>Lý do từ chối:</strong> {job.rejectionReason}
+                    </div>
+                  )}
+
+                  {job.status === 'pending' && (
+                    <div className="mt-2 p-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-[11px]">
+                      Tin tuyển dụng đang được Quản trị viên Hòa Lạc Việc kiểm duyệt trước khi hiển thị công khai.
+                    </div>
+                  )}
 
                   <div className="mt-3 space-y-1 text-xs text-text-muted">
                     <div className="flex items-center gap-1.5 text-orange-600 font-bold">

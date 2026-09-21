@@ -260,12 +260,37 @@ export async function apiUpdateEmployerProfile(userId, data) {
 }
 
 // ─── ADMIN ────────────────────────────────────────────────────────
+export async function apiAdminGetStats() {
+  return request('/admin/stats');
+}
+
 export async function apiGetAllUsers() {
   return request('/admin/users');
 }
 
-export async function apiAdminGetJobs() {
-  return request('/admin/jobs');
+export async function apiAdminUpdateUserStatus(userId, status) {
+  return request(`/admin/users/${userId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function apiAdminGetJobs(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/admin/jobs${query ? `?${query}` : ''}`);
+}
+
+export async function apiApproveJob(id) {
+  return request(`/admin/jobs/${id}/approve`, {
+    method: 'POST',
+  });
+}
+
+export async function apiRejectJob(id, reason) {
+  return request(`/admin/jobs/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
 }
 
 export async function apiAdminUpdateJob(id, data) {
@@ -275,13 +300,32 @@ export async function apiAdminUpdateJob(id, data) {
   });
 }
 
-export async function apiGetVerificationRequests() {
-  return request('/admin/verifications');
+export async function apiGetVerificationRequests(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/admin/verifications${query ? `?${query}` : ''}`);
 }
 
 export async function apiApproveVerification(id) {
   return request(`/admin/verifications/${id}/approve`, {
     method: 'POST',
+  });
+}
+
+export async function apiRejectVerification(id, reason) {
+  return request(`/admin/verifications/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function apiGetEmployerVerification() {
+  return request('/profiles/employer-verification/me');
+}
+
+export async function apiSubmitEmployerVerification(verificationData) {
+  return request('/profiles/employer-verification/submit', {
+    method: 'POST',
+    body: JSON.stringify(verificationData),
   });
 }
 

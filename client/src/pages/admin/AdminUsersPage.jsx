@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Users, Lock, Unlock, Search, ShieldCheck } from 'lucide-react';
 import { clsx } from 'clsx';
-import { getAllUsers } from '@/services';
+import { getAllUsers, apiAdminUpdateUserStatus } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
@@ -28,9 +28,18 @@ export default function AdminUsersPage() {
     }
   }
 
-  function handleToggleLock(userId) {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: u.status === 'locked' ? 'active' : 'locked' } : u));
-    setToast({ type: 'info', message: 'Đã thay đổi trạng thái tài khoản.' });
+  async function handleToggleLock(userId, currentStatus) {
+    const newStatus = currentStatus === 'locked' ? 'active' : 'locked';
+    try {
+      await apiAdminUpdateUserStatus(userId, newStatus);
+      setUsers(prev => prev.map(u => (u._id === userId || u.id === userId) ? { ...u, status: newStatus } : u));
+      setToast({
+        type: newStatus === 'locked' ? 'info' : 'success',
+        message: newStatus === 'locked' ? 'Đã khóa tài khoản người dùng.' : 'Đã mở khóa tài khoản thành công.'
+      });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Lỗi khi cập nhật trạng thái tài khoản.' });
+    }
   }
 
   const filtered = users.filter(u => {
@@ -91,7 +100,7 @@ export default function AdminUsersPage() {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleToggleLock(userItem.id)}
+                  onClick={() => handleToggleLock(userItem._id || userItem.id, userItem.status)}
                   className={clsx(
                     'p-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors',
                     userItem.status === 'locked' ? 'bg-green-50 text-green-dark' : 'bg-red-50 text-red-600 hover:bg-red-100'

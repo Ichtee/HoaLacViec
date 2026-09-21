@@ -49,12 +49,15 @@ export {
   apiGetAllUsers as getAllUsers,
 } from './api.js';
 
-import { apiApproveVerification, apiGetJobs } from './api.js';
+import { apiApproveVerification, apiRejectVerification, apiGetJobs } from './api.js';
 
-export async function reviewVerification(id, action) {
+export async function reviewVerification(id, action, reason) {
   const act = typeof action === 'object' ? action?.status : action;
+  const resReason = typeof action === 'object' ? action?.reason : reason;
   if (act === 'approve' || act === 'approved') {
     return apiApproveVerification(id);
+  } else if (act === 'reject' || act === 'rejected') {
+    return apiRejectVerification(id, resReason);
   }
   return Promise.resolve();
 }

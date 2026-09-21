@@ -20,5 +20,7 @@ const studentProfileSchema = new mongoose.Schema({
   profileComplete: { type: Boolean, default: true },
 }, { timestamps: true });
 
+studentProfileSchema.index({ userId: 1 }, { unique: true });
+
 export const StudentProfile = mongoose.model('StudentProfile', studentProfileSchema);
 

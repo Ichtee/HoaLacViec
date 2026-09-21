@@ -49,13 +49,14 @@ function createVietnameseRegex(query) {
   return new RegExp(pattern, 'i');
 }
 
-// Helper: Compute match score combining Schedule + Distance
+// Helper: Compute match score combining Schedule + Distance without fake baselines
 function computeMatch(job, availability, studentLocation) {
-  let scheduleScore = 80; // default baseline
+  let scheduleScore = null;
   let hasConflict = false;
+  let scheduleInfo = 'Chưa có thông tin lịch rảnh';
 
-  // Schedule match calculation
-  if (availability && availability.slots && job.schedule && job.schedule.length > 0) {
+  // Real Schedule match calculation
+  if (availability && availability.slots && Object.keys(availability.slots).length > 0 && job.schedule && job.schedule.length > 0) {
     const dayKeys = ['', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     let matches = 0;
     job.schedule.forEach(s => {
@@ -70,26 +71,42 @@ function computeMatch(job, availability, studentLocation) {
       }
     });
     scheduleScore = Math.round((matches / job.schedule.length) * 100);
+    scheduleInfo = hasConflict
+      ? `Khớp ${matches}/${job.schedule.length} ca làm`
+      : 'Trùng khớp 100% lịch rảnh';
   }
 
-  // Distance match calculation
+  // Real Distance match calculation
   let distanceKm = null;
-  let distanceScore = 80;
-  if (studentLocation && job.location) {
+  let distanceScore = null;
+  let distanceInfo = 'Chưa thiết lập vị trí sinh viên';
+
+  if (studentLocation && studentLocation.lat && job.location && job.location.lat) {
     distanceKm = calculateDistance(
       studentLocation.lat, studentLocation.lng,
       job.location.lat, job.location.lng
     );
     if (distanceKm !== null) {
-      if (distanceKm <= 1.0) distanceScore = 100; // Siêu gần, đi bộ được (< 1km)
+      if (distanceKm <= 1.0) distanceScore = 100; // Đi bộ được (< 1km)
       else if (distanceKm <= 2.5) distanceScore = 85; // Đi xe đạp/xe máy 5 phút
       else if (distanceKm <= 5.0) distanceScore = 70; // Hòa Lạc nội khu
       else distanceScore = Math.max(30, Math.round(100 - distanceKm * 7));
+
+      distanceInfo = distanceKm <= 1.2
+        ? `Rất gần (~${distanceKm}km, có thể đi bộ)`
+        : `Cách ${distanceKm}km`;
     }
   }
 
-  // Overall combined score: 60% schedule + 40% distance
-  const overallScore = Math.round(scheduleScore * 0.6 + distanceScore * 0.4);
+  // If both are missing, match score is null
+  let overallScore = null;
+  if (scheduleScore !== null && distanceScore !== null) {
+    overallScore = Math.round(scheduleScore * 0.6 + distanceScore * 0.4);
+  } else if (scheduleScore !== null) {
+    overallScore = scheduleScore;
+  } else if (distanceScore !== null) {
+    overallScore = distanceScore;
+  }
 
   return {
     score: overallScore,
@@ -97,11 +114,10 @@ function computeMatch(job, availability, studentLocation) {
     distanceScore,
     distanceKm,
     hasConflict,
-    recommendation: distanceKm !== null && distanceKm <= 1.2
-      ? 'Rất gần (~' + distanceKm + 'km, có thể đi bộ)'
-      : distanceKm !== null
-      ? 'Cách ' + distanceKm + 'km'
-      : 'Khu vực Hòa Lạc'
+    hasEnoughData: overallScore !== null,
+    scheduleInfo,
+    distanceInfo,
+    recommendation: distanceInfo,
   };
 }
 
@@ -116,62 +132,87 @@ router.get('/', async (req, res) => {
       studentId,
       storeName,
       employerId,
+      employerUserId,
       status,
-      limit = 50,
+      page = 1,
+      limit = 12,
       featured,
       sort,
     } = req.query;
 
-    const filter = {};
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 12));
+    const skip = (pageNum - 1) * limitNum;
 
+    const andConditions = [];
+
+    // Status filter: Public visitors only see approved jobs
     if (status) {
-      filter.status = status;
-    } else if (!storeName && !employerId) {
-      // Default public view only displays approved jobs
-      filter.status = 'approved';
+      andConditions.push({ status });
+    } else if (!storeName && !employerId && !employerUserId) {
+      andConditions.push({ status: 'approved' });
     }
 
-    if (storeName || employerId) {
-      const orConditions = [];
+    // Employer / Store scoping
+    const empTarget = employerUserId || employerId;
+    if (storeName || empTarget) {
+      const empOr = [];
       if (storeName) {
-        orConditions.push({ storeName: { $regex: new RegExp(`^${storeName}$`, 'i') } });
+        empOr.push({ storeName: { $regex: new RegExp(`^${storeName}$`, 'i') } });
       }
-      if (employerId) {
-        orConditions.push({ employerId: employerId });
+      if (empTarget) {
+        empOr.push({ employerUserId: empTarget });
+        empOr.push({ employerProfileId: empTarget });
+        empOr.push({ employerId: empTarget });
         try {
-          const profile = await EmployerProfile.findOne({ userId: employerId });
+          const profile = await EmployerProfile.findOne({
+            $or: [{ _id: empTarget }, { userId: empTarget }]
+          });
           if (profile) {
-            orConditions.push({ employerId: profile._id });
+            empOr.push({ employerProfileId: profile._id });
+            empOr.push({ employerUserId: profile.userId });
             if (profile.storeName) {
-              orConditions.push({ storeName: { $regex: new RegExp(`^${profile.storeName}$`, 'i') } });
+              empOr.push({ storeName: { $regex: new RegExp(`^${profile.storeName}$`, 'i') } });
             }
           }
         } catch (e) {}
       }
-      if (orConditions.length > 0) {
-        filter.$or = orConditions;
+      if (empOr.length > 0) {
+        andConditions.push({ $or: empOr });
       }
     }
 
+    // Search filter (diacritic-insensitive)
     if (search) {
       const searchRegex = createVietnameseRegex(search);
       const tagRegex = new RegExp(search.trim().replace(/\s+/g, '_'), 'i');
-      filter.$or = [
-        { title: { $regex: searchRegex } },
-        { storeName: { $regex: searchRegex } },
-        { description: { $regex: searchRegex } },
-        { address: { $regex: searchRegex } },
-        { tags: { $in: [searchRegex, tagRegex] } },
-      ];
+      andConditions.push({
+        $or: [
+          { title: { $regex: searchRegex } },
+          { storeName: { $regex: searchRegex } },
+          { description: { $regex: searchRegex } },
+          { address: { $regex: searchRegex } },
+          { tags: { $in: [searchRegex, tagRegex] } },
+        ]
+      });
     }
 
-    if (type) filter.type = type;
-    if (area) filter.area = area;
-    if (featured === 'true') filter.featured = true;
+    if (type) andConditions.push({ type });
+    if (area) andConditions.push({ area });
+    if (featured === 'true') andConditions.push({ featured: true });
 
-    let jobs = await Job.find(filter).sort({ featured: -1, createdAt: -1 }).limit(Number(limit)).lean();
+    const finalFilter = andConditions.length > 0 ? { $and: andConditions } : {};
 
-    // If studentId provided, enhance with schedule and distance match score!
+    // Get total count server-side
+    const total = await Job.countDocuments(finalFilter);
+
+    let jobs = await Job.find(finalFilter)
+      .sort({ featured: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    // If studentId provided, enhance with schedule and distance match score
     if (studentId) {
       const [avail, profile] = await Promise.all([
         Availability.findOne({ userId: studentId }),
@@ -192,7 +233,16 @@ router.get('/', async (req, res) => {
       }
     }
 
-    res.json({ jobs, total: jobs.length });
+    res.json({
+      jobs,
+      total,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -254,9 +304,15 @@ router.post('/', authenticate, async (req, res) => {
 
     // Resolve employer identity from authenticated user
     const profile = await EmployerProfile.findOne({ userId: req.user._id });
-    data.employerId = profile ? profile._id : req.user._id;
-    if (profile?.storeName && !data.storeName) {
-      data.storeName = profile.storeName;
+    data.employerUserId = req.user._id;
+    if (profile) {
+      data.employerProfileId = profile._id;
+      data.employerId = profile._id;
+      if (profile.storeName && !data.storeName) {
+        data.storeName = profile.storeName;
+      }
+    } else {
+      data.employerId = req.user._id;
     }
 
     // Normalize salary
@@ -265,8 +321,10 @@ router.post('/', authenticate, async (req, res) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Status: if profile is verified or admin, approve; else pending
-    if (req.user.role === 'admin' || profile?.verified) {
+    // Status: if admin, allow status in body; if verified employer, approve; else pending
+    if (req.user.role === 'admin') {
+      data.status = data.status || 'approved';
+    } else if (profile?.verified) {
       data.status = data.status || 'approved';
     } else {
       data.status = 'pending';
@@ -309,8 +367,27 @@ router.put('/:id', authenticate, async (req, res) => {
       const allowedOwnerIds = [req.user._id.toString()];
       if (profile) allowedOwnerIds.push(profile._id.toString());
 
-      if (job.employerId && !allowedOwnerIds.includes(job.employerId.toString())) {
+      const isOwner = (job.employerUserId && job.employerUserId.toString() === req.user._id.toString()) ||
+                      (job.employerId && allowedOwnerIds.includes(job.employerId.toString()));
+      if (!isOwner) {
         return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa tin tuyển dụng này.' });
+      }
+
+      // Strip fields employer is not allowed to mutate directly
+      delete req.body.employerUserId;
+      delete req.body.employerProfileId;
+      delete req.body.employerId;
+      delete req.body.featured;
+      delete req.body.moderatedBy;
+      delete req.body.moderatedAt;
+
+      // State machine check: if approved job modifies critical info, revert to pending for review
+      const isChangingCore = req.body.title || req.body.salaryAmount || req.body.address || req.body.schedule || req.body.location;
+      if (job.status === 'approved' && isChangingCore) {
+        req.body.status = 'pending';
+        req.body.moderationNote = 'Tin tuyển dụng cần duyệt lại do thay đổi nội dung quan trọng.';
+      } else if (req.body.status && !['paused', 'closed', 'pending'].includes(req.body.status)) {
+        delete req.body.status;
       }
     }
 
@@ -363,7 +440,9 @@ router.delete('/:id', authenticate, async (req, res) => {
       const allowedOwnerIds = [req.user._id.toString()];
       if (profile) allowedOwnerIds.push(profile._id.toString());
 
-      if (job.employerId && !allowedOwnerIds.includes(job.employerId.toString())) {
+      const isOwner = (job.employerUserId && job.employerUserId.toString() === req.user._id.toString()) ||
+                      (job.employerId && allowedOwnerIds.includes(job.employerId.toString()));
+      if (!isOwner) {
         return res.status(403).json({ error: 'Bạn không có quyền xóa tin tuyển dụng này.' });
       }
     }
