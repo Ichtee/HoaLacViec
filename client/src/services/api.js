@@ -342,3 +342,49 @@ export async function apiCreateReview(reviewData) {
   });
 }
 
+// ─── SAVED JOBS ───────────────────────────────────────────────────
+export async function apiGetSavedJobs() {
+  return request('/saved-jobs');
+}
+
+export async function apiGetSavedJobIds() {
+  return request('/saved-jobs/ids');
+}
+
+export async function apiSaveJob(jobId) {
+  return request(`/saved-jobs/${jobId}`, { method: 'POST' });
+}
+
+export async function apiUnsaveJob(jobId) {
+  return request(`/saved-jobs/${jobId}`, { method: 'DELETE' });
+}
+
+export async function apiToggleSaveJob(jobId, isCurrentlySaved) {
+  if (isCurrentlySaved) {
+    return apiUnsaveJob(jobId);
+  }
+  return apiSaveJob(jobId);
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────
+export async function apiGetNotifications(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/notifications${query ? `?${query}` : ''}`);
+}
+
+export async function apiGetUnreadNotificationCount() {
+  return request('/notifications/unread-count');
+}
+
+export async function apiMarkNotificationRead(id) {
+  return request(`/notifications/${id}/read`, { method: 'PUT' });
+}
+
+export async function apiMarkAllNotificationsRead() {
+  return request('/notifications/read-all', { method: 'PUT' });
+}
+
+export async function apiDeleteNotification(id) {
+  return request(`/notifications/${id}`, { method: 'DELETE' });
+}
+

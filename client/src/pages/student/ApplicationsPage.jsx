@@ -50,11 +50,35 @@ export default function ApplicationsPage() {
   }
 
   const filteredApps = applications.filter(a => {
-    if (activeTab === 'pending') return a.status === 'pending';
-    if (activeTab === 'approved') return a.status === 'approved' || a.status === 'accepted';
-    if (activeTab === 'rejected') return a.status === 'rejected';
+    if (activeTab === 'pending') return a.status === 'pending' || !a.status;
+    if (activeTab === 'reviewing') return a.status === 'reviewing' || a.status === 'shortlisted';
+    if (activeTab === 'interview') return a.status === 'interview';
+    if (activeTab === 'approved') return a.status === 'approved' || a.status === 'accepted' || a.status === 'hired';
+    if (activeTab === 'rejected') return a.status === 'rejected' || a.status === 'withdrawn';
     return true;
   });
+
+  const getStudentStatusBadge = (status) => {
+    switch (status) {
+      case 'hired':
+      case 'approved':
+      case 'accepted':
+        return { variant: 'success', label: 'Trúng tuyển 🎉' };
+      case 'interview':
+        return { variant: 'purple', label: 'Mời phỏng vấn 📅' };
+      case 'reviewing':
+        return { variant: 'info', label: 'Đang xem xét' };
+      case 'shortlisted':
+        return { variant: 'info', label: 'Lọt vòng sau' };
+      case 'rejected':
+        return { variant: 'danger', label: 'Chưa phù hợp' };
+      case 'withdrawn':
+        return { variant: 'neutral', label: 'Đã rút đơn' };
+      case 'pending':
+      default:
+        return { variant: 'warning', label: 'Đang chờ duyệt' };
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
@@ -72,18 +96,20 @@ export default function ApplicationsPage() {
         </div>
 
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 p-1.5 bg-cream/70 rounded-2xl border border-green-50 self-start md:self-center">
+        <div className="flex items-center gap-1.5 p-1.5 bg-cream/70 rounded-2xl border border-green-50 self-start md:self-center overflow-x-auto max-w-full">
           {[
             { id: 'all', label: 'Tất cả' },
             { id: 'pending', label: 'Chờ duyệt' },
-            { id: 'approved', label: 'Đã nhận việc' },
-            { id: 'rejected', label: 'Từ chối' }
+            { id: 'reviewing', label: 'Đang xét' },
+            { id: 'interview', label: 'Phỏng vấn' },
+            { id: 'approved', label: 'Trúng tuyển' },
+            { id: 'rejected', label: 'Từ chối / Rút' }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all',
+                'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap',
                 activeTab === tab.id
                   ? 'bg-white text-green-dark shadow-sm'
                   : 'text-text-muted hover:text-text-main'
@@ -106,50 +132,39 @@ export default function ApplicationsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredApps.map(app => (
-            <div
-              key={app.id}
-              className="bg-white p-5 rounded-2xl border border-green-50 shadow-card hover:border-green-main transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-base font-bold text-text-main">{app.jobTitle || app.title}</h3>
-                  <Badge
-                    variant={
-                      app.status === 'approved' || app.status === 'accepted'
-                        ? 'success'
-                        : app.status === 'rejected'
-                        ? 'danger'
-                        : 'warning'
-                    }
-                    size="sm"
-                  >
-                    {app.status === 'approved' || app.status === 'accepted'
-                      ? 'Đã trúng tuyển'
-                      : app.status === 'rejected'
-                      ? 'Không phù hợp'
-                      : 'Đang chờ cửa hàng duyệt'}
-                  </Badge>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
-                  <span className="flex items-center gap-1 font-medium text-green-dark">
-                    <Building2 className="w-3.5 h-3.5 text-green-main" /> {app.storeName}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-red-400" /> {app.location || 'Hòa Lạc'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-blue-500" /> Nộp ngày: {app.appliedAt}
-                  </span>
-                </div>
-
-                {app.note && (
-                  <div className="p-3 rounded-xl bg-green-50/50 text-xs text-text-main font-medium border border-green-100">
-                    💬 Phản hồi cửa hàng: "{app.note}"
+          {filteredApps.map(app => {
+            const badge = getStudentStatusBadge(app.status);
+            return (
+              <div
+                key={app.id || app._id}
+                className="bg-white p-5 rounded-2xl border border-green-50 shadow-card hover:border-green-main transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-base font-bold text-text-main">{app.jobTitle || app.title}</h3>
+                    <Badge variant={badge.variant} size="sm">
+                      {badge.label}
+                    </Badge>
                   </div>
-                )}
-              </div>
+
+                  <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
+                    <span className="flex items-center gap-1 font-medium text-green-dark">
+                      <Building2 className="w-3.5 h-3.5 text-green-main" /> {app.storeName}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-red-400" /> {app.location || 'Hòa Lạc'}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-blue-500" /> Nộp ngày: {app.appliedAt || (app.createdAt ? new Date(app.createdAt).toLocaleDateString('vi-VN') : 'Mới đây')}
+                    </span>
+                  </div>
+
+                  {(app.candidateFeedback || app.employerNote || app.note) && (
+                    <div className="p-3 rounded-xl bg-green-50/70 text-xs text-text-main font-medium border border-green-100">
+                      💬 <strong>Phản hồi từ cửa hàng:</strong> "{app.candidateFeedback || app.employerNote || app.note}"
+                    </div>
+                  )}
+                </div>
 
               <div className="flex items-center gap-2 border-t md:border-t-0 pt-3 md:pt-0 border-green-50 justify-end">
                 <button
@@ -168,7 +183,7 @@ export default function ApplicationsPage() {
                   </button>
                 )}
 
-                {(app.status === 'approved' || app.status === 'accepted') && (
+                {(app.status === 'approved' || app.status === 'accepted' || app.status === 'hired') && (
                   <Link
                     to="/student/shifts"
                     className="px-3.5 py-2 rounded-xl bg-green-main text-white text-xs font-semibold hover:bg-green-dark transition-all flex items-center gap-1"
@@ -178,7 +193,8 @@ export default function ApplicationsPage() {
                 )}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 

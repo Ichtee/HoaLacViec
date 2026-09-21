@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
+import { NotificationDropdown } from './NotificationDropdown.jsx';
 
 const NAV_PUBLIC = [
   { to: '/jobs', label: 'Tìm Việc' },
@@ -64,7 +65,9 @@ export function Navbar() {
           {/* Right side */}
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
-              <div className="relative">
+              <>
+                <NotificationDropdown />
+                <div className="relative">
                 <button
                   onClick={() => setDropOpen(!dropOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-green-50 transition-colors"
@@ -98,6 +101,7 @@ export function Navbar() {
                   </>
                 )}
               </div>
+              </>
             ) : (
               <div className="flex items-center gap-2">
                 <Link to="/login" className="btn-ghost btn btn-sm hidden sm:inline-flex">Đăng nhập</Link>

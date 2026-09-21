@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
+import { NotificationDropdown } from '@/components/NotificationDropdown.jsx';
 
 const STUDENT_NAV = [
   { to: '/student', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -115,6 +116,7 @@ export default function StudentLayout() {
           </button>
 
           <div className="flex items-center gap-3 ml-auto">
+            <NotificationDropdown />
             <span className="text-xs text-text-muted hidden sm:inline">
               Chào mừng, <strong className="text-text-main">{user?.name}</strong>
             </span>

@@ -16,6 +16,8 @@ import shiftRoutes from './routes/shiftRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import savedJobRoutes from './routes/savedJobRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 dotenv.config();
 
@@ -86,6 +88,8 @@ app.use('/api/shifts', shiftRoutes);
 app.use('/api/profiles', profileRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/saved-jobs', savedJobRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Root & Health check
 app.get('/', (req, res) => {

@@ -17,11 +17,21 @@ export default function SavedJobsPage() {
   async function loadSavedJobs() {
     try {
       setLoading(true);
-      const savedIds = await getSavedJobs();
-      const allJobsRes = await getJobs({ limit: 50 });
-      const allJobs = allJobsRes?.jobs || [];
-      const filtered = allJobs.filter(j => savedIds.includes(j.id));
-      setSavedJobs(filtered);
+      const res = await getSavedJobs();
+      if (Array.isArray(res)) {
+        if (res.length > 0 && typeof res[0] === 'object' && res[0].title) {
+          // Backend returned full populated job items
+          setSavedJobs(res.map(j => ({ ...j, id: j._id || j.id })));
+        } else {
+          // Returned list of IDs
+          const allJobsRes = await getJobs({ limit: 100 });
+          const allJobs = allJobsRes?.jobs || (Array.isArray(allJobsRes) ? allJobsRes : []);
+          const filtered = allJobs.filter(j => res.includes(j._id || j.id));
+          setSavedJobs(filtered);
+        }
+      } else {
+        setSavedJobs([]);
+      }
     } catch (err) {
       console.error(err);
     } finally {

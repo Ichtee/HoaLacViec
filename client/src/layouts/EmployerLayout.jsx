@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
+import { NotificationDropdown } from '@/components/NotificationDropdown.jsx';
 
 const EMPLOYER_NAV = [
   { to: '/employer', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -80,10 +81,24 @@ export default function EmployerLayout() {
         </>
       )}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        <div className="lg:hidden sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-green-50 px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl hover:bg-green-50"><Menu className="w-5 h-5" /></button>
-          <span className="font-bold text-green-dark text-sm">Hoa Lạc Việc — Nhà tuyển dụng</span>
-        </div>
+        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-green-50 h-16 flex items-center justify-between px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-xl hover:bg-green-50" aria-label="Menu">
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="font-bold text-green-dark text-sm hidden sm:inline">Hoa Lạc Việc — Kênh Quản Lý Nhà Tuyển Dụng</span>
+          </div>
+
+          <div className="flex items-center gap-3 ml-auto">
+            <NotificationDropdown />
+            <span className="text-xs text-text-muted hidden sm:inline">
+              <strong className="text-text-main">{user?.name}</strong>
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-green-main text-white flex items-center justify-center font-bold text-sm shadow-sm">
+              {user?.name?.[0] || 'E'}
+            </div>
+          </div>
+        </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8"><Outlet /></main>
       </div>
     </div>
