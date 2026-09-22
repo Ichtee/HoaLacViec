@@ -51,7 +51,7 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   const { data: latestJobsData, loading } = useAsync(
-    () => getJobs({ public: true, limit: 12, sort: 'newest' }),
+    () => getJobs({ public: true, limit: 12, sort: 'featured' }),
     [],
     { initialData: [] }
   );

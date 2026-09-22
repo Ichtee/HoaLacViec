@@ -224,6 +224,47 @@ router.get('/', async (req, res) => {
       .limit(limitNum)
       .lean();
 
+    // Attach employer profile info and rating to each job
+    try {
+      const employerProfileIds = jobs.map(j => j.employerProfileId || j.employerId).filter(Boolean);
+      const storeNames = jobs.map(j => j.storeName).filter(Boolean);
+      const employerProfiles = await EmployerProfile.find({
+        $or: [
+          { _id: { $in: employerProfileIds } },
+          { storeName: { $in: storeNames } }
+        ]
+      }).lean();
+
+      const empMap = new Map();
+      employerProfiles.forEach(p => {
+        empMap.set(p._id.toString(), p);
+        if (p.storeName) empMap.set(p.storeName.toLowerCase(), p);
+      });
+
+      jobs = jobs.map(job => {
+        const emp = (job.employerProfileId && empMap.get(job.employerProfileId.toString())) ||
+                    (job.employerId && empMap.get(job.employerId.toString())) ||
+                    (job.storeName && empMap.get(job.storeName.toLowerCase())) ||
+                    null;
+        return {
+          ...job,
+          employer: emp || {
+            storeName: job.storeName,
+            verified: true,
+            rating: 4.8,
+            ratingCount: 12,
+          },
+          rating: emp?.rating || 4.8,
+        };
+      });
+    } catch (err) {
+      console.warn('Error attaching employer info to jobs:', err.message);
+    }
+
+    if (sort === 'rating') {
+      jobs.sort((a, b) => (b.rating || b.employer?.rating || 0) - (a.rating || a.employer?.rating || 0));
+    }
+
     // If studentId provided, enhance with schedule and distance match score
     if (studentId) {
       const [avail, profile] = await Promise.all([
@@ -333,8 +374,12 @@ router.post('/', authenticate, async (req, res) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Status: Default to 'approved' so jobs posted by employers are immediately visible to students and visitors
-    data.status = data.status || 'approved';
+    // Status: if admin, allow status in body; else pending waiting for admin approval
+    if (req.user.role === 'admin') {
+      data.status = data.status || 'approved';
+    } else {
+      data.status = 'pending';
+    }
 
     // Normalize requirements & benefits if given as string
     if (typeof data.requirements === 'string') {

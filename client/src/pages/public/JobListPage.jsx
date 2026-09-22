@@ -21,6 +21,7 @@ export default function JobListPage() {
   const [type, setType] = useState(params.get('type') || '');
   const [area, setArea] = useState(params.get('area') || '');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
   const [viewMode, setViewMode] = useState('map'); // Default map view or list view
   const [page, setPage] = useState(1);
@@ -71,8 +72,17 @@ export default function JobListPage() {
   const dSearch = useDebounce(search, 350);
 
   const { data: allJobs, loading, error, run } = useAsync(
-    () => getJobs({ public: true, search: dSearch, type, area, verified: verifiedOnly || undefined, limit: 100, sort: 'newest' }),
-    [dSearch, type, area, verifiedOnly],
+    () => getJobs({
+      public: true,
+      search: dSearch,
+      type,
+      area,
+      verified: verifiedOnly || undefined,
+      featured: featuredOnly ? 'true' : undefined,
+      limit: 100,
+      sort: sort
+    }),
+    [dSearch, type, area, verifiedOnly, featuredOnly, sort],
     { initialData: [] }
   );
 
@@ -84,15 +94,32 @@ export default function JobListPage() {
     });
   }, [isAuthenticated, profileId]);
 
-  // Filter jobs by minimum salary
+  // Filter jobs by minimum salary & featuredOnly
   const filtered = (allJobs || []).filter((j) => {
     if (minSalary && (j.salaryAmount || 0) < Number(minSalary)) return false;
+    if (featuredOnly && !j.featured) return false;
     return true;
   });
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
     if (sort === 'salary_desc') return (b.salaryAmount || 0) - (a.salaryAmount || 0);
+    if (sort === 'salary_asc') return (a.salaryAmount || 0) - (b.salaryAmount || 0);
+    if (sort === 'rating') {
+      const rateB = b.rating || b.employer?.rating || 0;
+      const rateA = a.rating || a.employer?.rating || 0;
+      return rateB - rateA;
+    }
+    if (sort === 'featured') {
+      if (Boolean(b.featured) !== Boolean(a.featured)) {
+        return b.featured ? 1 : -1;
+      }
+      return new Date(b.createdAt || b.postedAt || 0) - new Date(a.createdAt || a.postedAt || 0);
+    }
+    if (sort === 'oldest') {
+      return new Date(a.createdAt || a.postedAt || 0) - new Date(b.createdAt || b.postedAt || 0);
+    }
+    // Default newest
     const dateB = new Date(b.createdAt || b.postedAt || 0).getTime();
     const dateA = new Date(a.createdAt || a.postedAt || 0).getTime();
     return dateB - dateA;
@@ -119,11 +146,13 @@ export default function JobListPage() {
     setType('');
     setArea('');
     setVerifiedOnly(false);
+    setFeaturedOnly(false);
     setMinSalary('');
+    setSort('newest');
     setPage(1);
   }
 
-  const hasFilters = Boolean(search || type || area || verifiedOnly || minSalary);
+  const hasFilters = Boolean(search || type || area || verifiedOnly || featuredOnly || minSalary || sort !== 'newest');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fade-in">
@@ -247,11 +276,18 @@ export default function JobListPage() {
         <Select
           id="sort-select"
           value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="w-auto min-w-[170px]"
+          onChange={(e) => {
+            setSort(e.target.value);
+            setPage(1);
+          }}
+          className="w-auto min-w-[190px]"
         >
           <option value="newest">🕒 Mới nhất</option>
+          <option value="featured">⭐ Việc nổi bật</option>
+          <option value="rating">🌟 Đánh giá cao nhất</option>
           <option value="salary_desc">💰 Lương cao nhất</option>
+          <option value="salary_asc">💵 Lương thấp đến cao</option>
+          <option value="oldest">⏳ Cũ nhất</option>
         </Select>
       </div>
 
@@ -292,8 +328,8 @@ export default function JobListPage() {
               ))}
             </Select>
 
-            <div className="flex flex-col gap-1 pb-0.5">
-              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-2xl bg-cream/70 hover:bg-green-50 border border-green-100 transition-colors">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-2xl bg-cream/70 hover:bg-green-50 border border-green-100 transition-colors flex-1">
                 <input
                   type="checkbox"
                   checked={verifiedOnly}
@@ -304,7 +340,22 @@ export default function JobListPage() {
                   className="w-4 h-4 accent-green-main rounded"
                 />
                 <span className="text-xs font-bold text-text-main select-none">
-                  🛡️ Quán đã xác thực
+                  🛡️ Quán xác thực
+                </span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-2xl bg-cream/70 hover:bg-pink-50 border border-pink-100 transition-colors flex-1">
+                <input
+                  type="checkbox"
+                  checked={featuredOnly}
+                  onChange={(e) => {
+                    setFeaturedOnly(e.target.checked);
+                    setPage(1);
+                  }}
+                  className="w-4 h-4 accent-pink-600 rounded"
+                />
+                <span className="text-xs font-bold text-text-main select-none">
+                  ⭐ Việc nổi bật
                 </span>
               </label>
             </div>
