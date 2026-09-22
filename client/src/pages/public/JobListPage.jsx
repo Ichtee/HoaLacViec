@@ -71,7 +71,7 @@ export default function JobListPage() {
   const dSearch = useDebounce(search, 350);
 
   const { data: allJobs, loading, error, run } = useAsync(
-    () => getJobs({ public: true, search: dSearch, type, area, verified: verifiedOnly || undefined }),
+    () => getJobs({ public: true, search: dSearch, type, area, verified: verifiedOnly || undefined, limit: 100, sort: 'newest' }),
     [dSearch, type, area, verifiedOnly],
     { initialData: [] }
   );
@@ -93,7 +93,9 @@ export default function JobListPage() {
   // Sort
   const sorted = [...filtered].sort((a, b) => {
     if (sort === 'salary_desc') return (b.salaryAmount || 0) - (a.salaryAmount || 0);
-    return new Date(b.postedAt) - new Date(a.postedAt);
+    const dateB = new Date(b.createdAt || b.postedAt || 0).getTime();
+    const dateA = new Date(a.createdAt || a.postedAt || 0).getTime();
+    return dateB - dateA;
   });
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);

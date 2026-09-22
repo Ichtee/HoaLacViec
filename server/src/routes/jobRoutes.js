@@ -135,13 +135,13 @@ router.get('/', async (req, res) => {
       employerUserId,
       status,
       page = 1,
-      limit = 12,
+      limit = 50,
       featured,
       sort,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.min(50, Math.max(1, parseInt(limit) || 12));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
     const skip = (pageNum - 1) * limitNum;
 
     const andConditions = [];
@@ -206,8 +206,20 @@ router.get('/', async (req, res) => {
     // Get total count server-side
     const total = await Job.countDocuments(finalFilter);
 
+    // Sorting logic: default newest first (createdAt: -1)
+    let sortObj = { createdAt: -1 };
+    if (sort === 'oldest') {
+      sortObj = { createdAt: 1 };
+    } else if (sort === 'salary_desc') {
+      sortObj = { salaryAmount: -1, createdAt: -1 };
+    } else if (sort === 'salary_asc') {
+      sortObj = { salaryAmount: 1, createdAt: -1 };
+    } else if (sort === 'featured' || featured === 'true') {
+      sortObj = { featured: -1, createdAt: -1 };
+    }
+
     let jobs = await Job.find(finalFilter)
-      .sort({ featured: -1, createdAt: -1 })
+      .sort(sortObj)
       .skip(skip)
       .limit(limitNum)
       .lean();
@@ -321,14 +333,8 @@ router.post('/', authenticate, async (req, res) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Status: if admin, allow status in body; if verified employer, approve; else pending
-    if (req.user.role === 'admin') {
-      data.status = data.status || 'approved';
-    } else if (profile?.verified) {
-      data.status = data.status || 'approved';
-    } else {
-      data.status = 'pending';
-    }
+    // Status: Default to 'approved' so jobs posted by employers are immediately visible to students and visitors
+    data.status = data.status || 'approved';
 
     // Normalize requirements & benefits if given as string
     if (typeof data.requirements === 'string') {

@@ -67,3 +67,4 @@ employerVerificationSchema.index({ employerUserId: 1 }, { unique: true });
 employerVerificationSchema.index({ status: 1 });
 
 export const EmployerVerification = mongoose.model('EmployerVerification', employerVerificationSchema);
+

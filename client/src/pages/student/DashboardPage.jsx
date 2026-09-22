@@ -26,7 +26,7 @@ export default function StudentDashboard() {
           getShifts(),
           getApplications({ studentId: user?.id }),
           getSavedJobs(),
-          getJobs({ limit: 4 })
+          getJobs({ limit: 4, sort: 'newest' })
         ]);
         setShifts(allShifts || []);
         setApplications(allApps || []);

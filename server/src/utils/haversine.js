@@ -36,3 +36,4 @@ export function calculateHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
 
   return Math.round(R * c);
 }
+

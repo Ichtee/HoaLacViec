@@ -31,3 +31,4 @@ const reportSchema = new mongoose.Schema(
 reportSchema.index({ status: 1, createdAt: -1 });
 
 export const Report = mongoose.model('Report', reportSchema);
+

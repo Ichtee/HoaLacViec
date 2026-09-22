@@ -50,13 +50,14 @@ export default function HomePage() {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
-  const { data: featuredJobs, loading } = useAsync(
-    () => getJobs({ public: true }),
+  const { data: latestJobsData, loading } = useAsync(
+    () => getJobs({ public: true, limit: 12, sort: 'newest' }),
     [],
     { initialData: [] }
   );
 
-  const featured = (featuredJobs || []).filter((j) => j.featured).slice(0, 4);
+  const jobsList = Array.isArray(latestJobsData) ? latestJobsData : (latestJobsData?.jobs || []);
+  const featured = jobsList.slice(0, 4);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -165,7 +166,7 @@ export default function HomePage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {featured.map((job) => (
-              <JobCard key={job.id} job={job} />
+              <JobCard key={job._id || job.id} job={job} />
             ))}
           </div>
         )}
