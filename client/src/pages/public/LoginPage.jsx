@@ -32,12 +32,12 @@ export default function LoginPage() {
   }, [loading]);
 
   const redirectAfterLogin = (sessionUser) => {
-    if (from) {
-      navigate(from, { replace: true });
+    if (sessionUser?.status === 'pending' || sessionUser?.role === 'pending') {
+      navigate('/verify-account', { replace: true });
       return;
     }
-    if (sessionUser?.status === 'pending' || sessionUser?.role === 'pending') {
-      navigate('/verify-account');
+    if (from) {
+      navigate(from, { replace: true });
       return;
     }
     const dashboards = {

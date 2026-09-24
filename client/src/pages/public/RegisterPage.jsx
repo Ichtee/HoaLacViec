@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { Input } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const navigate = useNavigate();
+
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -26,6 +29,30 @@ export default function RegisterPage() {
     }
     return () => clearTimeout(timer);
   }, [loading]);
+
+  async function handleGoogleSuccess(credentialResponse) {
+    if (loading) return;
+    const credential = credentialResponse?.credential;
+    if (!credential) {
+      setErrors({ submit: 'Không nhận được mã xác thực từ Google. Vui lòng thử lại.' });
+      return;
+    }
+    setLoading(true);
+    setErrors({});
+    try {
+      const session = await googleLogin(credential);
+      if (session?.user?.status === 'pending' || session?.user?.role === 'pending') {
+        navigate('/verify-account');
+      } else {
+        const dashboards = { student: '/student', employer: '/employer', admin: '/admin' };
+        navigate(dashboards[session?.user?.role] || '/');
+      }
+    } catch (err) {
+      setErrors({ submit: err.message || 'Đăng ký bằng Google không thành công. Vui lòng thử lại.' });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function validate() {
     const e = {};
@@ -91,6 +118,28 @@ export default function RegisterPage() {
               Sau khi đăng ký, bạn có thể xác minh thẻ sinh viên để tìm việc ngay, hoặc nộp hồ sơ mở cửa hàng tuyển dụng.
             </p>
           </div>
+
+          {/* Google Sign Up */}
+          {googleClientId && (
+            <div className="flex flex-col items-center justify-center mb-4">
+              <div className={`w-full flex justify-center ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setErrors({ submit: 'Đăng nhập bằng Google thất bại hoặc đã bị đóng.' })}
+                  text="signup_with"
+                  shape="pill"
+                  size="large"
+                  locale="vi"
+                />
+              </div>
+              <div className="relative flex items-center justify-center w-full mt-4 mb-1">
+                <div className="border-t border-gray-200 w-full" />
+                <span className="bg-white px-3 text-xs text-text-muted font-medium uppercase tracking-wider relative z-10">
+                  Hoặc bằng email
+                </span>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
             <Input
