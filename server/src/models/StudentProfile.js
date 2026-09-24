@@ -14,7 +14,11 @@ const studentProfileSchema = new mongoose.Schema({
   },
   bio: { type: String, default: '' },
   skills: [{ type: String }],
-  transport: { type: String, enum: ['di_bo', 'xe_dap', 'xe_may', 'xe_buyt'], default: 'xe_may' },
+  transport: {
+    type: String,
+    enum: ['xe_may', 'di_bo', 'xe_buyt', 'xe_dap', 'xe_dap_dien', 'o_to'],
+    default: 'xe_may',
+  },
   reputationScore: { type: Number, default: 5.0 },
   reputationCount: { type: Number, default: 0 },
   profileComplete: { type: Boolean, default: true },

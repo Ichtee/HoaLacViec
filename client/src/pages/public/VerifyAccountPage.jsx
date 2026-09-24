@@ -503,9 +503,11 @@ export default function VerifyAccountPage() {
                   onChange={(e) => setTransport(e.target.value)}
                   options={[
                     { value: 'xe_may', label: 'Xe máy' },
-                    { value: 'xe_dap', label: 'Xe đạp / Xe điện' },
-                    { value: 'xe_buyt', label: 'Xe buýt' },
                     { value: 'di_bo', label: 'Đi bộ' },
+                    { value: 'xe_buyt', label: 'Xe buýt' },
+                    { value: 'xe_dap', label: 'Xe đạp' },
+                    { value: 'xe_dap_dien', label: 'Xe đạp điện' },
+                    { value: 'o_to', label: 'Ô tô' },
                   ]}
                 />
               </div>
