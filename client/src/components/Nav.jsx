@@ -41,7 +41,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group py-1">
+          <Link to={isPending ? '/verify-account' : '/'} className="flex items-center gap-2 group py-1">
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
@@ -49,27 +49,29 @@ export function Navbar() {
             />
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-1">
-            {NAV_PUBLIC.map((n) => (
-              <Link
-                key={n.to}
-                to={n.to}
-                className={clsx(
-                  'px-4 py-2 rounded-xl text-sm font-medium transition-colors',
-                  location.pathname.startsWith(n.to) ? 'bg-green-light text-green-dark font-semibold' : 'text-text-muted hover:text-green-dark hover:bg-green-50'
-                )}
-              >
-                {n.label}
-              </Link>
-            ))}
-          </div>
+          {/* Desktop nav (Ẩn khi tài khoản đang pending) */}
+          {!isPending && (
+            <div className="hidden md:flex items-center gap-1">
+              {NAV_PUBLIC.map((n) => (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  className={clsx(
+                    'px-4 py-2 rounded-xl text-sm font-medium transition-colors',
+                    location.pathname.startsWith(n.to) ? 'bg-green-light text-green-dark font-semibold' : 'text-text-muted hover:text-green-dark hover:bg-green-50'
+                  )}
+                >
+                  {n.label}
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Right side */}
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
               <>
-                <NotificationDropdown />
+                {!isPending && <NotificationDropdown />}
                 <div className="relative">
                 <button
                   onClick={() => setDropOpen(!dropOpen)}
@@ -120,19 +122,21 @@ export function Navbar() {
               </div>
             )}
 
-            {/* Mobile menu toggle */}
-            <button
-              className="md:hidden p-2 rounded-xl hover:bg-green-50 transition-colors"
-              onClick={() => setMenuOpen(!menuOpen)}
-              aria-label="Menu"
-            >
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+            {/* Mobile menu toggle (Ẩn khi pending vì chỉ xem verify) */}
+            {!isPending && (
+              <button
+                className="md:hidden p-2 rounded-xl hover:bg-green-50 transition-colors"
+                onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="Menu"
+              >
+                {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Mobile menu */}
-        {menuOpen && (
+        {!isPending && menuOpen && (
           <div className="md:hidden border-t border-green-50 py-3 flex flex-col gap-1">
             {NAV_PUBLIC.map((n) => (
               <Link

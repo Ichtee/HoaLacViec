@@ -82,3 +82,43 @@ export function RedirectIfAuthenticated({ children }) {
   }
   return children;
 }
+
+/**
+ * Global enforcer: If a logged-in user is in pending state,
+ * they are ONLY allowed to access /verify-account.
+ * Any attempt to access any other route is immediately redirected to /verify-account.
+ */
+export function PendingRouteEnforcer() {
+  const { isAuthenticated, user, role } = useAuth();
+  const location = useLocation();
+
+  const isPending = isAuthenticated && (user?.status === 'pending' || role === 'pending');
+
+  if (isPending && location.pathname !== '/verify-account') {
+    return <Navigate to="/verify-account" replace />;
+  }
+
+  return null;
+}
+
+/**
+ * Route guard for /verify-account page:
+ * - Requires authentication
+ * - If user is already active (not pending), redirects to their role dashboard
+ */
+export function RequirePending({ children }) {
+  const { isAuthenticated, user, role } = useAuth();
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  const isPending = user?.status === 'pending' || role === 'pending';
+  if (!isPending) {
+    const dashboards = { student: '/student', employer: '/employer', admin: '/admin' };
+    return <Navigate to={dashboards[role] || '/'} replace />;
+  }
+
+  return children;
+}

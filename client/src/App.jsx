@@ -8,7 +8,13 @@ import EmployerLayout from '@/layouts/EmployerLayout.jsx';
 import AdminLayout from '@/layouts/AdminLayout.jsx';
 
 // Route Guards
-import { RequireAuth, RequireRole, RedirectIfAuthenticated } from '@/components/RouteGuard.jsx';
+import {
+  RequireAuth,
+  RequireRole,
+  RedirectIfAuthenticated,
+  PendingRouteEnforcer,
+  RequirePending,
+} from '@/components/RouteGuard.jsx';
 
 // Public Pages
 import HomePage from '@/pages/public/HomePage.jsx';
@@ -52,6 +58,7 @@ export default function App() {
 
   return (
     <Router>
+      <PendingRouteEnforcer />
       <Routes>
         {/* Public Routes */}
         <Route element={<PublicLayout />}>
@@ -80,9 +87,9 @@ export default function App() {
           <Route
             path="/verify-account"
             element={
-              <RequireAuth>
+              <RequirePending>
                 <VerifyAccountPage />
-              </RequireAuth>
+              </RequirePending>
             }
           />
         </Route>
