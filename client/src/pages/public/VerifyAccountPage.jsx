@@ -20,6 +20,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
   submitStudentVerification,
+  getStudentVerification,
   getEmployerVerification,
   submitEmployerVerification,
   getUniversities,
@@ -46,7 +47,9 @@ export default function VerifyAccountPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Student verification form
+  // Student verification form & state
+  const [existingStudentVerification, setExistingStudentVerification] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(false);
   const [university, setUniversity] = useState('Đại học FPT Hòa Lạc');
   const [uniSearch, setUniSearch] = useState('Đại học FPT Hòa Lạc');
   const [universityList, setUniversityList] = useState([]);
@@ -111,25 +114,56 @@ export default function VerifyAccountPage() {
   const [description, setDescription] = useState('');
   const [storePhoto, setStorePhoto] = useState('');
 
-  // Fetch employer verification status if user already submitted
+  // Fetch verification status for both student and employer on load
   useEffect(() => {
     async function checkVerification() {
       try {
         setFetchingStatus(true);
-        const data = await getEmployerVerification();
-        if (data && data.status && data.status !== 'draft') {
-          setExistingVerification(data);
-          // If already submitted as employer, show employer tab by default
+        const [empRes, stuRes] = await Promise.allSettled([
+          getEmployerVerification(),
+          getStudentVerification(),
+        ]);
+
+        let hasEmployer = false;
+        let hasStudent = false;
+
+        if (empRes.status === 'fulfilled' && empRes.value && empRes.value.status && empRes.value.status !== 'draft') {
+          const empData = empRes.value;
+          setExistingVerification(empData);
+          hasEmployer = true;
+          if (empData.storeName) setStoreName(empData.storeName);
+          if (empData.legalName) setLegalName(empData.legalName);
+          if (empData.businessAddress) setBusinessAddress(empData.businessAddress);
+          if (empData.contactPhone) setContactPhone(empData.contactPhone);
+          if (empData.idCardNumber) setIdCardNumber(empData.idCardNumber);
+          if (empData.taxCode) setTaxCode(empData.taxCode);
+        }
+
+        if (stuRes.status === 'fulfilled' && stuRes.value) {
+          const stuData = stuRes.value;
+          const status = stuData.verificationStatus || stuData.status;
+          if (status !== 'draft' || stuData.studentCardPhoto) {
+            setExistingStudentVerification(stuData);
+            hasStudent = true;
+            if (stuData.university) {
+              setUniversity(stuData.university);
+              setUniSearch(stuData.university);
+            }
+            if (stuData.studentCode) setStudentCode(stuData.studentCode);
+            if (stuData.major) setMajor(stuData.major);
+            if (stuData.transport) setTransport(stuData.transport);
+            if (stuData.studentCardPhoto) setStudentCardPhoto(stuData.studentCardPhoto);
+          }
+        }
+
+        // Auto select tab based on existing submission
+        if (hasEmployer && !hasStudent) {
           setActiveTab('employer');
-          if (data.storeName) setStoreName(data.storeName);
-          if (data.legalName) setLegalName(data.legalName);
-          if (data.businessAddress) setBusinessAddress(data.businessAddress);
-          if (data.contactPhone) setContactPhone(data.contactPhone);
-          if (data.idCardNumber) setIdCardNumber(data.idCardNumber);
-          if (data.taxCode) setTaxCode(data.taxCode);
+        } else {
+          setActiveTab('student');
         }
       } catch (err) {
-        // Not an employer yet or no record
+        // No record yet
       } finally {
         setFetchingStatus(false);
       }
@@ -196,12 +230,11 @@ export default function VerifyAccountPage() {
       });
 
       updateUser(res.user);
-      setSuccess('Xác minh thành công! Đang chuyển đến Trang việc làm sinh viên...');
-      setTimeout(() => {
-        navigate('/student');
-      }, 1200);
+      setExistingStudentVerification(res.profile);
+      setEditingStudent(false);
+      setSuccess('Hồ sơ thẻ sinh viên đã được gửi thành công! Ban Quản Trị sẽ xét duyệt để kích hoạt tài khoản của bạn.');
     } catch (err) {
-      setError(err.message || 'Lỗi khi xác minh sinh viên. Vui lòng thử lại.');
+      setError(err.message || 'Lỗi khi gửi hồ sơ xác minh sinh viên. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -323,13 +356,28 @@ export default function VerifyAccountPage() {
               <div className="w-12 h-12 rounded-2xl bg-green-100 text-green-700 flex items-center justify-center text-xl font-bold mb-3">
                 <GraduationCap className="w-6 h-6" />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-50 text-green-700">
-                Kích hoạt ngay
+              <span className={clsx(
+                "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
+                  ? "bg-amber-100 text-amber-800"
+                  : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
+                  ? "bg-green-100 text-green-800"
+                  : existingStudentVerification?.verificationStatus === 'rejected'
+                  ? "bg-red-100 text-red-800"
+                  : "bg-green-50 text-green-700"
+              )}>
+                {existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
+                  ? '⏳ Chờ duyệt'
+                  : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
+                  ? '✓ Đã duyệt'
+                  : existingStudentVerification?.verificationStatus === 'rejected'
+                  ? '✕ Bị từ chối'
+                  : 'Duyệt thẻ SV'}
               </span>
             </div>
             <h3 className="text-base font-bold text-text-main">Tôi là Sinh viên</h3>
             <p className="text-xs text-text-muted mt-1 leading-relaxed">
-              Tải ảnh thẻ sinh viên hoặc ảnh thẻ học viên để xác minh danh tính và nhận việc làm ngay.
+              Tải ảnh thẻ sinh viên hoặc học viên để Ban Quản Trị đối soát và kích hoạt tài khoản.
             </p>
           </button>
 
@@ -351,8 +399,23 @@ export default function VerifyAccountPage() {
               <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl font-bold mb-3">
                 <Building2 className="w-6 h-6" />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-700">
-                Admin duyệt ~24h
+              <span className={clsx(
+                "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                existingVerification?.status === 'pending'
+                  ? "bg-amber-100 text-amber-800"
+                  : existingVerification?.status === 'approved'
+                  ? "bg-purple-100 text-purple-800"
+                  : existingVerification?.status === 'rejected'
+                  ? "bg-red-100 text-red-800"
+                  : "bg-purple-50 text-purple-700"
+              )}>
+                {existingVerification?.status === 'pending'
+                  ? '⏳ Chờ duyệt'
+                  : existingVerification?.status === 'approved'
+                  ? '✓ Đã duyệt'
+                  : existingVerification?.status === 'rejected'
+                  ? '✕ Bị từ chối'
+                  : 'Admin duyệt ~24h'}
               </span>
             </div>
             <h3 className="text-base font-bold text-text-main">Tôi là Nhà tuyển dụng / Cửa hàng</h3>
@@ -365,208 +428,330 @@ export default function VerifyAccountPage() {
         {/* Content Box */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-green-100">
           {activeTab === 'student' ? (
-            /* Student Verification Form */
-            <form onSubmit={handleSubmitStudent} className="space-y-5">
-              <div className="border-b border-gray-100 pb-4">
-                <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-green-main" />
-                  Xác minh thông tin sinh viên
-                </h2>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Hoa Lạc Việc chỉ lưu trữ thẻ sinh viên để bảo vệ quyền lợi sinh viên và phòng ngừa lừa đảo.
-                </p>
-              </div>
+            existingStudentVerification && (existingStudentVerification.verificationStatus === 'pending' || existingStudentVerification.status === 'pending') && !editingStudent ? (
+              /* Already submitted and pending */
+              <div className="space-y-6 text-center py-6 animate-fade-in">
+                <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto text-2xl shadow-sm">
+                  <Clock className="w-8 h-8 animate-pulse" />
+                </div>
+                <div className="max-w-md mx-auto space-y-2">
+                  <h3 className="text-xl font-bold text-text-main">
+                    Hồ sơ thẻ sinh viên đang chờ Admin duyệt
+                  </h3>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    Thông tin và ảnh chụp thẻ sinh viên của bạn đã được gửi tới Ban Quản Trị Hoa Lạc Việc. Chúng tôi sẽ phê duyệt tài khoản của bạn sớm nhất.
+                  </p>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Searchable University Combobox */}
-                <div className="relative" ref={uniDropdownRef}>
-                  <label className="block text-xs font-bold text-text-main mb-1.5">
-                    Trường Đại học / Cao đẳng <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      required
-                      value={uniSearch}
-                      onChange={(e) => {
-                        setUniSearch(e.target.value);
-                        setUniversity(e.target.value);
-                        setIsUniDropdownOpen(true);
-                      }}
-                      onFocus={() => setIsUniDropdownOpen(true)}
-                      placeholder="Gõ hoặc bấm để chọn trường..."
-                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all placeholder-gray-400 bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setIsUniDropdownOpen(!isUniDropdownOpen)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                      aria-label="Toggle university list"
-                    >
-                      <ChevronDown
-                        className={clsx(
-                          'w-4 h-4 transition-transform duration-200',
-                          isUniDropdownOpen && 'rotate-180'
-                        )}
-                      />
-                    </button>
+                {/* Summary Box */}
+                <div className="max-w-md mx-auto bg-gray-50 rounded-2xl p-4 text-left border border-gray-100 text-xs space-y-2.5">
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Họ và tên:</span>
+                    <span className="font-semibold text-text-main">{user?.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Email:</span>
+                    <span className="font-semibold text-text-main">{user?.email}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Mã số sinh viên:</span>
+                    <span className="font-semibold text-text-main">{existingStudentVerification.studentCode || '---'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Trường ĐH / CĐ:</span>
+                    <span className="font-semibold text-text-main">{existingStudentVerification.university || '---'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Chuyên ngành:</span>
+                    <span className="font-semibold text-text-main">{existingStudentVerification.major || '---'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-muted">Trạng thái:</span>
+                    <span className="font-bold text-amber-700">⏳ Đang chờ Admin duyệt</span>
                   </div>
 
-                  {/* Dropdown Menu */}
-                  {isUniDropdownOpen && (
-                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-modal border border-green-100 py-1.5 z-50 max-h-60 overflow-y-auto animate-scale-in">
-                      {loadingUnis ? (
-                        <div className="p-3 text-center text-xs text-text-muted">
-                          ⏳ Đang tải danh sách trường từ hệ thống...
-                        </div>
-                      ) : filteredUniversities.length > 0 ? (
-                        <>
-                          <div className="px-3 py-1 text-[11px] font-semibold text-text-muted bg-gray-50 uppercase tracking-wider flex justify-between">
-                            <span>Gợi ý ({filteredUniversities.length})</span>
-                            <span className="text-[10px] text-green-700">Bấm để chọn</span>
-                          </div>
-                          {filteredUniversities.map((u, idx) => {
-                            const isSelected =
-                              (university || '').toLowerCase() === (u.name || '').toLowerCase();
-                            return (
-                              <button
-                                key={`${u.name}-${idx}`}
-                                type="button"
-                                onClick={() => {
-                                  setUniversity(u.name);
-                                  setUniSearch(u.name);
-                                  setIsUniDropdownOpen(false);
-                                }}
-                                className={clsx(
-                                  'w-full text-left px-3.5 py-2.5 text-xs transition-colors flex items-center justify-between hover:bg-green-50/70 border-b border-gray-50 last:border-0',
-                                  isSelected
-                                    ? 'bg-green-50 text-green-dark font-bold'
-                                    : 'text-text-main'
-                                )}
-                              >
-                                <div className="flex items-center gap-2 truncate pr-2">
-                                  {isSelected && <Check className="w-3.5 h-3.5 text-green-main flex-shrink-0" />}
-                                  <span className="truncate">{u.name}</span>
-                                </div>
-                                {u.domain && (
-                                  <span className="text-[10px] text-gray-400 font-mono flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded">
-                                    {u.domain}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </>
-                      ) : (
-                        <div className="p-3 text-xs text-text-muted text-center space-y-1.5">
-                          <p>Không có kết quả trong danh mục khớp với "{uniSearch}".</p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUniversity(uniSearch.trim());
-                              setIsUniDropdownOpen(false);
-                            }}
-                            className="px-3 py-1 bg-green-50 text-green-dark text-xs font-semibold rounded-xl hover:bg-green-100 transition-colors inline-block"
-                          >
-                            ✓ Sử dụng tên trường này: "{uniSearch}"
-                          </button>
-                        </div>
-                      )}
+                  {existingStudentVerification.studentCardPhoto && (
+                    <div className="pt-2 border-t border-gray-200">
+                      <p className="text-[11px] text-text-muted mb-1.5 font-medium">Ảnh thẻ sinh viên đã nộp:</p>
+                      <div className="rounded-xl overflow-hidden border border-gray-200 bg-white">
+                        <img
+                          src={existingStudentVerification.studentCardPhoto}
+                          alt="Thẻ sinh viên"
+                          className="w-full h-44 object-cover"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
 
-                <Input
-                  id="stu-code"
-                  label="Mã số sinh viên"
-                  value={studentCode}
-                  onChange={(e) => setStudentCode(e.target.value)}
-                  placeholder="Ví dụ: HE180123"
-                  required
-                />
+                <div className="pt-2 flex flex-wrap justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.location.reload()}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1.5" /> Kiểm tra lại
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingStudent(true)}
+                    className="text-xs text-green-dark"
+                  >
+                    Thay đổi thông tin / Nộp lại thẻ
+                  </Button>
+                </div>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  id="stu-major"
-                  label="Chuyên ngành học"
-                  value={major}
-                  onChange={(e) => setMajor(e.target.value)}
-                  placeholder="Kỹ thuật phần mềm, Quản trị..."
-                />
-
-                <Select
-                  id="stu-transport"
-                  label="Phương tiện di chuyển chính"
-                  value={transport}
-                  onChange={(e) => setTransport(e.target.value)}
-                  options={[
-                    { value: 'xe_may', label: 'Xe máy' },
-                    { value: 'di_bo', label: 'Đi bộ' },
-                    { value: 'xe_buyt', label: 'Xe buýt' },
-                    { value: 'xe_dap', label: 'Xe đạp' },
-                    { value: 'xe_dap_dien', label: 'Xe đạp điện' },
-                    { value: 'o_to', label: 'Ô tô' },
-                  ]}
-                />
-              </div>
-
-              {/* Student Card Photo Upload */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-text-main">
-                  Ảnh chụp Thẻ sinh viên (Mặt trước) <span className="text-red-500">*</span>
-                </label>
-
-                {studentCardPhoto ? (
-                  <div className="relative rounded-2xl overflow-hidden border-2 border-green-200 bg-green-50/40 p-3 max-w-sm">
-                    <img
-                      src={studentCardPhoto}
-                      alt="Thẻ sinh viên"
-                      className="w-full h-44 object-cover rounded-xl shadow-sm"
-                    />
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="text-xs text-green-700 font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-4 h-4" /> Đã chọn ảnh
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setStudentCardPhoto('')}
-                        className="text-xs text-red-600 hover:underline font-medium"
-                      >
-                        Đổi ảnh khác
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-green-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-green-50/30 transition-all group">
-                    <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-green-dark group-hover:scale-105 transition-all mb-2">
-                      <Camera className="w-6 h-6" />
-                    </div>
-                    <p className="text-xs font-semibold text-text-main">Bấm để tải ảnh hoặc chụp thẻ sinh viên</p>
-                    <p className="text-[11px] text-text-muted mt-1">Hỗ trợ định dạng JPG, PNG (tối đa 5MB)</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleStudentImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-
-              <div className="pt-2">
+            ) : existingStudentVerification && (existingStudentVerification.verificationStatus === 'approved' || existingStudentVerification.verified) ? (
+              /* Already approved */
+              <div className="text-center py-8 space-y-4 animate-fade-in">
+                <div className="w-16 h-16 rounded-3xl bg-green-100 text-green-700 flex items-center justify-center mx-auto text-2xl shadow-sm">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-green-dark">Thẻ sinh viên đã được phê duyệt!</h3>
+                <p className="text-xs text-text-muted">
+                  Tài khoản sinh viên của bạn đã được kích hoạt thành công.
+                </p>
                 <Button
-                  type="submit"
+                  type="button"
                   variant="primary"
                   size="lg"
-                  loading={loading}
-                  className="w-full sm:w-auto px-8 shadow-sm"
+                  onClick={() => navigate('/student')}
                 >
-                  Xác minh thẻ SV & Kích hoạt tài khoản <ArrowRight className="w-4 h-4 ml-1" />
+                  Vào trang Việc làm Sinh viên <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
-            </form>
+            ) : (
+              /* Student Verification Form */
+              <form onSubmit={handleSubmitStudent} className="space-y-5">
+                <div className="border-b border-gray-100 pb-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-green-main" />
+                      Xác minh thông tin sinh viên
+                    </h2>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      Sau khi gửi thẻ, Ban Quản Trị sẽ xác thực và kích hoạt tài khoản sinh viên cho bạn.
+                    </p>
+                  </div>
+                  {editingStudent && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingStudent(false)}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      Hủy cập nhật
+                    </Button>
+                  )}
+                </div>
+
+                {existingStudentVerification?.verificationStatus === 'rejected' && (
+                  <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      Hồ sơ thẻ sinh viên trước đây bị từ chối:
+                    </p>
+                    <p className="pl-5.5">
+                      {existingStudentVerification.rejectionReason || 'Ảnh thẻ mờ hoặc thông tin không trùng khớp. Vui lòng chụp rõ nét thẻ sinh viên và cập nhật lại.'}
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Searchable University Combobox */}
+                  <div className="relative" ref={uniDropdownRef}>
+                    <label className="block text-xs font-bold text-text-main mb-1.5">
+                      Trường Đại học / Cao đẳng <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        required
+                        value={uniSearch}
+                        onChange={(e) => {
+                          setUniSearch(e.target.value);
+                          setUniversity(e.target.value);
+                          setIsUniDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsUniDropdownOpen(true)}
+                        placeholder="Gõ hoặc bấm để chọn trường..."
+                        className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all placeholder-gray-400 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsUniDropdownOpen(!isUniDropdownOpen)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                        aria-label="Toggle university list"
+                      >
+                        <ChevronDown
+                          className={clsx(
+                            'w-4 h-4 transition-transform duration-200',
+                            isUniDropdownOpen && 'rotate-180'
+                          )}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Dropdown Menu */}
+                    {isUniDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-modal border border-green-100 py-1.5 z-50 max-h-60 overflow-y-auto animate-scale-in">
+                        {loadingUnis ? (
+                          <div className="p-3 text-center text-xs text-text-muted">
+                            ⏳ Đang tải danh sách trường từ hệ thống...
+                          </div>
+                        ) : filteredUniversities.length > 0 ? (
+                          <>
+                            <div className="px-3 py-1 text-[11px] font-semibold text-text-muted bg-gray-50 uppercase tracking-wider flex justify-between">
+                              <span>Gợi ý ({filteredUniversities.length})</span>
+                              <span className="text-[10px] text-green-700">Bấm để chọn</span>
+                            </div>
+                            {filteredUniversities.map((u, idx) => {
+                              const isSelected =
+                                (university || '').toLowerCase() === (u.name || '').toLowerCase();
+                              return (
+                                <button
+                                  key={`${u.name}-${idx}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setUniversity(u.name);
+                                    setUniSearch(u.name);
+                                    setIsUniDropdownOpen(false);
+                                  }}
+                                  className={clsx(
+                                    'w-full text-left px-3.5 py-2.5 text-xs transition-colors flex items-center justify-between hover:bg-green-50/70 border-b border-gray-50 last:border-0',
+                                    isSelected
+                                      ? 'bg-green-50 text-green-dark font-bold'
+                                      : 'text-text-main'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 truncate pr-2">
+                                    {isSelected && <Check className="w-3.5 h-3.5 text-green-main flex-shrink-0" />}
+                                    <span className="truncate">{u.name}</span>
+                                  </div>
+                                  {u.domain && (
+                                    <span className="text-[10px] text-gray-400 font-mono flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded">
+                                      {u.domain}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </>
+                        ) : (
+                          <div className="p-3 text-xs text-text-muted text-center space-y-1.5">
+                            <p>Không có kết quả trong danh mục khớp với "{uniSearch}".</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setUniversity(uniSearch.trim());
+                                setIsUniDropdownOpen(false);
+                              }}
+                              className="px-3 py-1 bg-green-50 text-green-dark text-xs font-semibold rounded-xl hover:bg-green-100 transition-colors inline-block"
+                            >
+                              ✓ Sử dụng tên trường này: "{uniSearch}"
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <Input
+                    id="stu-code"
+                    label="Mã số sinh viên"
+                    value={studentCode}
+                    onChange={(e) => setStudentCode(e.target.value)}
+                    placeholder="Ví dụ: HE180123"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    id="stu-major"
+                    label="Chuyên ngành học"
+                    value={major}
+                    onChange={(e) => setMajor(e.target.value)}
+                    placeholder="Kỹ thuật phần mềm, Quản trị..."
+                  />
+
+                  <Select
+                    id="stu-transport"
+                    label="Phương tiện di chuyển chính"
+                    value={transport}
+                    onChange={(e) => setTransport(e.target.value)}
+                    options={[
+                      { value: 'xe_may', label: 'Xe máy' },
+                      { value: 'di_bo', label: 'Đi bộ' },
+                      { value: 'xe_buyt', label: 'Xe buýt' },
+                      { value: 'xe_dap', label: 'Xe đạp' },
+                      { value: 'xe_dap_dien', label: 'Xe đạp điện' },
+                      { value: 'o_to', label: 'Ô tô' },
+                    ]}
+                  />
+                </div>
+
+                {/* Student Card Photo Upload */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-text-main">
+                    Ảnh chụp Thẻ sinh viên (Mặt trước) <span className="text-red-500">*</span>
+                  </label>
+
+                  {studentCardPhoto ? (
+                    <div className="relative rounded-2xl overflow-hidden border-2 border-green-200 bg-green-50/40 p-3 max-w-sm">
+                      <img
+                        src={studentCardPhoto}
+                        alt="Thẻ sinh viên"
+                        className="w-full h-44 object-cover rounded-xl shadow-sm"
+                      />
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-xs text-green-700 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-4 h-4" /> Đã chọn ảnh
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setStudentCardPhoto('')}
+                          className="text-xs text-red-600 hover:underline font-medium"
+                        >
+                          Đổi ảnh khác
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-green-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-green-50/30 transition-all group">
+                      <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-green-dark group-hover:scale-105 transition-all mb-2">
+                        <Camera className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-semibold text-text-main">Bấm để tải ảnh hoặc chụp thẻ sinh viên</p>
+                      <p className="text-[11px] text-text-muted mt-1">Hỗ trợ định dạng JPG, PNG (tối đa 5MB)</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleStudentImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    loading={loading}
+                    className="w-full sm:w-auto px-8 shadow-sm"
+                  >
+                    Gửi hồ sơ thẻ SV đợi xét duyệt <ArrowRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </form>
+            )
           ) : (
             /* Employer Verification Section */
             <div>

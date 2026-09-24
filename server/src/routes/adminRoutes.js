@@ -3,6 +3,7 @@ import { User } from '../models/User.js';
 import { Job } from '../models/Job.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { EmployerVerification } from '../models/EmployerVerification.js';
+import { StudentProfile } from '../models/StudentProfile.js';
 import { Application } from '../models/Application.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 
@@ -21,7 +22,8 @@ router.get('/stats', async (req, res) => {
       totalJobs,
       pendingJobs,
       approvedJobs,
-      pendingVerifications,
+      pendingEmployerVerifications,
+      pendingStudentVerifications,
       totalApplications,
     ] = await Promise.all([
       User.countDocuments(),
@@ -31,13 +33,18 @@ router.get('/stats', async (req, res) => {
       Job.countDocuments({ status: 'pending' }),
       Job.countDocuments({ status: 'approved' }),
       EmployerVerification.countDocuments({ status: 'pending' }),
+      StudentProfile.countDocuments({ verificationStatus: 'pending' }),
       Application.countDocuments(),
     ]);
 
     res.json({
       users: { total: totalUsers, students: studentCount, employers: employerCount },
       jobs: { total: totalJobs, pending: pendingJobs, approved: approvedJobs },
-      verifications: { pending: pendingVerifications },
+      verifications: {
+        pending: pendingEmployerVerifications + pendingStudentVerifications,
+        employerPending: pendingEmployerVerifications,
+        studentPending: pendingStudentVerifications,
+      },
       applications: { total: totalApplications },
     });
   } catch (err) {
@@ -152,36 +159,142 @@ router.delete('/jobs/:id', async (req, res) => {
   }
 });
 
-// GET /api/admin/verifications (Lấy danh sách hồ sơ xác minh doanh nghiệp)
+// GET /api/admin/verifications (Lấy danh sách hồ sơ xác minh doanh nghiệp & sinh viên)
 router.get('/verifications', async (req, res) => {
   try {
-    const { status } = req.query;
-    const filter = {};
-    if (status && status !== 'all') {
-      filter.status = status;
+    const { status, type } = req.query; // type: 'all' | 'employer' | 'student'
+    const results = [];
+
+    const statusFilter = status && status !== 'all' ? status : null;
+
+    // 1. Fetch Employer Verifications
+    if (!type || type === 'all' || type === 'employer') {
+      const empFilter = statusFilter ? { status: statusFilter } : {};
+      const employerVerifications = await EmployerVerification.find(empFilter)
+        .populate('employerUserId', 'name email phone avatar')
+        .sort({ createdAt: -1 });
+
+      for (const ev of employerVerifications) {
+        results.push({
+          _id: ev._id,
+          id: ev._id,
+          verificationType: 'employer',
+          storeName: ev.storeName,
+          legalName: ev.legalName,
+          taxCode: ev.taxCode,
+          idCardNumber: ev.idCardNumber,
+          businessAddress: ev.businessAddress,
+          contactPhone: ev.contactPhone,
+          documents: ev.documents,
+          status: ev.status,
+          rejectionReason: ev.rejectionReason,
+          reviewedBy: ev.reviewedBy,
+          reviewedAt: ev.reviewedAt,
+          createdAt: ev.createdAt,
+          user: ev.employerUserId,
+        });
+      }
+
+      // Fallback: If no EmployerVerification records exist yet, also check unverified EmployerProfiles
+      if (employerVerifications.length === 0 && (!statusFilter || statusFilter === 'pending')) {
+        const stores = await EmployerProfile.find({ verified: false }).populate('userId', 'name email phone avatar');
+        for (const st of stores) {
+          results.push({
+            _id: st._id,
+            id: st._id,
+            verificationType: 'employer',
+            storeName: st.storeName,
+            legalName: st.contactName,
+            businessAddress: st.address,
+            contactPhone: st.contactPhone,
+            documents: [],
+            status: 'pending',
+            rejectionReason: '',
+            createdAt: st.createdAt,
+            user: st.userId,
+          });
+        }
+      }
     }
 
-    // Try finding in EmployerVerification first
-    const verifications = await EmployerVerification.find(filter)
-      .populate('employerUserId', 'name email phone')
-      .sort({ createdAt: -1 });
+    // 2. Fetch Student Verifications
+    if (!type || type === 'all' || type === 'student') {
+      const stuFilter = {};
+      if (statusFilter) {
+        stuFilter.verificationStatus = statusFilter;
+      } else {
+        // Return students with pending, approved, or rejected status, or who uploaded a card photo
+        stuFilter.$or = [
+          { verificationStatus: { $in: ['pending', 'approved', 'rejected'] } },
+          { studentCardPhoto: { $ne: '' } },
+        ];
+      }
 
-    if (verifications.length > 0) {
-      return res.json(verifications);
+      const studentProfiles = await StudentProfile.find(stuFilter)
+        .populate('userId', 'name email phone avatar status role')
+        .sort({ updatedAt: -1 });
+
+      for (const sp of studentProfiles) {
+        const normalizedStatus = sp.verificationStatus === 'draft' 
+          ? (sp.studentCardPhoto ? 'pending' : 'draft') 
+          : (sp.verificationStatus || (sp.verified ? 'approved' : 'pending'));
+
+        // Skip drafts without photos
+        if (normalizedStatus === 'draft') continue;
+
+        results.push({
+          _id: sp._id,
+          id: sp._id,
+          verificationType: 'student',
+          studentCode: sp.studentCode,
+          university: sp.university,
+          major: sp.major,
+          transport: sp.transport,
+          studentCardPhoto: sp.studentCardPhoto,
+          status: normalizedStatus,
+          verified: sp.verified,
+          rejectionReason: sp.rejectionReason,
+          reviewedBy: sp.reviewedBy,
+          reviewedAt: sp.reviewedAt,
+          createdAt: sp.updatedAt || sp.createdAt,
+          user: sp.userId,
+        });
+      }
     }
 
-    // Fallback to unverified profiles if verification records not yet created
-    const stores = await EmployerProfile.find({ verified: false }).populate('userId');
-    res.json(stores);
+    // Sort combined by createdAt descending
+    results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json(results);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/admin/verifications/:id/approve (Duyệt xác minh doanh nghiệp)
+// POST /api/admin/verifications/:id/approve (Duyệt xác minh doanh nghiệp hoặc sinh viên)
 router.post('/verifications/:id/approve', async (req, res) => {
   try {
-    // 1. Try updating EmployerVerification
+    // 1. Check if ID matches StudentProfile
+    const studentProfile = await StudentProfile.findById(req.params.id);
+    if (studentProfile) {
+      studentProfile.verified = true;
+      studentProfile.verificationStatus = 'approved';
+      studentProfile.rejectionReason = '';
+      studentProfile.reviewedBy = req.user._id;
+      studentProfile.reviewedAt = new Date();
+      studentProfile.verifiedAt = new Date();
+      await studentProfile.save();
+
+      // Activate user account & set role
+      await User.findByIdAndUpdate(studentProfile.userId, {
+        role: 'student',
+        status: 'active',
+      });
+
+      return res.json({ message: 'Đã duyệt thẻ sinh viên thành công!', profile: studentProfile });
+    }
+
+    // 2. Try updating EmployerVerification
     const verification = await EmployerVerification.findById(req.params.id);
     if (verification) {
       verification.status = 'approved';
@@ -202,10 +315,10 @@ router.post('/verifications/:id/approve', async (req, res) => {
         status: 'active',
       });
 
-      return res.json({ message: 'Đã duyệt xác minh thành công', verification });
+      return res.json({ message: 'Đã duyệt xác minh doanh nghiệp thành công!', verification });
     }
 
-    // 2. Fallback if ID is an EmployerProfile
+    // 3. Fallback if ID is an EmployerProfile
     const store = await EmployerProfile.findByIdAndUpdate(
       req.params.id,
       { verified: true, verifiedAt: new Date() },
@@ -231,13 +344,27 @@ router.post('/verifications/:id/approve', async (req, res) => {
   }
 });
 
-// POST /api/admin/verifications/:id/reject (Từ chối xác minh doanh nghiệp)
+// POST /api/admin/verifications/:id/reject (Từ chối xác minh doanh nghiệp hoặc sinh viên)
 router.post('/verifications/:id/reject', async (req, res) => {
   try {
     const { reason } = req.body;
     const defaultReason = reason || 'Thông tin hoặc giấy tờ xác minh chưa đạt yêu cầu.';
 
-    // 1. Try updating EmployerVerification
+    // 1. Check if ID matches StudentProfile
+    const studentProfile = await StudentProfile.findById(req.params.id);
+    if (studentProfile) {
+      studentProfile.verified = false;
+      studentProfile.verificationStatus = 'rejected';
+      studentProfile.rejectionReason = defaultReason;
+      studentProfile.reviewedBy = req.user._id;
+      studentProfile.reviewedAt = new Date();
+      await studentProfile.save();
+
+      // Keep user status as pending so they can re-submit
+      return res.json({ message: 'Đã từ chối thẻ sinh viên', profile: studentProfile });
+    }
+
+    // 2. Try updating EmployerVerification
     const verification = await EmployerVerification.findById(req.params.id);
     if (verification) {
       verification.status = 'rejected';
@@ -251,10 +378,10 @@ router.post('/verifications/:id/reject', async (req, res) => {
         { verified: false }
       );
 
-      return res.json({ message: 'Đã từ chối xác minh', verification });
+      return res.json({ message: 'Đã từ chối xác minh doanh nghiệp', verification });
     }
 
-    // 2. Fallback if ID is an EmployerProfile
+    // 3. Fallback if ID is an EmployerProfile
     const store = await EmployerProfile.findByIdAndUpdate(
       req.params.id,
       { verified: false, rejectionReason: defaultReason },

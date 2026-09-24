@@ -97,19 +97,23 @@ router.get('/student-verification/me', authenticate, async (req, res) => {
   try {
     const profile = await StudentProfile.findOne({ userId: req.user._id });
     res.json({
+      status: profile?.verificationStatus || 'draft',
+      verificationStatus: profile?.verificationStatus || 'draft',
       verified: profile?.verified || false,
       verifiedAt: profile?.verifiedAt || null,
       studentCardPhoto: profile?.studentCardPhoto || '',
       studentCode: profile?.studentCode || '',
       university: profile?.university || '',
       major: profile?.major || '',
+      transport: profile?.transport || 'xe_may',
+      rejectionReason: profile?.rejectionReason || '',
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/profiles/student-verification/submit (Sinh viên nộp thẻ SV để kích hoạt tài khoản)
+// POST /api/profiles/student-verification/submit (Sinh viên nộp thẻ SV để Admin duyệt)
 router.post('/student-verification/submit', authenticate, async (req, res) => {
   try {
     const { studentCardPhoto, university, studentCode, major, transport, bio } = req.body;
@@ -132,8 +136,11 @@ router.post('/student-verification/submit', authenticate, async (req, res) => {
         major: (major || 'Kỹ thuật phần mềm').trim(),
         transport: transport || 'xe_may',
         bio: (bio || '').trim(),
-        verified: true,
-        verifiedAt: new Date(),
+        verified: false,
+        verificationStatus: 'pending',
+        rejectionReason: '',
+        reviewedBy: null,
+        reviewedAt: null,
         profileComplete: true,
       },
       { new: true, upsert: true }
@@ -143,13 +150,13 @@ router.post('/student-verification/submit', authenticate, async (req, res) => {
       req.user._id,
       {
         role: 'student',
-        status: 'active',
+        status: 'pending',
       },
       { new: true }
     ).select('-password');
 
     res.json({
-      message: 'Xác minh thẻ sinh viên thành công! Tài khoản của bạn đã được kích hoạt.',
+      message: 'Hồ sơ thẻ sinh viên đã được gửi thành công và đang chờ Ban Quản Trị xét duyệt.',
       user: {
         id: updatedUser._id,
         name: updatedUser.name,

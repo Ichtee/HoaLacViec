@@ -25,9 +25,28 @@ const studentProfileSchema = new mongoose.Schema({
   studentCardPhoto: { type: String, default: '' },
   verified: { type: Boolean, default: false },
   verifiedAt: { type: Date, default: null },
+  verificationStatus: {
+    type: String,
+    enum: ['draft', 'pending', 'approved', 'rejected'],
+    default: 'draft',
+  },
+  rejectionReason: {
+    type: String,
+    default: '',
+  },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+  },
+  reviewedAt: {
+    type: Date,
+    default: null,
+  },
 }, { timestamps: true });
 
 studentProfileSchema.index({ userId: 1 }, { unique: true });
+studentProfileSchema.index({ verificationStatus: 1 });
 
 export const StudentProfile = mongoose.model('StudentProfile', studentProfileSchema);
 
