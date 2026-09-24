@@ -42,13 +42,7 @@ export default function AdminLayout() {
           ))}
         </nav>
         <div className="p-3 border-t border-green-700">
-          <p className="text-xs text-green-300 px-3 mb-2 truncate">{user?.name}</p>
-          <button
-            onClick={() => { logout(); navigate('/'); }}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-green-200 hover:bg-white/10 transition-colors"
-          >
-            <LogOut className="w-4 h-4" /> Đăng xuất
-          </button>
+          <p className="text-xs text-green-300 px-3 truncate">{user?.name}</p>
         </div>
       </aside>
       <div className="flex-1 ml-60 flex flex-col min-w-0">

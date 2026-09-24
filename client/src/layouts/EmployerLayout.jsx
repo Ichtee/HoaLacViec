@@ -11,7 +11,6 @@ import { UserDropdown } from '@/components/UserDropdown.jsx';
 
 const EMPLOYER_NAV = [
   { to: '/employer', label: 'Tổng quan', icon: LayoutDashboard, end: true },
-  { to: '/employer/profile', label: 'Hồ sơ cửa hàng', icon: Building2 },
   { to: '/employer/jobs', label: 'Tin tuyển dụng', icon: Briefcase },
   { to: '/employer/applications', label: 'Ứng viên', icon: Users },
   { to: '/employer/shifts', label: 'Quản lý ca', icon: Calendar },
@@ -36,14 +35,8 @@ function SidebarLink({ to, icon: Icon, label, end }) {
 }
 
 export default function EmployerLayout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  function handleLogout() {
-    logout();
-    navigate('/');
-  }
 
   const sidebar = (
     <aside className="flex flex-col h-full">
@@ -59,11 +52,6 @@ export default function EmployerLayout() {
       <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto">
         {EMPLOYER_NAV.map((n) => <SidebarLink key={n.to} {...n} />)}
       </nav>
-      <div className="p-3 border-t border-green-50">
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 font-medium transition-colors">
-          <LogOut className="w-4 h-4" /> Đăng xuất
-        </button>
-      </div>
     </aside>
   );
 

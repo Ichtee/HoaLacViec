@@ -50,6 +50,10 @@ import AdminJobsPage from '@/pages/admin/AdminJobsPage.jsx';
 import AdminReportsPage from '@/pages/admin/AdminReportsPage.jsx';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage.jsx';
 
+// Common Account Pages
+import AccountInfoPage from '@/pages/common/AccountInfoPage.jsx';
+import ChangePasswordPage from '@/pages/common/ChangePasswordPage.jsx';
+
 export default function App() {
   useEffect(() => {
     // Pre-warm Render backend on initial app load to minimize cold-start latency
@@ -105,6 +109,8 @@ export default function App() {
         >
           <Route index element={<StudentDashboard />} />
           <Route path="profile" element={<StudentProfilePage />} />
+          <Route path="account" element={<AccountInfoPage />} />
+          <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="jobs" element={<JobListPage />} />
           <Route path="tasks" element={<MicroTasksPage />} />
           <Route path="saved" element={<SavedJobsPage />} />
@@ -124,6 +130,8 @@ export default function App() {
         >
           <Route index element={<EmployerDashboardPage />} />
           <Route path="profile" element={<StoreProfilePage />} />
+          <Route path="account" element={<AccountInfoPage />} />
+          <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="jobs" element={<EmployerJobsPage />} />
           <Route path="applications" element={<EmployerApplicationsPage />} />
           <Route path="shifts" element={<EmployerShiftsPage />} />
@@ -139,6 +147,8 @@ export default function App() {
           }
         >
           <Route index element={<AdminDashboardPage />} />
+          <Route path="account" element={<AccountInfoPage />} />
+          <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="verification" element={<AdminVerificationPage />} />
           <Route path="jobs" element={<AdminJobsPage />} />
           <Route path="reports" element={<AdminReportsPage />} />

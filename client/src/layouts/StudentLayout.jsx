@@ -12,7 +12,6 @@ import { UserDropdown } from '@/components/UserDropdown.jsx';
 
 const STUDENT_NAV = [
   { to: '/student', label: 'Tổng quan', icon: LayoutDashboard, end: true },
-  { to: '/student/profile', label: 'Hồ sơ', icon: User },
   { to: '/student/jobs', label: 'Tìm việc', icon: Search },
   { to: '/student/tasks', label: 'Chợ việc vặt', icon: ShoppingBag },
   { to: '/student/saved', label: 'Đã lưu', icon: Bookmark },
@@ -42,14 +41,8 @@ function SidebarLink({ to, icon: Icon, label, end }) {
 }
 
 export default function StudentLayout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  function handleLogout() {
-    logout();
-    navigate('/');
-  }
 
   const sidebar = (
     <aside className="flex flex-col h-full">
@@ -72,13 +65,6 @@ export default function StudentLayout() {
           <SidebarLink key={n.to} {...n} />
         ))}
       </nav>
-
-      {/* Bottom */}
-      <div className="p-3 border-t border-green-50">
-        <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 font-medium transition-colors">
-          <LogOut className="w-4 h-4" /> Đăng xuất
-        </button>
-      </div>
     </aside>
   );
 
