@@ -7,6 +7,7 @@ import {
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { NotificationDropdown } from '@/components/NotificationDropdown.jsx';
+import { UserDropdown } from '@/components/UserDropdown.jsx';
 
 const EMPLOYER_NAV = [
   { to: '/employer', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -91,12 +92,7 @@ export default function EmployerLayout() {
 
           <div className="flex items-center gap-3 ml-auto">
             <NotificationDropdown />
-            <span className="text-xs text-text-muted hidden sm:inline">
-              <strong className="text-text-main">{user?.name}</strong>
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-green-main text-white flex items-center justify-center font-bold text-sm shadow-sm">
-              {user?.name?.[0] || 'E'}
-            </div>
+            <UserDropdown showWelcome={true} />
           </div>
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8"><Outlet /></main>

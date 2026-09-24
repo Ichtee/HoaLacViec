@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { Leaf, LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, LogOut } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
+import { UserDropdown } from '@/components/UserDropdown.jsx';
 
 const ADMIN_NAV = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -50,8 +51,14 @@ export default function AdminLayout() {
           </button>
         </div>
       </aside>
-      <div className="flex-1 ml-60">
-        <main className="p-6 lg:p-8"><Outlet /></main>
+      <div className="flex-1 ml-60 flex flex-col min-w-0">
+        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100 h-16 flex items-center justify-between px-6">
+          <span className="font-bold text-gray-800 text-sm">Hệ Thống Quản Trị Hoa Lạc Việc</span>
+          <div className="flex items-center gap-3 ml-auto">
+            <UserDropdown showWelcome={true} />
+          </div>
+        </header>
+        <main className="p-6 lg:p-8 flex-1"><Outlet /></main>
       </div>
     </div>
   );

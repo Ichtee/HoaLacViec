@@ -337,8 +337,63 @@ router.get('/me', authenticate, async (req, res, next) => {
       phone: user.phone,
       avatar: user.avatar,
       status: user.status,
+      hasPassword: Boolean(user.password),
       profileId: profile?._id || null,
       profile,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/auth/profile (Cập nhật thông tin cá nhân cơ bản: họ tên, SĐT, avatar)
+router.put('/profile', authenticate, async (req, res, next) => {
+  try {
+    const { name, phone, avatar } = req.body;
+    const updates = {};
+
+    if (typeof name === 'string' && name.trim()) {
+      if (name.trim().length < 2) {
+        return res.status(400).json({ error: 'Họ và tên phải có ít nhất 2 ký tự.' });
+      }
+      updates.name = name.trim();
+    }
+
+    if (typeof phone === 'string') {
+      updates.phone = phone.trim();
+    }
+
+    if (typeof avatar === 'string') {
+      updates.avatar = avatar.trim();
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updates },
+      { new: true }
+    );
+
+    let profile = null;
+    if (updatedUser.role === 'student') {
+      profile = await StudentProfile.findOne({ userId: updatedUser._id });
+    } else if (updatedUser.role === 'employer') {
+      profile = await EmployerProfile.findOne({ userId: updatedUser._id });
+    }
+
+    res.json({
+      message: 'Cập nhật thông tin cá nhân thành công!',
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        avatar: updatedUser.avatar,
+        status: updatedUser.status,
+        hasPassword: Boolean(updatedUser.password),
+        profileId: profile?._id || null,
+        profile,
+      },
     });
   } catch (err) {
     next(err);
@@ -349,14 +404,8 @@ router.get('/me', authenticate, async (req, res, next) => {
 router.post('/change-password', authenticate, async (req, res, next) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({
-        error: 'Vui lòng nhập mật khẩu cũ và mật khẩu mới.',
-        code: 'MISSING_FIELDS',
-      });
-    }
 
-    if (newPassword.length < 6) {
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
       return res.status(400).json({
         error: 'Mật khẩu mới phải có tối thiểu 6 ký tự.',
         code: 'WEAK_PASSWORD',
@@ -364,18 +413,39 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     }
 
     const user = await User.findById(req.user._id);
-    const isMatch = await user.comparePassword(oldPassword);
-    if (!isMatch) {
-      return res.status(400).json({
-        error: 'Mật khẩu cũ không chính xác.',
-        code: 'INVALID_PASSWORD',
-      });
+    if (!user) {
+      return res.status(404).json({ error: 'Không tìm thấy người dùng.', code: 'USER_NOT_FOUND' });
     }
 
+    const hasPassword = Boolean(user.password);
+
+    // Nếu tài khoản đã có mật khẩu, yêu cầu kiểm tra mật khẩu cũ
+    if (hasPassword) {
+      if (!oldPassword) {
+        return res.status(400).json({
+          error: 'Vui lòng nhập mật khẩu hiện tại của bạn.',
+          code: 'MISSING_FIELDS',
+        });
+      }
+
+      const isMatch = await user.comparePassword(oldPassword);
+      if (!isMatch) {
+        return res.status(400).json({
+          error: 'Mật khẩu hiện tại không chính xác.',
+          code: 'INVALID_PASSWORD',
+        });
+      }
+    }
+
+    // Cập nhật mật khẩu mới (Mongoose pre-save hook sẽ tự động bcrypt hash)
     user.password = newPassword;
     await user.save();
 
-    res.json({ message: 'Đổi mật khẩu thành công.', code: 'PASSWORD_CHANGED' });
+    res.json({
+      message: hasPassword ? 'Đổi mật khẩu thành công!' : 'Thiết lập mật khẩu thành công!',
+      code: 'PASSWORD_CHANGED',
+      hasPassword: true,
+    });
   } catch (err) {
     next(err);
   }

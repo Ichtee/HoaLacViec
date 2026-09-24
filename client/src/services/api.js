@@ -81,6 +81,20 @@ export async function apiGetMe() {
   return request('/auth/me');
 }
 
+export async function apiUpdateUserProfile(userData) {
+  return request('/auth/profile', {
+    method: 'PUT',
+    body: JSON.stringify(userData),
+  });
+}
+
+export async function apiChangePassword(passwordData) {
+  return request('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(passwordData),
+  });
+}
+
 // ─── JOBS ─────────────────────────────────────────────────────────
 export async function apiGetJobs(params = {}) {
   const query = new URLSearchParams(params).toString();

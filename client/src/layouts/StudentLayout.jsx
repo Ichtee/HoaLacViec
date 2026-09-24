@@ -8,6 +8,7 @@ import {
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { NotificationDropdown } from '@/components/NotificationDropdown.jsx';
+import { UserDropdown } from '@/components/UserDropdown.jsx';
 
 const STUDENT_NAV = [
   { to: '/student', label: 'Tổng quan', icon: LayoutDashboard, end: true },
@@ -117,12 +118,7 @@ export default function StudentLayout() {
 
           <div className="flex items-center gap-3 ml-auto">
             <NotificationDropdown />
-            <span className="text-xs text-text-muted hidden sm:inline">
-              Chào mừng, <strong className="text-text-main">{user?.name}</strong>
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-green-main text-white flex items-center justify-center font-bold text-sm shadow-sm">
-              {user?.name?.[0] || 'S'}
-            </div>
+            <UserDropdown showWelcome={true} />
           </div>
         </header>
 

@@ -11,6 +11,8 @@ export {
   apiGoogleLogin as googleLogin,
   apiRegister as register,
   apiGetMe as getMe,
+  apiUpdateUserProfile as updateUserProfile,
+  apiChangePassword as changePassword,
   apiGetJobs as getJobs,
   apiGetJob as getJob,
   apiCreateJob as createJob,

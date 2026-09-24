@@ -7,6 +7,7 @@ import {
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { NotificationDropdown } from './NotificationDropdown.jsx';
+import { UserDropdown } from './UserDropdown.jsx';
 
 const NAV_PUBLIC = [
   { to: '/jobs', label: 'Tìm Việc' },
@@ -72,48 +73,7 @@ export function Navbar() {
             {isAuthenticated ? (
               <>
                 {!isPending && <NotificationDropdown />}
-                <div className="relative">
-                <button
-                  onClick={() => setDropOpen(!dropOpen)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-green-50 transition-colors"
-                  aria-expanded={dropOpen}
-                  aria-haspopup="true"
-                >
-                  <div className="w-8 h-8 rounded-xl bg-green-main flex items-center justify-center text-white font-bold text-sm shadow-sm">
-                    {user?.name?.[0] || 'U'}
-                  </div>
-                  <span className="hidden sm:block text-sm font-medium text-text-main max-w-[140px] truncate">{user?.name}</span>
-                  <ChevronDown className={clsx('w-4 h-4 text-text-muted transition-transform', dropOpen && 'rotate-180')} />
-                </button>
-
-                {dropOpen && (
-                  <>
-                    <div className="fixed inset-0" onClick={() => setDropOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-modal border border-green-50 p-2 z-50 animate-scale-in">
-                      <div className="px-3 py-2 mb-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <p className="font-semibold text-text-main text-sm truncate">{user?.name}</p>
-                          {isPending && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 flex-shrink-0">
-                              Chờ duyệt
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-text-muted truncate">{user?.email}</p>
-                      </div>
-                      <div className="border-t border-green-50 my-1" />
-                      <Link to={dashboardPath} onClick={() => setDropOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-green-50 text-sm text-text-main transition-colors">
-                        <User className="w-4 h-4 text-green-dark" />
-                        {isPending ? 'Xác minh tài khoản' : 'Trang của tôi'}
-                      </Link>
-                      <div className="border-t border-green-50 my-1" />
-                      <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-red-50 text-sm text-red-500 transition-colors">
-                        <LogOut className="w-4 h-4" /> Đăng xuất
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+                <UserDropdown showWelcome={false} />
               </>
             ) : (
               <div className="flex items-center gap-2">
