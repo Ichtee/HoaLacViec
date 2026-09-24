@@ -2,14 +2,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Eye, EyeOff, Leaf, Mail, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { Button } from '@/components/Button.jsx';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || null;
+
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,8 +44,33 @@ export default function LoginPage() {
     navigate(dashboards[sessionRole] || '/');
   };
 
+  async function handleGoogleSuccess(credentialResponse) {
+    if (loading) return;
+    const credential = credentialResponse?.credential;
+    if (!credential) {
+      setError('Không nhận được mã xác thực từ Google. Vui lòng thử lại.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      const session = await googleLogin(credential);
+      redirectAfterLogin(session.user?.role);
+    } catch (err) {
+      setError(err.message || 'Đăng nhập bằng Google không thành công. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleGoogleError() {
+    setError('Đăng nhập bằng Google thất bại hoặc đã bị đóng. Vui lòng thử lại.');
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
+    if (loading) return;
     if (!email.trim()) {
       setError('Vui lòng nhập địa chỉ email.');
       return;
@@ -91,6 +119,34 @@ export default function LoginPage() {
               {error}
             </div>
           )}
+
+          {/* Google Sign In */}
+          {googleClientId ? (
+            <div className="flex flex-col items-center justify-center">
+              <div className={`w-full flex justify-center ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  text="signin_with"
+                  shape="pill"
+                  size="large"
+                  locale="vi"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 text-xs text-amber-700 text-center">
+              ⚠️ Đăng nhập Google đang tạm tắt (chưa cấu hình VITE_GOOGLE_CLIENT_ID).
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-gray-200 w-full" />
+            <span className="bg-white px-3 text-xs text-text-muted font-medium uppercase tracking-wider relative z-10">
+              Hoặc
+            </span>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email Field */}

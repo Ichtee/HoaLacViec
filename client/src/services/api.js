@@ -51,6 +51,17 @@ export async function apiLogin(email, password) {
   return data.user;
 }
 
+export async function apiGoogleLogin(credential) {
+  const data = await request('/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential }),
+  });
+  if (data.token) {
+    localStorage.setItem('token', data.token);
+  }
+  return data.user;
+}
+
 export async function apiRegister(userData) {
   const normalizedEmail = (userData.email || '').trim().toLowerCase();
   const data = await request('/auth/register', {

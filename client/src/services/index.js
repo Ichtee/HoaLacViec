@@ -8,6 +8,7 @@ export * from './api.js';
 // Re-export explicit service names expected by UI components
 export {
   apiLogin as login,
+  apiGoogleLogin as googleLogin,
   apiRegister as register,
   apiGetMe as getMe,
   apiGetJobs as getJobs,

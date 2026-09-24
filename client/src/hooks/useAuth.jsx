@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { login as serviceLogin, register as serviceRegister } from '@/services';
+import { login as serviceLogin, register as serviceRegister, googleLogin as serviceGoogleLogin } from '@/services';
 
 /**
  * AuthContext — Authentication & session management
@@ -31,8 +31,7 @@ function saveSession(session) {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => loadSession());
 
-  const login = useCallback(async (email, password) => {
-    const result = await serviceLogin(email, password);
+  const handleAuthResult = useCallback((result) => {
     const user = result?.user || result;
     const profileId = result?.profileId || user?.profileId || user?.profile?._id || user?.profile?.id || null;
     const newSession = { user, profileId };
@@ -41,15 +40,20 @@ export function AuthProvider({ children }) {
     return newSession;
   }, []);
 
+  const login = useCallback(async (email, password) => {
+    const result = await serviceLogin(email, password);
+    return handleAuthResult(result);
+  }, [handleAuthResult]);
+
+  const googleLogin = useCallback(async (credential) => {
+    const result = await serviceGoogleLogin(credential);
+    return handleAuthResult(result);
+  }, [handleAuthResult]);
+
   const register = useCallback(async (data) => {
     const result = await serviceRegister(data);
-    const user = result?.user || result;
-    const profileId = result?.profileId || user?.profileId || null;
-    const newSession = { user, profileId };
-    setSession(newSession);
-    saveSession(newSession);
-    return newSession;
-  }, []);
+    return handleAuthResult(result);
+  }, [handleAuthResult]);
 
   const logout = useCallback(() => {
     setSession(null);
@@ -65,6 +69,7 @@ export function AuthProvider({ children }) {
     isEmployer: session?.user?.role === 'employer',
     isAdmin: session?.user?.role === 'admin',
     login,
+    googleLogin,
     register,
     logout,
   };

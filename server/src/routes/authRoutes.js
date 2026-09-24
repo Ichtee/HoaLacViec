@@ -1,11 +1,22 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import { User } from '../models/User.js';
 import { StudentProfile } from '../models/StudentProfile.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { authenticate } from '../middlewares/auth.js';
 
 const router = express.Router();
+
+let oauthClient = null;
+function getOAuthClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return null;
+  if (!oauthClient) {
+    oauthClient = new OAuth2Client(clientId);
+  }
+  return oauthClient;
+}
 
 function createToken(user) {
   const secret = process.env.JWT_SECRET;
@@ -17,6 +28,51 @@ function createToken(user) {
     secret,
     { expiresIn: '7d' }
   );
+}
+
+async function buildAuthResponse(user) {
+  let profile = null;
+  if (user.role === 'student') {
+    profile = await StudentProfile.findOne({ userId: user._id });
+  } else if (user.role === 'employer') {
+    profile = await EmployerProfile.findOne({ userId: user._id });
+  }
+
+  const token = createToken(user);
+  return {
+    token,
+    user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      avatar: user.avatar,
+      status: user.status,
+      profileId: profile?._id || null,
+      profile,
+    },
+  };
+}
+
+function checkUserAccountStatus(user, res) {
+  if (user.status === 'locked' || user.status === 'suspended') {
+    res.status(403).json({
+      error: 'Tài khoản của bạn đang bị tạm khóa hoặc đình chỉ hoạt động.',
+      code: 'ACCOUNT_LOCKED',
+    });
+    return false;
+  }
+
+  if (user.status === 'deleted') {
+    res.status(401).json({
+      error: 'Tài khoản này đã bị xóa khỏi hệ thống.',
+      code: 'ACCOUNT_DELETED',
+    });
+    return false;
+  }
+
+  return true;
 }
 
 // POST /api/auth/login
@@ -56,28 +112,158 @@ router.post('/login', async (req, res, next) => {
       });
     }
 
-    let profile = null;
-    if (user.role === 'student') {
-      profile = await StudentProfile.findOne({ userId: user._id });
-    } else if (user.role === 'employer') {
-      profile = await EmployerProfile.findOne({ userId: user._id });
+    const authRes = await buildAuthResponse(user);
+    res.json(authRes);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/google
+router.post('/google', async (req, res, next) => {
+  try {
+    const { credential } = req.body || {};
+    if (!credential || typeof credential !== 'string') {
+      return res.status(400).json({
+        error: 'Thiếu thông tin xác thực từ Google.',
+        code: 'MISSING_GOOGLE_CREDENTIAL',
+      });
     }
 
-    const token = createToken(user);
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        avatar: user.avatar,
-        status: user.status,
-        profileId: profile?._id || null,
-        profile,
-      },
-    });
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({
+        error: 'Dịch vụ Đăng nhập bằng Google chưa được cấu hình trên máy chủ.',
+        code: 'CONFIG_ERROR',
+      });
+    }
+
+    const client = getOAuthClient();
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: clientId,
+      });
+    } catch (err) {
+      return res.status(401).json({
+        error: 'Mã xác thực Google không hợp lệ hoặc đã hết hạn.',
+        code: 'INVALID_GOOGLE_TOKEN',
+      });
+    }
+
+    const payload = ticket?.getPayload();
+    if (!payload || !payload.sub || !payload.email || payload.email_verified !== true) {
+      return res.status(401).json({
+        error: 'Mã xác thực Google không hợp lệ hoặc email chưa được xác thực.',
+        code: 'INVALID_GOOGLE_TOKEN',
+      });
+    }
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < nowSec) {
+      return res.status(401).json({
+        error: 'Mã xác thực Google đã hết hạn.',
+        code: 'INVALID_GOOGLE_TOKEN',
+      });
+    }
+
+    const googleId = String(payload.sub).trim();
+    const normalizedEmail = String(payload.email).toLowerCase().trim();
+
+    // 1. Look up by googleId first
+    let user = await User.findOne({ googleId });
+    if (user) {
+      if (!checkUserAccountStatus(user, res)) return;
+      const authRes = await buildAuthResponse(user);
+      return res.json(authRes);
+    }
+
+    // 2. Look up by email
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      if (existingUser.googleId && existingUser.googleId !== googleId) {
+        return res.status(409).json({
+          error: 'Tài khoản này đã được liên kết với một tài khoản Google khác.',
+          code: 'ACCOUNT_CONFLICT',
+        });
+      }
+
+      // Never automatically attach Google authentication to an existing admin account
+      if (existingUser.role === 'admin') {
+        return res.status(403).json({
+          error: 'Tài khoản quản trị viên không được phép đăng nhập hoặc liên kết bằng Google.',
+          code: 'ADMIN_GOOGLE_LOGIN_DISALLOWED',
+        });
+      }
+
+      // Safe auto-link condition: Google must be authoritative for the email
+      const isGmail = normalizedEmail.endsWith('@gmail.com');
+      const isAuthoritativeDomain = payload.email_verified === true && Boolean(payload.hd);
+
+      if (!isGmail && !isAuthoritativeDomain) {
+        return res.status(409).json({
+          error: 'Tài khoản đã tồn tại với email này. Vui lòng đăng nhập bằng mật khẩu của bạn để liên kết.',
+          code: 'ACCOUNT_LINK_REQUIRED',
+        });
+      }
+
+      // Safely link Google identity while preserving existing account details
+      existingUser.googleId = googleId;
+      if (!existingUser.emailVerifiedAt) {
+        existingUser.emailVerifiedAt = new Date();
+      }
+      if (!existingUser.avatar && payload.picture) {
+        existingUser.avatar = String(payload.picture).trim();
+      }
+      await existingUser.save();
+
+      if (!checkUserAccountStatus(existingUser, res)) return;
+      const authRes = await buildAuthResponse(existingUser);
+      return res.json(authRes);
+    }
+
+    // 3. Completely new Google user (default to student role)
+    const cleanName = (typeof payload.name === 'string' && payload.name.trim())
+      ? payload.name.trim()
+      : normalizedEmail.split('@')[0];
+
+    try {
+      user = await User.create({
+        googleId,
+        name: cleanName,
+        email: normalizedEmail,
+        avatar: typeof payload.picture === 'string' ? payload.picture.trim() : '',
+        emailVerifiedAt: new Date(),
+        status: 'active',
+        role: 'student',
+      });
+
+      await StudentProfile.create({
+        userId: user._id,
+        university: 'Đại học FPT Hòa Lạc',
+        studentCode: 'HE' + Math.floor(100000 + Math.random() * 900000),
+      });
+    } catch (createErr) {
+      // Handle potential duplicate-key race condition
+      if (createErr.code === 11000) {
+        user = await User.findOne({
+          $or: [{ googleId }, { email: normalizedEmail }],
+        });
+        if (!user) {
+          return res.status(409).json({
+            error: 'Xung đột khi tạo tài khoản. Vui lòng thử lại.',
+            code: 'ACCOUNT_CONFLICT',
+          });
+        }
+      } else {
+        throw createErr;
+      }
+    }
+
+    if (!checkUserAccountStatus(user, res)) return;
+    const authRes = await buildAuthResponse(user);
+    return res.status(201).json(authRes);
   } catch (err) {
     next(err);
   }
