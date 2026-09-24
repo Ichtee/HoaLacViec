@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
@@ -12,21 +12,20 @@ import {
   ShieldCheck,
   Camera,
   ArrowRight,
+  Search,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { submitStudentVerification, getEmployerVerification, submitEmployerVerification } from '@/services';
+import {
+  submitStudentVerification,
+  getEmployerVerification,
+  submitEmployerVerification,
+  getUniversities,
+} from '@/services';
 import { Input, Select } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
-
-const UNIVERSITIES = [
-  { value: 'Đại học FPT Hòa Lạc', label: 'Đại học FPT Hòa Lạc' },
-  { value: 'Đại học Quốc gia Hà Nội (Hòa Lạc)', label: 'ĐHQG Hà Nội (Hòa Lạc)' },
-  { value: 'Viện Khoa học & Công nghệ Việt Nam', label: 'Viện KHCN Việt Nam' },
-  { value: 'Đại học Bách Khoa Hà Nội', label: 'ĐH Bách Khoa Hà Nội' },
-  { value: 'Đại học Xây dựng', label: 'ĐH Xây dựng' },
-  { value: 'Khác', label: 'Trường đại học / Cao đẳng khác' },
-];
 
 const STORE_TYPES = [
   { value: 'Quán cà phê', label: 'Quán cà phê / Trà sữa' },
@@ -49,11 +48,56 @@ export default function VerifyAccountPage() {
 
   // Student verification form
   const [university, setUniversity] = useState('Đại học FPT Hòa Lạc');
-  const [customUni, setCustomUni] = useState('');
+  const [uniSearch, setUniSearch] = useState('Đại học FPT Hòa Lạc');
+  const [universityList, setUniversityList] = useState([]);
+  const [isUniDropdownOpen, setIsUniDropdownOpen] = useState(false);
+  const [loadingUnis, setLoadingUnis] = useState(false);
+  const uniDropdownRef = useRef(null);
+
   const [studentCode, setStudentCode] = useState('');
   const [major, setMajor] = useState('Kỹ thuật phần mềm');
   const [transport, setTransport] = useState('xe_may');
   const [studentCardPhoto, setStudentCardPhoto] = useState('');
+
+  // Fetch universities from API (Hipolabs)
+  useEffect(() => {
+    async function loadUniversities() {
+      try {
+        setLoadingUnis(true);
+        const data = await getUniversities();
+        if (Array.isArray(data) && data.length > 0) {
+          setUniversityList(data);
+        }
+      } catch (err) {
+        console.warn('Failed to load universities:', err);
+      } finally {
+        setLoadingUnis(false);
+      }
+    }
+    loadUniversities();
+  }, []);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (uniDropdownRef.current && !uniDropdownRef.current.contains(e.target)) {
+        setIsUniDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Filtered universities based on user typing
+  const filteredUniversities = useMemo(() => {
+    if (!uniSearch.trim()) return universityList;
+    const q = uniSearch.toLowerCase().trim();
+    return universityList.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        (u.domain && u.domain.toLowerCase().includes(q))
+    );
+  }, [universityList, uniSearch]);
 
   // Employer verification form & state
   const [existingVerification, setExistingVerification] = useState(null);
@@ -142,7 +186,7 @@ export default function VerifyAccountPage() {
     setSuccess('');
 
     try {
-      const selectedUni = university === 'Khác' ? customUni.trim() || 'Trường khác' : university;
+      const selectedUni = (university || uniSearch || 'Đại học FPT Hòa Lạc').trim();
       const res = await submitStudentVerification({
         studentCardPhoto,
         university: selectedUni,
@@ -334,24 +378,101 @@ export default function VerifyAccountPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Select
-                    id="stu-uni"
-                    label="Trường Đại học / Cao đẳng"
-                    value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
-                    options={UNIVERSITIES}
-                  />
-                  {university === 'Khác' && (
-                    <div className="mt-2">
-                      <Input
-                        id="stu-custom-uni"
-                        label="Nhập tên trường của bạn"
-                        value={customUni}
-                        onChange={(e) => setCustomUni(e.target.value)}
-                        placeholder="Tên trường..."
-                        required
+                {/* Searchable University Combobox */}
+                <div className="relative" ref={uniDropdownRef}>
+                  <label className="block text-xs font-bold text-text-main mb-1.5">
+                    Trường Đại học / Cao đẳng <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      required
+                      value={uniSearch}
+                      onChange={(e) => {
+                        setUniSearch(e.target.value);
+                        setUniversity(e.target.value);
+                        setIsUniDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsUniDropdownOpen(true)}
+                      placeholder="Gõ hoặc bấm để chọn trường..."
+                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all placeholder-gray-400 bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsUniDropdownOpen(!isUniDropdownOpen)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                      aria-label="Toggle university list"
+                    >
+                      <ChevronDown
+                        className={clsx(
+                          'w-4 h-4 transition-transform duration-200',
+                          isUniDropdownOpen && 'rotate-180'
+                        )}
                       />
+                    </button>
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {isUniDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-modal border border-green-100 py-1.5 z-50 max-h-60 overflow-y-auto animate-scale-in">
+                      {loadingUnis ? (
+                        <div className="p-3 text-center text-xs text-text-muted">
+                          ⏳ Đang tải danh sách trường từ hệ thống...
+                        </div>
+                      ) : filteredUniversities.length > 0 ? (
+                        <>
+                          <div className="px-3 py-1 text-[11px] font-semibold text-text-muted bg-gray-50 uppercase tracking-wider flex justify-between">
+                            <span>Gợi ý ({filteredUniversities.length})</span>
+                            <span className="text-[10px] text-green-700">Bấm để chọn</span>
+                          </div>
+                          {filteredUniversities.map((u, idx) => {
+                            const isSelected =
+                              (university || '').toLowerCase() === (u.name || '').toLowerCase();
+                            return (
+                              <button
+                                key={`${u.name}-${idx}`}
+                                type="button"
+                                onClick={() => {
+                                  setUniversity(u.name);
+                                  setUniSearch(u.name);
+                                  setIsUniDropdownOpen(false);
+                                }}
+                                className={clsx(
+                                  'w-full text-left px-3.5 py-2.5 text-xs transition-colors flex items-center justify-between hover:bg-green-50/70 border-b border-gray-50 last:border-0',
+                                  isSelected
+                                    ? 'bg-green-50 text-green-dark font-bold'
+                                    : 'text-text-main'
+                                )}
+                              >
+                                <div className="flex items-center gap-2 truncate pr-2">
+                                  {isSelected && <Check className="w-3.5 h-3.5 text-green-main flex-shrink-0" />}
+                                  <span className="truncate">{u.name}</span>
+                                </div>
+                                {u.domain && (
+                                  <span className="text-[10px] text-gray-400 font-mono flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded">
+                                    {u.domain}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <div className="p-3 text-xs text-text-muted text-center space-y-1.5">
+                          <p>Không có kết quả trong danh mục khớp với "{uniSearch}".</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUniversity(uniSearch.trim());
+                              setIsUniDropdownOpen(false);
+                            }}
+                            className="px-3 py-1 bg-green-50 text-green-dark text-xs font-semibold rounded-xl hover:bg-green-100 transition-colors inline-block"
+                          >
+                            ✓ Sử dụng tên trường này: "{uniSearch}"
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

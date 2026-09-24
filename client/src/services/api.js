@@ -265,6 +265,37 @@ export async function apiGetStudentVerification() {
   return request('/profiles/student-verification/me');
 }
 
+export async function apiGetUniversities() {
+  try {
+    return await request('/universities');
+  } catch (err) {
+    // Direct Hipolabs fetch fallback
+    try {
+      const res = await fetch('http://universities.hipolabs.com/search?country=Vietnam');
+      if (res.ok) {
+        const data = await res.json();
+        return data.map((u) => ({
+          name: u.name,
+          domain: u.domains?.[0] || '',
+        }));
+      }
+    } catch {
+      // Ignore and use static fallback below
+    }
+
+    return [
+      { name: 'Đại học FPT Hòa Lạc (FPT University)', domain: 'fpt.edu.vn' },
+      { name: 'Đại học Quốc gia Hà Nội - Hòa Lạc (VNU Hanoi)', domain: 'vnu.edu.vn' },
+      { name: 'ĐH Công nghệ - ĐHQGHN (VNU-UET)', domain: 'uet.vnu.edu.vn' },
+      { name: 'Đại học Bách Khoa Hà Nội (HUST)', domain: 'hust.edu.vn' },
+      { name: 'Hanoi University (Đại học Hà Nội)', domain: 'hanu.edu.vn' },
+      { name: 'Duy Tan University (Đại học Duy Tân)', domain: 'duytan.edu.vn' },
+      { name: 'Ton Duc Thang University (Đại học Tôn Đức Thắng)', domain: 'tdtu.edu.vn' },
+      { name: 'Foreign Trade University (Đại học Ngoại Thương)', domain: 'ftu.edu.vn' },
+    ];
+  }
+}
+
 export async function apiUpdateStudentProfile(userId, data) {
   return request(`/profiles/student/${userId}`, {
     method: 'PUT',

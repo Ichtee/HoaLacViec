@@ -94,6 +94,57 @@ app.use('/api/saved-jobs', savedJobRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 
+// GET /api/universities (Lấy danh sách các trường đại học tại Việt Nam từ Hipolabs)
+let cachedUniversities = null;
+let lastFetchTime = 0;
+
+app.get('/api/universities', async (req, res) => {
+  const now = Date.now();
+  if (cachedUniversities && (now - lastFetchTime < 24 * 60 * 60 * 1000)) {
+    return res.json(cachedUniversities);
+  }
+
+  try {
+    const [res1, res2] = await Promise.allSettled([
+      fetch('http://universities.hipolabs.com/search?country=Vietnam'),
+      fetch('http://universities.hipolabs.com/search?country=Viet%20Nam'),
+    ]);
+
+    const data1 = res1.status === 'fulfilled' ? await res1.value.json().catch(() => []) : [];
+    const data2 = res2.status === 'fulfilled' ? await res2.value.json().catch(() => []) : [];
+
+    const map = new Map();
+    // Ưu tiên các trường trọng điểm khu vực Hòa Lạc và Hà Nội
+    const priorityList = [
+      { name: 'Đại học FPT Hòa Lạc (FPT University)', domain: 'fpt.edu.vn' },
+      { name: 'Đại học Quốc gia Hà Nội - Hòa Lạc (VNU Hanoi)', domain: 'vnu.edu.vn' },
+      { name: 'ĐH Công nghệ - ĐHQGHN (VNU-UET)', domain: 'uet.vnu.edu.vn' },
+      { name: 'Đại học Bách Khoa Hà Nội (HUST)', domain: 'hust.edu.vn' },
+    ];
+    priorityList.forEach((item) => map.set(item.name.toLowerCase(), item));
+
+    [...data1, ...data2].forEach((item) => {
+      if (item && item.name) {
+        const key = item.name.trim().toLowerCase();
+        if (!map.has(key)) {
+          map.set(key, {
+            name: item.name.trim(),
+            domain: item.domains?.[0] || '',
+            web_page: item.web_pages?.[0] || '',
+          });
+        }
+      }
+    });
+
+    cachedUniversities = Array.from(map.values());
+    lastFetchTime = now;
+    res.json(cachedUniversities);
+  } catch (err) {
+    if (cachedUniversities) return res.json(cachedUniversities);
+    res.status(500).json({ error: 'Không thể tải danh sách trường đại học' });
+  }
+});
+
 // Root & Health check
 app.get('/', (req, res) => {
   res.json({

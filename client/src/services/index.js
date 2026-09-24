@@ -40,6 +40,7 @@ export {
   apiGetStudentProfile as getStudentProfile,
   apiSubmitStudentVerification as submitStudentVerification,
   apiGetStudentVerification as getStudentVerification,
+  apiGetUniversities as getUniversities,
   apiUpdateStudentProfile as updateStudentProfile,
   apiGetEmployerProfile as getEmployerProfile,
   apiUpdateEmployerProfile as updateEmployerProfile,
