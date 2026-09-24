@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   KeyRound,
@@ -12,7 +12,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { changePassword } from '@/services';
+import { changePassword, getMe } from '@/services';
 import { Button } from '@/components/Button.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
@@ -28,7 +28,26 @@ export default function ChangePasswordPage() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState('');
 
-  const hasExistingPassword = user?.hasPassword !== false;
+  // Fetch real password existence from backend on mount
+  useEffect(() => {
+    async function checkStatus() {
+      try {
+        const me = await getMe();
+        if (me && typeof me.hasPassword === 'boolean') {
+          updateUser({
+            ...user,
+            hasPassword: me.hasPassword,
+            isGoogleUser: me.isGoogleUser,
+          });
+        }
+      } catch (err) {
+        // silent fallback
+      }
+    }
+    checkStatus();
+  }, []);
+
+  const hasExistingPassword = Boolean(user?.hasPassword);
 
   const accountPath =
     role === 'student'

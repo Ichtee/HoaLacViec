@@ -49,6 +49,8 @@ async function buildAuthResponse(user) {
       phone: user.phone,
       avatar: user.avatar,
       status: user.status,
+      hasPassword: Boolean(user.password),
+      isGoogleUser: Boolean(user.googleId),
       profileId: profile?._id || null,
       profile,
     },
@@ -338,6 +340,7 @@ router.get('/me', authenticate, async (req, res, next) => {
       avatar: user.avatar,
       status: user.status,
       hasPassword: Boolean(user.password),
+      isGoogleUser: Boolean(user.googleId),
       profileId: profile?._id || null,
       profile,
     });
