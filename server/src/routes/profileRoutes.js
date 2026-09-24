@@ -1,4 +1,5 @@
 import express from 'express';
+import { User } from '../models/User.js';
 import { StudentProfile } from '../models/StudentProfile.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { EmployerVerification } from '../models/EmployerVerification.js';
@@ -91,6 +92,82 @@ router.put('/employer/:userId', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/profiles/student-verification/me (Kiểm tra trạng thái xác minh sinh viên)
+router.get('/student-verification/me', authenticate, async (req, res) => {
+  try {
+    const profile = await StudentProfile.findOne({ userId: req.user._id });
+    res.json({
+      verified: profile?.verified || false,
+      verifiedAt: profile?.verifiedAt || null,
+      studentCardPhoto: profile?.studentCardPhoto || '',
+      studentCode: profile?.studentCode || '',
+      university: profile?.university || '',
+      major: profile?.major || '',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/profiles/student-verification/submit (Sinh viên nộp thẻ SV để kích hoạt tài khoản)
+router.post('/student-verification/submit', authenticate, async (req, res) => {
+  try {
+    const { studentCardPhoto, university, studentCode, major, transport, bio } = req.body;
+
+    if (!studentCardPhoto) {
+      return res.status(400).json({ error: 'Vui lòng tải lên ảnh chụp thẻ sinh viên của bạn.' });
+    }
+
+    if (!studentCode || !studentCode.trim()) {
+      return res.status(400).json({ error: 'Vui lòng nhập mã số sinh viên của bạn.' });
+    }
+
+    const profile = await StudentProfile.findOneAndUpdate(
+      { userId: req.user._id },
+      {
+        userId: req.user._id,
+        studentCardPhoto,
+        university: (university || 'Đại học FPT Hòa Lạc').trim(),
+        studentCode: studentCode.trim().toUpperCase(),
+        major: (major || 'Kỹ thuật phần mềm').trim(),
+        transport: transport || 'xe_may',
+        bio: (bio || '').trim(),
+        verified: true,
+        verifiedAt: new Date(),
+        profileComplete: true,
+      },
+      { new: true, upsert: true }
+    );
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        role: 'student',
+        status: 'active',
+      },
+      { new: true }
+    ).select('-password');
+
+    res.json({
+      message: 'Xác minh thẻ sinh viên thành công! Tài khoản của bạn đã được kích hoạt.',
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        avatar: updatedUser.avatar,
+        status: updatedUser.status,
+        profileId: profile._id,
+        profile,
+      },
+      profile,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/profiles/employer-verification/me (Kiểm tra trạng thái xác minh của NTD hiện tại)
 router.get('/employer-verification/me', authenticate, async (req, res) => {
   try {
@@ -101,11 +178,13 @@ router.get('/employer-verification/me', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/profiles/employer-verification/submit (NTD nộp hồ sơ xác minh)
+// POST /api/profiles/employer-verification/submit (NTD nộp hồ sơ xác minh để Admin duyệt)
 router.post('/employer-verification/submit', authenticate, async (req, res) => {
   try {
-    if (req.user.role !== 'employer' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Chỉ tài khoản nhà tuyển dụng mới có thể nộp hồ sơ xác minh.' });
+    // Cho phép người dùng ở trạng thái pending, employer hoặc admin nộp hồ sơ
+    const allowedRoles = ['pending', 'employer', 'admin'];
+    if (!allowedRoles.includes(req.user.role) && req.user.status !== 'pending') {
+      return res.status(403).json({ error: 'Tài khoản không đủ quyền để nộp hồ sơ nhà tuyển dụng.' });
     }
 
     const {
@@ -116,11 +195,35 @@ router.post('/employer-verification/submit', authenticate, async (req, res) => {
       businessAddress,
       contactPhone,
       documents,
+      storeType,
+      description,
     } = req.body;
 
     if (!storeName || !legalName || !businessAddress || !contactPhone) {
       return res.status(400).json({ error: 'Vui lòng cung cấp đầy đủ tên cơ sở, người đại diện, địa chỉ và số điện thoại liên hệ.' });
     }
+
+    // Upsert hồ sơ cửa hàng
+    await EmployerProfile.findOneAndUpdate(
+      { userId: req.user._id },
+      {
+        userId: req.user._id,
+        storeName: storeName.trim(),
+        storeType: (storeType || 'Cửa hàng').trim(),
+        address: businessAddress.trim(),
+        contactPhone: contactPhone.trim(),
+        contactName: legalName.trim(),
+        description: (description || '').trim(),
+        verified: false,
+      },
+      { new: true, upsert: true }
+    );
+
+    // Cập nhật trạng thái người dùng thành employer, pending
+    await User.findByIdAndUpdate(req.user._id, {
+      role: 'employer',
+      status: 'pending',
+    });
 
     const verification = await EmployerVerification.findOneAndUpdate(
       { employerUserId: req.user._id },
@@ -141,7 +244,10 @@ router.post('/employer-verification/submit', authenticate, async (req, res) => {
       { new: true, upsert: true }
     );
 
-    res.json({ message: 'Hồ sơ xác minh đã được gửi thành công và đang chờ xét duyệt.', verification });
+    res.json({
+      message: 'Hồ sơ xác minh đã được gửi thành công và đang chờ Ban Quản Trị xét duyệt.',
+      verification,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

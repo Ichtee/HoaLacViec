@@ -18,6 +18,9 @@ const studentProfileSchema = new mongoose.Schema({
   reputationScore: { type: Number, default: 5.0 },
   reputationCount: { type: Number, default: 0 },
   profileComplete: { type: Boolean, default: true },
+  studentCardPhoto: { type: String, default: '' },
+  verified: { type: Boolean, default: false },
+  verifiedAt: { type: Date, default: null },
 }, { timestamps: true });
 
 studentProfileSchema.index({ userId: 1 }, { unique: true });

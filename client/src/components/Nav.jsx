@@ -27,11 +27,14 @@ export function Navbar() {
     setDropOpen(false);
   }
 
-  const dashboardPath = {
-    student: '/student',
-    employer: '/employer',
-    admin: '/admin',
-  }[role] || '/';
+  const isPending = user?.status === 'pending' || role === 'pending';
+  const dashboardPath = isPending
+    ? '/verify-account'
+    : {
+        student: '/student',
+        employer: '/employer',
+        admin: '/admin',
+      }[role] || '/';
 
   return (
     <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-green-50 shadow-sm">
@@ -86,12 +89,20 @@ export function Navbar() {
                     <div className="fixed inset-0" onClick={() => setDropOpen(false)} />
                     <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-modal border border-green-50 p-2 z-50 animate-scale-in">
                       <div className="px-3 py-2 mb-1">
-                        <p className="font-semibold text-text-main text-sm truncate">{user?.name}</p>
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="font-semibold text-text-main text-sm truncate">{user?.name}</p>
+                          {isPending && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 flex-shrink-0">
+                              Chờ duyệt
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-text-muted truncate">{user?.email}</p>
                       </div>
                       <div className="border-t border-green-50 my-1" />
                       <Link to={dashboardPath} onClick={() => setDropOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-green-50 text-sm text-text-main transition-colors">
-                        <User className="w-4 h-4 text-green-dark" /> Trang của tôi
+                        <User className="w-4 h-4 text-green-dark" />
+                        {isPending ? 'Xác minh tài khoản' : 'Trang của tôi'}
                       </Link>
                       <div className="border-t border-green-50 my-1" />
                       <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-red-50 text-sm text-red-500 transition-colors">

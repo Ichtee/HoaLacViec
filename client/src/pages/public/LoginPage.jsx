@@ -31,9 +31,13 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  const redirectAfterLogin = (sessionRole) => {
+  const redirectAfterLogin = (sessionUser) => {
     if (from) {
       navigate(from, { replace: true });
+      return;
+    }
+    if (sessionUser?.status === 'pending' || sessionUser?.role === 'pending') {
+      navigate('/verify-account');
       return;
     }
     const dashboards = {
@@ -41,7 +45,7 @@ export default function LoginPage() {
       employer: '/employer',
       admin: '/admin',
     };
-    navigate(dashboards[sessionRole] || '/');
+    navigate(dashboards[sessionUser?.role] || '/');
   };
 
   async function handleGoogleSuccess(credentialResponse) {
@@ -56,7 +60,7 @@ export default function LoginPage() {
     setError('');
     try {
       const session = await googleLogin(credential);
-      redirectAfterLogin(session.user?.role);
+      redirectAfterLogin(session.user);
     } catch (err) {
       setError(err.message || 'Đăng nhập bằng Google không thành công. Vui lòng thử lại.');
     } finally {
@@ -84,7 +88,7 @@ export default function LoginPage() {
     setError('');
     try {
       const session = await login(email.trim().toLowerCase(), password);
-      redirectAfterLogin(session.user?.role);
+      redirectAfterLogin(session.user);
     } catch (err) {
       setError(err.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại thông tin.');
     } finally {

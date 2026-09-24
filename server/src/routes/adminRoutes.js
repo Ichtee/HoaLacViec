@@ -196,6 +196,12 @@ router.post('/verifications/:id/approve', async (req, res) => {
         { verified: true, verifiedAt: new Date() }
       );
 
+      // Activate user account
+      await User.findByIdAndUpdate(verification.employerUserId, {
+        role: 'employer',
+        status: 'active',
+      });
+
       return res.json({ message: 'Đã duyệt xác minh thành công', verification });
     }
 
@@ -212,6 +218,12 @@ router.post('/verifications/:id/approve', async (req, res) => {
       { status: 'approved', reviewedBy: req.user._id, reviewedAt: new Date() },
       { upsert: true }
     );
+
+    // Activate user account
+    await User.findByIdAndUpdate(store.userId, {
+      role: 'employer',
+      status: 'active',
+    });
 
     res.json(store);
   } catch (err) {

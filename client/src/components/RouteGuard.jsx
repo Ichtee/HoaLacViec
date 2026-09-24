@@ -17,12 +17,18 @@ export function RequireAuth({ children, redirectTo = '/login' }) {
 }
 
 export function RequireRole({ role, children }) {
-  const { isAuthenticated, role: userRole, logout, login } = useAuth();
+  const { isAuthenticated, user, role: userRole, logout } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
+
+  // Nếu tài khoản đang ở trạng thái pending, chuyển hướng đến trang xác minh
+  if (user?.status === 'pending' || userRole === 'pending') {
+    return <Navigate to="/verify-account" replace />;
+  }
+
   if (userRole !== role) {
     if (role === 'admin') {
       return (
@@ -66,8 +72,11 @@ export function RequireRole({ role, children }) {
 }
 
 export function RedirectIfAuthenticated({ children }) {
-  const { isAuthenticated, role } = useAuth();
+  const { isAuthenticated, user, role } = useAuth();
   if (isAuthenticated) {
+    if (user?.status === 'pending' || role === 'pending') {
+      return <Navigate to="/verify-account" replace />;
+    }
     const dashboards = { student: '/student', employer: '/employer', admin: '/admin' };
     return <Navigate to={dashboards[role] || '/'} replace />;
   }

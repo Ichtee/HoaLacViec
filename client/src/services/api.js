@@ -254,6 +254,17 @@ export async function apiGetStudentProfile(userId) {
   return request(`/profiles/student/${userId}`);
 }
 
+export async function apiSubmitStudentVerification(data) {
+  return request('/profiles/student-verification/submit', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiGetStudentVerification() {
+  return request('/profiles/student-verification/me');
+}
+
 export async function apiUpdateStudentProfile(userId, data) {
   return request(`/profiles/student/${userId}`, {
     method: 'PUT',

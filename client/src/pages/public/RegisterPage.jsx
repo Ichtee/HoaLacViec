@@ -1,31 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Leaf, Phone, User, Mail, Lock, Building, GraduationCap, MapPin } from 'lucide-react';
-import { clsx } from 'clsx';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { Input } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
 
-const ROLE_LABELS = { student: 'Sinh viên', employer: 'Chủ cửa hàng / Nhà tuyển dụng' };
-
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const defaultRole = params.get('role') || 'student';
 
-  const [role, setRole] = useState(defaultRole);
-
-  useEffect(() => {
-    const r = params.get('role');
-    if (r === 'employer' || r === 'student') {
-      setRole(r);
-    }
-  }, [params]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [extraInfo, setExtraInfo] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,7 +29,7 @@ export default function RegisterPage() {
 
   function validate() {
     const e = {};
-    if (!name.trim()) e.name = role === 'employer' ? 'Vui lòng nhập tên cửa hàng.' : 'Vui lòng nhập họ và tên.';
+    if (!name.trim()) e.name = 'Vui lòng nhập họ và tên của bạn.';
     if (!email.trim()) e.email = 'Vui lòng nhập email.';
     else if (!/^\S+@\S+\.\S+$/.test(email)) e.email = 'Email không hợp lệ.';
     if (!phone.trim()) e.phone = 'Vui lòng nhập số điện thoại để liên hệ.';
@@ -68,15 +53,13 @@ export default function RegisterPage() {
     setErrors({});
     try {
       const payload = {
-        role,
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
         password,
-        ...(role === 'student' ? { university: extraInfo.trim() || 'Đại học FPT Hòa Lạc' } : { address: extraInfo.trim() || 'Tân Xã, Thạch Thất' })
       };
       await register(payload);
-      navigate(role === 'student' ? '/student' : '/employer');
+      navigate('/verify-account');
     } catch (err) {
       setErrors({ submit: err.message || 'Lỗi khi đăng ký tài khoản.' });
     } finally {
@@ -100,30 +83,22 @@ export default function RegisterPage() {
         </div>
 
         <div className="card shadow-modal bg-white rounded-3xl p-6 border border-green-100">
-          {/* Role tabs */}
-          <div className="flex gap-1 p-1 bg-green-50 rounded-2xl mb-5">
-            {(['student', 'employer']).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => { setRole(r); setErrors({}); }}
-                className={clsx(
-                  'flex-1 py-2 rounded-xl text-xs font-bold transition-all',
-                  role === r ? 'bg-white shadow-sm text-green-dark' : 'text-text-muted hover:text-green-dark'
-                )}
-              >
-                {ROLE_LABELS[r]}
-              </button>
-            ))}
+          <div className="mb-5 p-3 rounded-2xl bg-green-50/60 border border-green-100 text-center">
+            <p className="text-xs font-semibold text-green-dark">
+              Tạo tài khoản thành viên Hoa Lạc Việc
+            </p>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              Sau khi đăng ký, bạn có thể xác minh thẻ sinh viên để tìm việc ngay, hoặc nộp hồ sơ mở cửa hàng tuyển dụng.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
             <Input
               id="reg-name"
-              label={role === 'employer' ? 'Tên cửa hàng / Doanh nghiệp' : 'Họ và tên của bạn'}
+              label="Họ và tên của bạn"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={role === 'employer' ? 'Ví dụ: Cà phê Highland FPT' : 'Nguyễn Văn A'}
+              placeholder="Nguyễn Văn A"
               required
               error={errors.name}
             />
@@ -151,24 +126,6 @@ export default function RegisterPage() {
                 error={errors.phone}
               />
             </div>
-
-            {role === 'student' ? (
-              <Input
-                id="reg-uni"
-                label="Trường đang học / Ký túc xá"
-                value={extraInfo}
-                onChange={(e) => setExtraInfo(e.target.value)}
-                placeholder="ĐH FPT, KTX ĐHQG, BKHN..."
-              />
-            ) : (
-              <Input
-                id="reg-addr"
-                label="Địa chỉ cửa hàng tại Hòa Lạc"
-                value={extraInfo}
-                onChange={(e) => setExtraInfo(e.target.value)}
-                placeholder="Thôn 3 Tân Xã, Cổng 1 FPT..."
-              />
-            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
@@ -199,7 +156,7 @@ export default function RegisterPage() {
             )}
 
             <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full mt-2">
-              Hoàn tất đăng ký
+              Tiếp tục & Xác minh tài khoản
             </Button>
             {slowNotice && (
               <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-center mt-2.5 animate-fade-in">

@@ -20,6 +20,7 @@ import NotFoundPage from '@/pages/public/NotFoundPage.jsx';
 import BlogListPage from '@/pages/public/BlogListPage.jsx';
 import BlogDetailPage from '@/pages/public/BlogDetailPage.jsx';
 import MicroTasksPage from '@/pages/public/MicroTasksPage.jsx';
+import VerifyAccountPage from '@/pages/public/VerifyAccountPage.jsx';
 
 // Student Pages
 import StudentDashboard from '@/pages/student/DashboardPage.jsx';
@@ -74,6 +75,14 @@ export default function App() {
               <RedirectIfAuthenticated>
                 <RegisterPage />
               </RedirectIfAuthenticated>
+            }
+          />
+          <Route
+            path="/verify-account"
+            element={
+              <RequireAuth>
+                <VerifyAccountPage />
+              </RequireAuth>
             }
           />
         </Route>

@@ -55,6 +55,21 @@ export function AuthProvider({ children }) {
     return handleAuthResult(result);
   }, [handleAuthResult]);
 
+  const updateUser = useCallback((updatedUser) => {
+    setSession((prev) => {
+      if (!prev) return null;
+      const mergedUser = { ...prev.user, ...updatedUser };
+      const profileId = updatedUser?.profileId || updatedUser?.profile?._id || prev.profileId;
+      const newSession = {
+        ...prev,
+        user: mergedUser,
+        profileId,
+      };
+      saveSession(newSession);
+      return newSession;
+    });
+  }, []);
+
   const logout = useCallback(() => {
     setSession(null);
     saveSession(null);
@@ -68,9 +83,11 @@ export function AuthProvider({ children }) {
     isStudent: session?.user?.role === 'student',
     isEmployer: session?.user?.role === 'employer',
     isAdmin: session?.user?.role === 'admin',
+    isPending: session?.user?.status === 'pending' || session?.user?.role === 'pending',
     login,
     googleLogin,
     register,
+    updateUser,
     logout,
   };
 

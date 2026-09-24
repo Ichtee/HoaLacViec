@@ -223,7 +223,7 @@ router.post('/google', async (req, res, next) => {
       return res.json(authRes);
     }
 
-    // 3. Completely new Google user (default to student role)
+    // 3. Completely new Google user (starts in pending role and status)
     const cleanName = (typeof payload.name === 'string' && payload.name.trim())
       ? payload.name.trim()
       : normalizedEmail.split('@')[0];
@@ -235,14 +235,8 @@ router.post('/google', async (req, res, next) => {
         email: normalizedEmail,
         avatar: typeof payload.picture === 'string' ? payload.picture.trim() : '',
         emailVerifiedAt: new Date(),
-        status: 'active',
-        role: 'student',
-      });
-
-      await StudentProfile.create({
-        userId: user._id,
-        university: 'Đại học FPT Hòa Lạc',
-        studentCode: 'HE' + Math.floor(100000 + Math.random() * 900000),
+        status: 'pending',
+        role: 'pending',
       });
     } catch (createErr) {
       // Handle potential duplicate-key race condition
@@ -272,7 +266,7 @@ router.post('/google', async (req, res, next) => {
 // POST /api/auth/register
 router.post('/register', async (req, res, next) => {
   try {
-    const { name, email, password, role, phone, university, storeName, address } = req.body;
+    const { name, email, password, phone } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({
         error: 'Họ tên, email và mật khẩu là bắt buộc.',
@@ -296,33 +290,14 @@ router.post('/register', async (req, res, next) => {
       });
     }
 
-    // SECURITY: Disallow public registration as admin
-    const allowedRole = role === 'employer' ? 'employer' : 'student';
-
     const newUser = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       password,
-      role: allowedRole,
+      role: 'pending',
       phone: phone ? phone.trim() : '',
-      status: 'active',
+      status: 'pending',
     });
-
-    let profile = null;
-    if (newUser.role === 'student') {
-      profile = await StudentProfile.create({
-        userId: newUser._id,
-        university: university || 'Đại học FPT Hòa Lạc',
-        studentCode: 'HE' + Math.floor(100000 + Math.random() * 900000),
-      });
-    } else if (newUser.role === 'employer') {
-      profile = await EmployerProfile.create({
-        userId: newUser._id,
-        storeName: storeName || name.trim(),
-        address: address || 'Khu CNC Hòa Lạc',
-        contactPhone: phone ? phone.trim() : '',
-      });
-    }
 
     const token = createToken(newUser);
     res.status(201).json({
@@ -334,8 +309,8 @@ router.post('/register', async (req, res, next) => {
         role: newUser.role,
         phone: newUser.phone,
         status: newUser.status,
-        profileId: profile?._id || null,
-        profile,
+        profileId: null,
+        profile: null,
       },
     });
   } catch (err) {
