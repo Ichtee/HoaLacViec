@@ -44,6 +44,9 @@ export default function StudentDashboard() {
   const upcomingShifts = shifts.filter(s => s.status === 'scheduled');
   const pendingApps = applications.filter(a => a.status === 'pending');
   const acceptedApps = applications.filter(a => a.status === 'approved' || a.status === 'accepted');
+  const estimatedEarnings = shifts
+    .filter(s => s.status !== 'cancelled' && s.status !== 'absent')
+    .reduce((sum, s) => sum + (s.totalPay || ((s.hours || 4) * (s.wageRate || 25000))), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -52,7 +55,7 @@ export default function StudentDashboard() {
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-3">
-            <ShieldCheck className="w-3.5 h-3.5" /> Sinh viên đã xác thực Hòa Lạc
+            <ShieldCheck className="w-3.5 h-3.5" /> Sinh viên đã xác thực
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Xin chào, {user?.name || 'Bạn'}! 👋
@@ -132,7 +135,7 @@ export default function StudentDashboard() {
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-text-main">1.850.000đ</div>
+            <div className="text-2xl font-bold text-text-main">{estimatedEarnings.toLocaleString('vi-VN')}đ</div>
             <p className="text-xs text-text-muted mt-1">Tháng này (dự kiến)</p>
           </div>
         </div>
@@ -163,21 +166,23 @@ export default function StudentDashboard() {
               <div className="space-y-3">
                 {upcomingShifts.slice(0, 2).map((shift) => (
                   <div
-                    key={shift.id}
+                    key={shift.id || shift._id}
                     className="p-4 rounded-2xl bg-cream/60 border border-green-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-green-main transition-colors"
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-text-main text-base">{shift.storeName || ' Highland Coffee Tân Xã'}</span>
+                        <span className="font-semibold text-text-main text-base">{shift.storeName || 'Cửa hàng'}</span>
                         <Badge variant="success" size="sm">Đã phân công</Badge>
                       </div>
                       <p className="text-xs text-text-muted mt-1 flex items-center gap-2">
                         <span>📅 {shift.date}</span>
                         <span>⏰ {shift.startTime} - {shift.endTime}</span>
                       </p>
-                      <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-red-400" /> {shift.location || 'Thôn 3, Tân Xã, Thạch Thất'}
-                      </p>
+                      {shift.location && (
+                        <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-red-400" /> {shift.location}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">

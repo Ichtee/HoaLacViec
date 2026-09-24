@@ -13,15 +13,15 @@ export default function StoreProfilePage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState({
     storeName: '',
-    address: 'Thôn 3, Tân Xã, Thạch Thất, Hà Nội (Gần Cổng số 1 ĐH FPT)',
-    phone: '0988123456',
-    email: 'contact@highland-hoalac.vn',
+    address: '',
+    phone: '',
+    email: '',
     category: 'Cà phê & Đồ uống',
-    businessLicense: 'GPKD-2026-HLV-9988',
-    description: 'Cửa hàng cà phê phục vụ sinh viên và cán bộ nhân viên FPT Software. Môi trường trẻ trung, sạch sẽ.',
-    verificationStatus: 'verified',
-    openingHours: '07:00 - 22:30',
-    wageRange: '25.000 - 30.000đ/giờ'
+    businessLicense: '',
+    description: '',
+    verificationStatus: 'pending',
+    openingHours: '',
+    wageRange: ''
   });
 
   const [toast, setToast] = useState(null);
@@ -31,7 +31,27 @@ export default function StoreProfilePage() {
     async function loadData() {
       if (user?.id) {
         const data = await getEmployerProfile(user.id);
-        if (data) setProfile(prev => ({ ...prev, ...data }));
+        if (data) {
+          setProfile(prev => ({
+            ...prev,
+            ...data,
+            storeName: data.storeName || user.name || '',
+            phone: data.contactPhone || data.phone || user.phone || '',
+            email: data.email || user.email || '',
+            address: data.address || '',
+            businessLicense: data.businessLicense || '',
+            description: data.description || '',
+            verificationStatus: data.verified || user.status === 'active' ? 'verified' : 'pending',
+          }));
+        } else {
+          setProfile(prev => ({
+            ...prev,
+            storeName: user.name || '',
+            phone: user.phone || '',
+            email: user.email || '',
+            verificationStatus: user.status === 'active' ? 'verified' : 'pending',
+          }));
+        }
       }
     }
     loadData();
@@ -62,11 +82,17 @@ export default function StoreProfilePage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-text-main">{profile.storeName || user?.name}</h1>
-              <Badge variant="success" size="sm" icon={ShieldCheck}>Đã xác minh GPKD</Badge>
+              {profile.verificationStatus === 'verified' ? (
+                <Badge variant="success" size="sm" icon={ShieldCheck}>Đã xác minh GPKD</Badge>
+              ) : (
+                <Badge variant="warning" size="sm" icon={Clock}>Đang chờ duyệt xác minh</Badge>
+              )}
             </div>
-            <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-red-400" /> {profile.address}
-            </p>
+            {profile.address && (
+              <p className="text-xs text-text-muted mt-1 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-red-400" /> {profile.address}
+              </p>
+            )}
           </div>
         </div>
 
@@ -155,13 +181,19 @@ export default function StoreProfilePage() {
         {/* Verification Status Card */}
         <div className="p-4 rounded-2xl bg-pink-50/60 border border-pink-100 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-pink-main shrink-0" />
+            <ShieldCheck className={clsx("w-8 h-8 shrink-0", profile.verificationStatus === 'verified' ? "text-green-600" : "text-amber-500")} />
             <div>
               <h4 className="text-xs font-bold text-text-main">Trạng thái huy hiệu "Nhà tuyển dụng uy tín"</h4>
-              <p className="text-[11px] text-text-muted">Giấy phép kinh doanh đã được Admin kiểm duyệt & phê duyệt.</p>
+              <p className="text-[11px] text-text-muted">
+                {profile.verificationStatus === 'verified'
+                  ? 'Giấy phép kinh doanh đã được Admin kiểm duyệt & phê duyệt.'
+                  : 'Hồ sơ đang chờ ban quản trị kiểm tra và cấp huy hiệu uy tín.'}
+              </p>
             </div>
           </div>
-          <Badge variant="success" size="sm">ĐÃ XÁC THỰC</Badge>
+          <Badge variant={profile.verificationStatus === 'verified' ? "success" : "warning"} size="sm">
+            {profile.verificationStatus === 'verified' ? 'ĐÃ XÁC THỰC' : 'ĐANG CHỜ DUYỆT'}
+          </Badge>
         </div>
       </div>
     </div>

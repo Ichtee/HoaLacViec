@@ -38,22 +38,22 @@ export default function StudentProfilePage() {
     name: '',
     email: '',
     phone: '',
-    university: 'Đại học FPT Hòa Lạc',
-    studentCode: 'HE163456',
-    area: 'KTX Dom A - ĐH FPT',
+    university: '',
+    studentCode: '',
+    area: '',
     bio: '',
     skills: [],
     experience: []
   });
 
   const [availability, setAvailability] = useState({
-    mon: ['morning', 'evening'],
-    tue: ['afternoon'],
-    wed: ['morning', 'afternoon'],
-    thu: ['evening'],
-    fri: ['morning', 'afternoon', 'evening'],
-    sat: ['morning', 'afternoon'],
-    sun: ['evening']
+    mon: [],
+    tue: [],
+    wed: [],
+    thu: [],
+    fri: [],
+    sat: [],
+    sun: []
   });
 
   const [toast, setToast] = useState(null);
@@ -326,31 +326,32 @@ export default function StudentProfilePage() {
               <Briefcase className="w-4.5 h-4.5 text-green-main" /> Kinh nghiệm làm việc đã tích lũy
             </h2>
 
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-cream/50 border border-green-50 flex items-start justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-text-main">Nhân viên thu ngân & Pha chế</h4>
-                  <p className="text-xs text-green-dark font-medium mt-0.5">Highland Coffee F-Ville 2 • 6 tháng</p>
-                  <p className="text-xs text-text-muted mt-2">
-                    - Phục vụ đồ uống cho cán bộ FPT Software.<br />
-                    - Sử dụng phần mềm iPOS thu ngân thành thạo.<br />
-                    - Được đánh giá 5/5 sao thái độ làm việc.
-                  </p>
-                </div>
-                <Badge variant="success" size="sm">Đã xác nhận</Badge>
+            {profile.experience && profile.experience.length > 0 ? (
+              <div className="space-y-4">
+                {profile.experience.map((exp, idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-cream/50 border border-green-50 flex items-start justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-text-main">{exp.title || exp.position}</h4>
+                      <p className="text-xs text-green-dark font-medium mt-0.5">
+                        {exp.company || exp.store} {exp.duration ? `• ${exp.duration}` : ''}
+                      </p>
+                      {exp.description && (
+                        <p className="text-xs text-text-muted mt-2 whitespace-pre-line">
+                          {exp.description}
+                        </p>
+                      )}
+                    </div>
+                    {exp.verified && <Badge variant="success" size="sm">Đã xác nhận</Badge>}
+                  </div>
+                ))}
               </div>
-
-              <div className="p-4 rounded-2xl bg-cream/50 border border-green-50 flex items-start justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-text-main">Cộng tác viên Sự kiện FPT Kampus</h4>
-                  <p className="text-xs text-green-dark font-medium mt-0.5">Ban Phong trào ĐH FPT • 3 tháng</p>
-                  <p className="text-xs text-text-muted mt-2">
-                    - Hỗ trợ setup âm thanh, check-in mã QR cho hơn 500 sinh viên.
-                  </p>
-                </div>
-                <Badge variant="success" size="sm">Đã xác nhận</Badge>
+            ) : (
+              <div className="py-8 text-center text-text-muted">
+                <Briefcase className="w-8 h-8 mx-auto mb-2 text-gray-300 stroke-[1.5]" />
+                <p className="text-sm font-medium text-text-main">Chưa có kinh nghiệm làm việc nào được ghi nhận</p>
+                <p className="text-xs text-gray-400 mt-1">Các công việc bạn hoàn thành trên nền tảng sẽ được tích lũy tại đây.</p>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

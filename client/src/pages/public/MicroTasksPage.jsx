@@ -32,10 +32,10 @@ export default function MicroTasksPage() {
     title: '',
     category: 'di_cho',
     reward: 30000,
-    location: 'KTX Dom A - ĐH FPT',
+    location: '',
     deadline: 'Hôm nay',
     description: '',
-    phone: user?.phone || '0981234567',
+    phone: user?.phone || '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,7 +82,7 @@ export default function MicroTasksPage() {
         title: '',
         category: 'di_cho',
         reward: 30000,
-        location: 'KTX Dom A - ĐH FPT',
+        location: '',
         deadline: 'Hôm nay',
         description: '',
         phone: user?.phone || '',

@@ -14,41 +14,16 @@ export default function StudentReviewsPage() {
 
   useEffect(() => {
     async function loadReviews() {
-      setLoading(true);
-      const data = await getReviews({ studentId: user?.id });
-      setReviews(data || [
-        {
-          id: 'r1',
-          storeName: 'Highland Coffee F-Ville 2',
-          rating: 5,
-          comment: 'Bạn làm việc rất đúng giờ, pha chế nhanh nhẹn và hỗ trợ dọn dẹp cuối ca rất sạch sẽ.',
-          tags: ['Đúng giờ', 'Chăm chỉ', 'Giao tiếp tốt'],
-          date: '10/09/2026',
-          type: 'received',
-          authorName: 'Quản lý Anh Tuấn'
-        },
-        {
-          id: 'r2',
-          storeName: 'Circle K Tân Xã',
-          rating: 5,
-          comment: 'Sinh viên ngoan ngoãn, chủ động hỗ trợ khách hàng lúc cao điểm.',
-          tags: ['Tự giác', 'Trung thực'],
-          date: '02/09/2026',
-          type: 'received',
-          authorName: 'Quản lý Chị Linh'
-        },
-        {
-          id: 'r3',
-          storeName: 'Mixue Tân Xã',
-          rating: 4,
-          comment: 'Cửa hàng trả lương đúng hẹn, môi trường làm việc vui vẻ thân thiện.',
-          tags: ['Trả lương chuẩn', 'Môi trường tốt'],
-          date: '28/08/2026',
-          type: 'given',
-          authorName: user?.name
-        }
-      ]);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const data = await getReviews({ studentId: user?.id });
+        setReviews(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error(err);
+        setReviews([]);
+      } finally {
+        setLoading(false);
+      }
     }
     loadReviews();
   }, [user]);
@@ -92,52 +67,66 @@ export default function StudentReviewsPage() {
       </div>
 
       {/* Review List */}
-      <div className="space-y-4">
-        {displayedReviews.map((review) => (
-          <div key={review.id} className="bg-white p-6 rounded-3xl border border-green-50 shadow-card space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-green-50 text-green-main flex items-center justify-center font-bold">
-                  {review.type === 'received' ? <Building2 className="w-5 h-5" /> : <User className="w-5 h-5" />}
+      {loading ? (
+        <div className="text-center py-12 text-text-muted">Đang tải danh sách đánh giá...</div>
+      ) : displayedReviews.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center border border-green-50 shadow-card space-y-3">
+          <Star className="w-12 h-12 text-text-muted mx-auto opacity-40" />
+          <h3 className="text-base font-bold text-text-main">Chưa có đánh giá nào</h3>
+          <p className="text-xs text-text-muted">
+            {activeTab === 'received'
+              ? 'Bạn chưa nhận được đánh giá nào từ các cửa hàng sau ca làm việc.'
+              : 'Bạn chưa gửi đánh giá nào cho cửa hàng.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {displayedReviews.map((review) => (
+            <div key={review.id} className="bg-white p-6 rounded-3xl border border-green-50 shadow-card space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-green-50 text-green-main flex items-center justify-center font-bold">
+                    {review.type === 'received' ? <Building2 className="w-5 h-5" /> : <User className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-text-main">
+                      {review.type === 'received' ? review.storeName : `Đánh giá ${review.storeName}`}
+                    </h4>
+                    <p className="text-xs text-text-muted">Bởi {review.authorName} • {review.date}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-text-main">
-                    {review.type === 'received' ? review.storeName : `Đánh giá ${review.storeName}`}
-                  </h4>
-                  <p className="text-xs text-text-muted">Bởi {review.authorName} • {review.date}</p>
+
+                {/* Stars */}
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={clsx(
+                        'w-4 h-4',
+                        s <= review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'
+                      )}
+                    />
+                  ))}
                 </div>
               </div>
 
-              {/* Stars */}
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star
-                    key={s}
-                    className={clsx(
-                      'w-4 h-4',
-                      s <= review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'
-                    )}
-                  />
-                ))}
-              </div>
+              <p className="text-xs sm:text-sm text-text-main leading-relaxed pl-1">
+                "{review.comment}"
+              </p>
+
+              {review.tags && review.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {review.tags.map((tag) => (
+                    <span key={tag} className="px-2.5 py-1 rounded-lg bg-green-50 text-green-dark text-[11px] font-medium border border-green-100">
+                      👍 {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-
-            <p className="text-xs sm:text-sm text-text-main leading-relaxed pl-1">
-              "{review.comment}"
-            </p>
-
-            {review.tags && review.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-2">
-                {review.tags.map((tag) => (
-                  <span key={tag} className="px-2.5 py-1 rounded-lg bg-green-50 text-green-dark text-[11px] font-medium border border-green-100">
-                    👍 {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
