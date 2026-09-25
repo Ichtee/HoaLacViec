@@ -24,6 +24,30 @@ export function useGeolocation() {
 
   useEffect(() => {
     mountedRef.current = true;
+
+    // Detect if browser already blocked location permission so UI can adapt immediately
+    if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
+      navigator.permissions.query({ name: 'geolocation' })
+        .then((perm) => {
+          if (!mountedRef.current) return;
+          if (perm.state === 'denied') {
+            setStatus('denied');
+            setError('Trình duyệt đang chặn quyền vị trí. Vui lòng mở quyền tại biểu tượng ổ khóa 🔒 trên thanh địa chỉ URL.');
+          }
+          perm.onchange = () => {
+            if (!mountedRef.current) return;
+            if (perm.state === 'denied') {
+              setStatus('denied');
+              setError('Trình duyệt đang chặn quyền vị trí. Vui lòng mở quyền tại biểu tượng ổ khóa 🔒 trên thanh địa chỉ URL.');
+            } else if (perm.state === 'prompt') {
+              setStatus('idle');
+              setError(null);
+            }
+          };
+        })
+        .catch(() => {});
+    }
+
     return () => {
       mountedRef.current = false;
     };

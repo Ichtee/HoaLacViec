@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, Map, List, Navigation, MapPin, Compass } from 'lucide-react';
+import { Search, SlidersHorizontal, X, ChevronDown, Map, List, Navigation, MapPin, Compass, Loader2, CheckCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { JobCard } from '@/components/JobCard.jsx';
 import { JobMap } from '@/components/JobMap.jsx';
@@ -58,8 +58,15 @@ export default function JobListPage() {
     return null;
   }, [geoCoords]);
 
-  function handleTriggerGps() {
-    requestGpsLocation({ enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+  async function handleTriggerGps() {
+    if (geoStatus === 'denied') {
+      alert('Trình duyệt đang chặn quyền vị trí đối với trang web này.\n\nCách bật lại:\n1. Nhấp vào biểu tượng ổ khóa 🔒 (hoặc biểu tượng điều chỉnh) bên trái thanh địa chỉ URL của trình duyệt.\n2. Chọn Vị trí (Location) -> Cho phép (Allow) hoặc "Đặt lại quyền" (Reset permissions).\n3. Tải lại trang (F5).');
+      return;
+    }
+    const res = await requestGpsLocation({ enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    if (!res && geoStatus === 'denied') {
+      alert('Trình duyệt đang chặn quyền vị trí đối với trang web này.\n\nCách bật lại:\n1. Nhấp vào biểu tượng ổ khóa 🔒 bên trái thanh địa chỉ URL.\n2. Chọn Vị trí (Location) -> Cho phép (Allow).\n3. Tải lại trang (F5).');
+    }
   }
 
   function handleSortChange(newSort) {
@@ -457,20 +464,66 @@ export default function JobListPage() {
       {viewMode === 'map' && (
         <div className="space-y-3">
           {!userLocation && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🗺️</span>
-                <span>
-                  <strong>Bản đồ đang lấy tâm khu vực Hòa Lạc</strong> (đây là tâm bản đồ chung, chưa phải vị trí GPS của bạn).
+            <div className={clsx(
+              'flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-2xl border text-xs shadow-sm transition-all',
+              geoStatus === 'denied'
+                ? 'bg-rose-50/90 border-rose-200 text-rose-900'
+                : geoStatus === 'timeout' || geoStatus === 'unavailable'
+                ? 'bg-amber-50/90 border-amber-200 text-amber-900'
+                : 'bg-amber-50/80 border-amber-200 text-amber-900'
+            )}>
+              <div className="flex items-start sm:items-center gap-2.5">
+                <span className="text-base shrink-0">
+                  {geoStatus === 'denied' ? '🚫' : geoStatus === 'timeout' || geoStatus === 'unavailable' ? '⚠️' : '🗺️'}
                 </span>
+                <div>
+                  {geoStatus === 'denied' ? (
+                    <div>
+                      <strong className="text-rose-800">Trình duyệt đang chặn quyền truy cập vị trí.</strong>
+                      <p className="text-[11px] text-rose-700 mt-0.5">
+                        Để bật: Nhấp biểu tượng ổ khóa 🔒 (hoặc biểu tượng điều chỉnh) bên trái thanh URL &gt; Chọn <strong>Cho phép (Allow)</strong> vị trí.
+                      </p>
+                    </div>
+                  ) : geoStatus === 'timeout' || geoStatus === 'unavailable' ? (
+                    <div>
+                      <strong className="text-amber-800">Không bắt được tín hiệu GPS từ thiết bị.</strong>
+                      <p className="text-[11px] text-amber-700 mt-0.5">
+                        {geoError || 'Hãy kiểm tra Dịch vụ vị trí (Location Services) trên điện thoại / máy tính của bạn.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <span>
+                      <strong>Bản đồ đang lấy tâm khu vực Hòa Lạc</strong> (đây là tâm bản đồ chung, chưa phải vị trí GPS của bạn).
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={handleTriggerGps}
                 disabled={geoStatus === 'requesting'}
-                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-sm transition-all"
+                className={clsx(
+                  'self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-[11px] shadow-sm transition-all shrink-0',
+                  geoStatus === 'denied'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-amber-600 hover:bg-amber-700 disabled:opacity-50'
+                )}
               >
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Bật vị trí thiết bị</span>
+                {geoStatus === 'requesting' ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang định vị...</span>
+                  </>
+                ) : geoStatus === 'denied' ? (
+                  <>
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Hướng dẫn mở quyền</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span>Bật vị trí thiết bị</span>
+                  </>
+                )}
               </button>
             </div>
           )}
