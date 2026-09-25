@@ -7,10 +7,31 @@ const studentProfileSchema = new mongoose.Schema({
   yearOfStudy: { type: Number, default: 2 },
   major: { type: String, default: 'Kỹ thuật phần mềm' },
   area: { type: String, default: 'fpt_university' },
-  address: { type: String, default: 'KTX ĐH FPT Hòa Lạc' },
+  address: { type: String, default: '' },
   location: {
-    lat: { type: Number, default: 21.0134 },
-    lng: { type: Number, default: 105.5263 },
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+  },
+  geoPoint: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point',
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: undefined,
+    },
+  },
+  locationStatus: {
+    type: String,
+    enum: ['unconfirmed', 'confirmed', 'legacy_unverified'],
+    default: 'unconfirmed',
+  },
+  locationSource: {
+    type: String,
+    enum: ['device', 'places', 'map_pin', 'manual_coordinates', 'geocoded', null],
+    default: null,
   },
   bio: { type: String, default: '' },
   skills: [{ type: String }],
@@ -45,8 +66,26 @@ const studentProfileSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
+studentProfileSchema.pre('save', function (next) {
+  if (
+    this.location &&
+    typeof this.location.lat === 'number' &&
+    typeof this.location.lng === 'number' &&
+    Number.isFinite(this.location.lat) &&
+    Number.isFinite(this.location.lng)
+  ) {
+    this.geoPoint = {
+      type: 'Point',
+      coordinates: [this.location.lng, this.location.lat],
+    };
+  } else {
+    this.geoPoint = undefined;
+  }
+  next();
+});
+
 studentProfileSchema.index({ userId: 1 }, { unique: true });
 studentProfileSchema.index({ verificationStatus: 1 });
+studentProfileSchema.index({ geoPoint: '2dsphere' }, { sparse: true });
 
 export const StudentProfile = mongoose.model('StudentProfile', studentProfileSchema);
-

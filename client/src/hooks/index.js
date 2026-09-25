@@ -94,38 +94,4 @@ export function useDebounce(value, delay = 300) {
   return debounced;
 }
 
-/**
- * Geolocation hook
- */
-export function useGeolocation() {
-  const [coords, setCoords] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const getPosition = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError('Trình duyệt không hỗ trợ định vị GPS.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-        setLoading(false);
-      },
-      (err) => {
-        const messages = {
-          1: 'Bạn đã từ chối cấp quyền truy cập vị trí.',
-          2: 'Không xác định được vị trí. Vui lòng thử lại.',
-          3: 'Hết thời gian lấy vị trí.',
-        };
-        setError(messages[err.code] || 'Lỗi không xác định khi lấy vị trí.');
-        setLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }, []);
-
-  return { coords, error, loading, getPosition };
-}
+export { useGeolocation } from './useGeolocation.js';

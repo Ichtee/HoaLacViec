@@ -76,27 +76,37 @@ export default function JobDetailPage() {
 
   // Load saved status and match score
   useEffect(() => {
-    if (!job || !isAuthenticated || !profileId) return;
-    isSavedJob(profileId, job.id).then(setSaved);
+    if (!job || !isAuthenticated) return;
+    const targetId = job._id || job.id;
+    isSavedJob(targetId).then(setSaved).catch(() => {});
     // Compute match score
-    Promise.all([
-      getAvailability(profileId),
-      getStudentProfile(profileId),
-    ]).then(([avail, profile]) => {
-      const result = computeMatchScore(job, avail, profile?.location);
-      setMatchResult(result);
-      const phoneFromProfile = user?.phone || profile?.phone || profile?.contactPhone;
-      if (phoneFromProfile && !candidatePhone) {
-        setCandidatePhone(phoneFromProfile);
-      }
-    }).catch(() => {});
-  }, [job, isAuthenticated, profileId, user]);
+    if (profileId) {
+      Promise.all([
+        getAvailability(profileId),
+        getStudentProfile(profileId),
+      ]).then(([avail, profile]) => {
+        const result = computeMatchScore(job, avail, profile?.location);
+        setMatchResult(result);
+        const phoneFromProfile = user?.phone || profile?.phone || profile?.contactPhone;
+        if (phoneFromProfile && !candidatePhone) {
+          setCandidatePhone(phoneFromProfile);
+        }
+      }).catch(() => {});
+    }
+  }, [job, isAuthenticated, profileId, user, candidatePhone]);
 
   async function handleSave() {
     if (!isAuthenticated) { navigate('/login'); return; }
     const targetId = job._id || job.id;
-    const result = await toggleSaveJob(profileId, targetId);
-    setSaved(result.saved);
+    const prevSaved = saved;
+    setSaved(!prevSaved); // Optimistic
+    try {
+      const result = await toggleSaveJob(targetId);
+      setSaved(Boolean(result.saved));
+    } catch (err) {
+      setSaved(prevSaved); // Rollback on error
+      alert(err.message || 'Không thể cập nhật việc làm đã lưu.');
+    }
   }
 
   function handleOpenApply() {

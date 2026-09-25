@@ -1,33 +1,37 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Navigation, MapPin, DollarSign, Clock, ExternalLink, Compass, Layers, Crosshair } from 'lucide-react';
-import { formatVND } from '@/utils';
+import { MapPin, ExternalLink, Compass, Crosshair, AlertCircle } from 'lucide-react';
+import { formatVND, isValidCoordinate } from '@/utils';
 import { SALARY_UNIT_LABELS } from '@/constants';
 
-// Default center: Khu Công nghệ cao Hòa Lạc / ĐH FPT
-const DEFAULT_CENTER = [21.0128, 105.5255];
+// Default center of map: Hoa Lac Area
+export const DEFAULT_HOALAC_CENTER = [21.0128, 105.5255];
 
-// Map Layer Configurations
+// Map Layer Configurations using standard, open-licensed tiles
 const MAP_LAYERS = {
-  google_roadmap: {
-    name: 'Google Maps',
-    url: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    subdomains: ['0', '1', '2', '3'],
-    maxZoom: 20,
-    attribution: '&copy; Google Maps',
+  osm_standard: {
+    name: 'Bản đồ đường phố (OSM)',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
   },
-  google_hybrid: {
-    name: 'Google Vệ Tinh',
-    url: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-    subdomains: ['0', '1', '2', '3'],
-    maxZoom: 20,
-    attribution: '&copy; Google Maps Satellite',
+  osm_hot: {
+    name: 'Bản đồ nhân đạo (HOT)',
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c'],
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank" rel="noreferrer">HOT</a>',
+  },
+  esri_satellite: {
+    name: 'Vệ tinh (Esri)',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    maxZoom: 19,
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
   },
 };
 
-// Custom Marker HTML for jobs (clean pin without money/price labels)
 function createJobMarkerIcon(job, isSelected = false) {
   return L.divIcon({
     className: 'custom-job-marker',
@@ -50,11 +54,11 @@ function createJobMarkerIcon(job, isSelected = false) {
   });
 }
 
-function createUserMarkerIcon(label = 'Bạn đang ở đây') {
+function createUserMarkerIcon(label = 'Vị trí GPS của bạn') {
   return L.divIcon({
     className: 'custom-user-marker',
     html: `
-      <div class="relative flex items-center justify-center cursor-pointer z-30">
+      <div class="relative flex items-center justify-center cursor-pointer z-40">
         <span class="animate-ping absolute inline-flex h-10 w-10 rounded-full bg-blue-500 opacity-60"></span>
         <div class="relative inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 border-2 border-white shadow-xl text-white text-xs font-bold">
           📍
@@ -70,6 +74,8 @@ export function JobMap({
   jobs = [],
   userLocation = null,
   onUserLocationChange = null,
+  onRequestGps = null,
+  isLocating = false,
   selectedJobId = null,
   onSelectJob = null,
   height = '520px',
@@ -78,50 +84,89 @@ export function JobMap({
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
-  const markersRef = useRef({});
-  const [activeJob, setActiveJob] = useState(singleJob || null);
-  const [currentLayerKey, setCurrentLayerKey] = useState('google_roadmap');
-  const [geoLocating, setGeoLocating] = useState(false);
+  const markersMapRef = useRef(new Map());
+  const userMarkerRef = useRef(null);
+  const resizeTimeoutRef = useRef(null);
 
-  // Initialize Map
+  const [activeJob, setActiveJob] = useState(singleJob || null);
+  const [currentLayerKey, setCurrentLayerKey] = useState('osm_standard');
+  const [tileError, setTileError] = useState(false);
+
+  // Initialize Map and cleanup on unmount
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    if (!mapInstanceRef.current) {
-      const center = singleJob?.location?.lat
-        ? [singleJob.location.lat, singleJob.location.lng]
-        : userLocation?.lat
-        ? [userLocation.lat, userLocation.lng]
-        : DEFAULT_CENTER;
+    // Center selection: singleJob > valid userLocation > DEFAULT_HOALAC_CENTER
+    let initialCenter = DEFAULT_HOALAC_CENTER;
+    let initialZoom = 13;
 
-      const map = L.map(mapContainerRef.current, {
-        center,
-        zoom: singleJob ? 16 : 14,
-        zoomControl: true,
+    if (singleJob && isValidCoordinate(singleJob.location?.lat, singleJob.location?.lng)) {
+      initialCenter = [Number(singleJob.location.lat), Number(singleJob.location.lng)];
+      initialZoom = 16;
+    } else if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
+      initialCenter = [Number(userLocation.lat), Number(userLocation.lng)];
+      initialZoom = 14;
+    }
+
+    const map = L.map(mapContainerRef.current, {
+      center: initialCenter,
+      zoom: initialZoom,
+      zoomControl: true,
+      maxZoom: 19,
+    });
+
+    mapInstanceRef.current = map;
+
+    // Attach Tile Layer with error fallback
+    function attachTileLayer(layerKey) {
+      if (tileLayerRef.current) {
+        map.removeLayer(tileLayerRef.current);
+      }
+      const cfg = MAP_LAYERS[layerKey] || MAP_LAYERS.osm_standard;
+      const layer = L.tileLayer(cfg.url, {
+        subdomains: cfg.subdomains || 'abc',
+        maxZoom: cfg.maxZoom || 19,
+        attribution: cfg.attribution,
       });
 
-      // Default: Google Maps Tiles (Roadmap)
-      const layerConfig = MAP_LAYERS.google_roadmap;
-      const tileLayer = L.tileLayer(layerConfig.url, {
-        subdomains: layerConfig.subdomains,
-        maxZoom: layerConfig.maxZoom,
-        attribution: layerConfig.attribution,
-      }).addTo(map);
+      layer.on('tileerror', () => {
+        setTileError(true);
+      });
 
-      tileLayerRef.current = tileLayer;
-      mapInstanceRef.current = map;
+      layer.on('tileload', () => {
+        setTileError(false);
+      });
 
-      // Fix tile loading & sizing issues
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 150);
+      layer.addTo(map);
+      tileLayerRef.current = layer;
     }
+
+    attachTileLayer(currentLayerKey);
+
+    resizeTimeoutRef.current = setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+
+    return () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
+      markersMapRef.current.forEach((marker) => marker.remove());
+      markersMapRef.current.clear();
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      map.remove();
+      mapInstanceRef.current = null;
+      tileLayerRef.current = null;
+    };
   }, []);
 
   // Switch Layer
   function switchLayer(layerKey) {
     const map = mapInstanceRef.current;
-    if (!map || !MAP_LAYERS[layerKey]) return;
+    if (!map || !MAP_LAYERS[layerKey] || layerKey === currentLayerKey) return;
 
     if (tileLayerRef.current) {
       map.removeLayer(tileLayerRef.current);
@@ -129,119 +174,134 @@ export function JobMap({
 
     const cfg = MAP_LAYERS[layerKey];
     const newLayer = L.tileLayer(cfg.url, {
-      subdomains: cfg.subdomains,
-      maxZoom: cfg.maxZoom,
+      subdomains: cfg.subdomains || 'abc',
+      maxZoom: cfg.maxZoom || 19,
       attribution: cfg.attribution,
-    }).addTo(map);
+    });
 
+    newLayer.on('tileerror', () => setTileError(true));
+    newLayer.on('tileload', () => setTileError(false));
+
+    newLayer.addTo(map);
     tileLayerRef.current = newLayer;
     setCurrentLayerKey(layerKey);
   }
 
-  // HTML5 Geolocation API (GeoAPI)
-  function handleUseGeoAPI() {
-    if (!navigator.geolocation) {
-      alert('Trình duyệt của bạn không hỗ trợ định vị GPS.');
-      return;
-    }
-
-    setGeoLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGeoLocating(false);
-        const { latitude, longitude } = pos.coords;
-        const newLoc = {
-          lat: latitude,
-          lng: longitude,
-          label: 'Vị trí GPS thực tế của bạn',
-        };
-
-        if (onUserLocationChange) {
-          onUserLocationChange(newLoc);
-        }
-
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([latitude, longitude], 15, { animate: true });
-        }
-      },
-      (err) => {
-        setGeoLocating(false);
-        console.warn('Geolocation error:', err);
-        alert('Không thể lấy vị trí GPS (vui lòng cho phép quyền truy cập vị trí trên trình duyệt).');
-      },
-      { timeout: 8000, enableHighAccuracy: true }
-    );
-  }
-
-  // Update Markers & Radius Circle
+  // Update User Location Marker (Fly to location when newly acquired)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // Clear previous markers
-    Object.values(markersRef.current).forEach((m) => m.remove());
-    markersRef.current = {};
+    if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
+      const latLng = [Number(userLocation.lat), Number(userLocation.lng)];
+      if (!userMarkerRef.current) {
+        const marker = L.marker(latLng, {
+          icon: createUserMarkerIcon(userLocation.label || 'Vị trí GPS của bạn'),
+          zIndexOffset: 1000,
+        }).addTo(map);
 
-    // 1. User Location Marker
-    if (userLocation?.lat && userLocation?.lng) {
-      const userMarker = L.marker([userLocation.lat, userLocation.lng], {
-        icon: createUserMarkerIcon(userLocation.label),
-      }).addTo(map);
+        marker.bindTooltip(userLocation.label || 'Vị trí GPS của bạn', {
+          permanent: false,
+          direction: 'top',
+          className: 'bg-blue-900 text-white px-2 py-1 rounded-lg text-xs font-semibold shadow-md',
+        });
 
-      userMarker.bindTooltip(userLocation.label || 'Vị trí của bạn', {
-        permanent: false,
-        direction: 'top',
-        className: 'bg-blue-900 text-white px-2 py-1 rounded-lg text-xs font-semibold shadow-md',
-      });
-
-      markersRef.current['user'] = userMarker;
+        userMarkerRef.current = marker;
+      } else {
+        userMarkerRef.current.setLatLng(latLng);
+      }
+    } else if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
     }
+  }, [userLocation]);
 
-    // 2. Job Markers
-    const jobsToRender = singleJob ? [singleJob] : jobs;
+  // Efficient Marker Diffing: Update existing, add new, remove stale
+  const jobsToRender = useMemo(() => {
+    return singleJob ? [singleJob] : jobs;
+  }, [singleJob, jobs]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const currentMarkersMap = markersMapRef.current;
+    const nextJobIds = new Set();
 
     jobsToRender.forEach((job) => {
+      const id = String(job._id || job.id);
       const lat = job.location?.lat;
       const lng = job.location?.lng;
-      if (!lat || !lng) return;
 
-      const isSelected = job._id === selectedJobId || job.id === selectedJobId;
-      const marker = L.marker([lat, lng], {
-        icon: createJobMarkerIcon(job, isSelected),
-      }).addTo(map);
+      if (!isValidCoordinate(lat, lng)) {
+        return;
+      }
 
-      marker.bindTooltip(job.storeName || job.title, {
-        direction: 'top',
-        offset: [0, -16],
-      });
+      nextJobIds.add(id);
+      const nLat = Number(lat);
+      const nLng = Number(lng);
+      const isSelected = id === String(selectedJobId);
 
-      marker.on('click', () => {
-        setActiveJob(job);
-        onSelectJob?.(job);
-        map.panTo([lat, lng]);
-      });
+      const existingMarker = currentMarkersMap.get(id);
 
-      markersRef.current[job._id || job.id] = marker;
+      if (existingMarker) {
+        const curPos = existingMarker.getLatLng();
+        if (Math.abs(curPos.lat - nLat) > 0.00001 || Math.abs(curPos.lng - nLng) > 0.00001) {
+          existingMarker.setLatLng([nLat, nLng]);
+        }
+        existingMarker.setIcon(createJobMarkerIcon(job, isSelected));
+      } else {
+        const marker = L.marker([nLat, nLng], {
+          icon: createJobMarkerIcon(job, isSelected),
+        }).addTo(map);
+
+        marker.bindTooltip(job.storeName || job.title, {
+          direction: 'top',
+          offset: [0, -16],
+        });
+
+        marker.on('click', () => {
+          setActiveJob(job);
+          onSelectJob?.(job);
+          map.panTo([nLat, nLng]);
+        });
+
+        currentMarkersMap.set(id, marker);
+      }
     });
 
-    // Invalidate size in case tab or layout just rendered
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
-  }, [jobs, singleJob, selectedJobId, userLocation]);
+    // Remove markers that are no longer in jobsToRender
+    for (const [id, marker] of currentMarkersMap.entries()) {
+      if (!nextJobIds.has(id)) {
+        marker.remove();
+        currentMarkersMap.delete(id);
+      }
+    }
+  }, [jobsToRender, selectedJobId, onSelectJob]);
+
+  const hasRealUserLocation = isValidCoordinate(userLocation?.lat, userLocation?.lng);
 
   return (
     <div className="relative rounded-3xl overflow-hidden border-2 border-green-200 shadow-card bg-cream">
       {/* Map Canvas */}
       <div ref={mapContainerRef} style={{ height }} className="w-full z-0" />
 
-      {/* Floating Controls Top-Right: Layer Switcher & GPS GeoAPI Button */}
+      {/* Tile Loading Warning if offline or CDN blocked */}
+      {tileError && (
+        <div className="absolute top-16 left-4 z-20 bg-amber-50/95 border border-amber-200 text-amber-900 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 shadow-sm">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>Một số mảnh bản đồ đang tải chậm hoặc bị chặn. Hãy thử đổi lớp bản đồ.</span>
+        </div>
+      )}
+
+      {/* Floating Controls Top-Right: Layer Switcher & GPS Request Button */}
       <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
         {/* Layer Switcher */}
         <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-green-100 shadow-md flex items-center gap-1">
           {Object.entries(MAP_LAYERS).map(([key, cfg]) => (
             <button
               key={key}
+              type="button"
               onClick={() => switchLayer(key)}
               className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
                 currentLayerKey === key
@@ -255,44 +315,52 @@ export function JobMap({
         </div>
 
         {/* GPS Button */}
-        <button
-          onClick={handleUseGeoAPI}
-          disabled={geoLocating}
-          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-md text-xs font-bold flex items-center gap-1.5 transition-all"
-          title="Sử dụng GPS thiết bị để định vị vị trí thật"
-        >
-          <Crosshair className={`w-3.5 h-3.5 ${geoLocating ? 'animate-spin' : ''}`} />
-          <span>{geoLocating ? 'Đang định vị GPS...' : '📍 GPS vị trí thật'}</span>
-        </button>
+        {onRequestGps && (
+          <button
+            type="button"
+            onClick={onRequestGps}
+            disabled={isLocating}
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-2xl shadow-md text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-75"
+            title="Định vị vị trí GPS thật của thiết bị"
+          >
+            <Crosshair className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
+            <span>{isLocating ? 'Đang lấy GPS...' : hasRealUserLocation ? '📍 Đã có GPS vị trí thật' : '📍 Lấy vị trí GPS của tôi'}</span>
+          </button>
+        )}
       </div>
 
       {/* Floating Map Legend Top-Left */}
-      <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-green-100 shadow-md text-xs space-y-1 max-w-[240px]">
+      <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-green-100 shadow-md text-xs space-y-1 max-w-[280px]">
         <div className="flex items-center gap-2">
-          <span className="w-3 h-3 rounded-full bg-blue-600 inline-block shadow-sm"></span>
-          <span className="font-bold text-text-main truncate">
-            {userLocation?.label?.split('-')[0] || 'Vị trí của bạn'}
+          <span className={`w-3 h-3 rounded-full inline-block shadow-sm ${hasRealUserLocation ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
+          <span className="font-bold text-text-main truncate text-[11px]">
+            {hasRealUserLocation
+              ? userLocation?.label || 'Vị trí GPS của bạn'
+              : 'Tâm bản đồ Hòa Lạc (chưa có GPS)'}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-[11px]">
           <span className="w-3 h-3 rounded-full bg-emerald-700 inline-block shadow-sm"></span>
-          <span className="text-text-muted">Điểm quán ({jobs.length} địa điểm)</span>
+          <span className="text-text-muted">Điểm việc làm ({jobsToRender.filter(j => isValidCoordinate(j.location?.lat, j.location?.lng)).length} địa điểm đã ghim)</span>
         </div>
       </div>
 
       {/* Recenter Button Bottom-Right */}
-      <button
-        onClick={() => {
-          if (userLocation?.lat && mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([userLocation.lat, userLocation.lng], 15, { animate: true });
-          }
-        }}
-        className="absolute bottom-4 right-4 z-10 p-3 bg-white hover:bg-green-50 text-green-dark rounded-2xl border border-green-100 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all"
-        title="Quay về vị trí của bạn"
-      >
-        <Compass className="w-4 h-4 text-blue-600" />
-        <span className="hidden sm:inline">Vị trí của tôi</span>
-      </button>
+      {hasRealUserLocation && (
+        <button
+          type="button"
+          onClick={() => {
+            if (mapInstanceRef.current && hasRealUserLocation) {
+              mapInstanceRef.current.flyTo([Number(userLocation.lat), Number(userLocation.lng)], 15, { animate: true });
+            }
+          }}
+          className="absolute bottom-4 right-4 z-10 p-3 bg-white hover:bg-green-50 text-green-dark rounded-2xl border border-green-100 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all"
+          title="Quay về vị trí của bạn"
+        >
+          <Compass className="w-4 h-4 text-blue-600" />
+          <span className="hidden sm:inline">Vị trí của tôi</span>
+        </button>
+      )}
 
       {/* Selected Job Card Preview Popup at bottom */}
       {activeJob && !singleJob && (
@@ -326,7 +394,9 @@ export function JobMap({
             {(() => {
               const dest = activeJob.address
                 || (activeJob.storeName ? `${activeJob.storeName}, Hòa Lạc, Thạch Thất, Hà Nội` : '')
-                || (activeJob.location?.lat && activeJob.location?.lng ? `${activeJob.location.lat},${activeJob.location.lng}` : 'Hòa Lạc, Thạch Thất, Hà Nội');
+                || (isValidCoordinate(activeJob.location?.lat, activeJob.location?.lng)
+                    ? `${activeJob.location.lat},${activeJob.location.lng}`
+                    : 'Hòa Lạc, Thạch Thất, Hà Nội');
               return (
                 <a
                   href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`}

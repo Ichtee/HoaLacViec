@@ -88,6 +88,13 @@ router.post('/login', async (req, res, next) => {
       });
     }
 
+    if (typeof password !== 'string' || password.length < 6 || password.length > 32) {
+      return res.status(400).json({
+        error: 'Mật khẩu phải có độ dài từ 6 đến 32 ký tự.',
+        code: 'INVALID_CREDENTIALS',
+      });
+    }
+
     const normalizedEmail = email.toLowerCase().trim();
     const user = await User.findOne({ email: normalizedEmail });
 
@@ -276,9 +283,9 @@ router.post('/register', async (req, res, next) => {
       });
     }
 
-    if (password.length < 6) {
+    if (typeof password !== 'string' || password.length < 6 || password.length > 32) {
       return res.status(400).json({
-        error: 'Mật khẩu phải có độ dài tối thiểu 6 ký tự.',
+        error: 'Mật khẩu phải có độ dài từ 6 đến 32 ký tự.',
         code: 'WEAK_PASSWORD',
       });
     }
@@ -408,9 +415,9 @@ router.post('/change-password', authenticate, async (req, res, next) => {
   try {
     const { oldPassword, newPassword } = req.body;
 
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 32) {
       return res.status(400).json({
-        error: 'Mật khẩu mới phải có tối thiểu 6 ký tự.',
+        error: 'Mật khẩu mới phải có độ dài từ 6 đến 32 ký tự.',
         code: 'WEAK_PASSWORD',
       });
     }

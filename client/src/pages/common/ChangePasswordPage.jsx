@@ -70,6 +70,10 @@ export default function ChangePasswordPage() {
       setError('Mật khẩu mới phải có tối thiểu 6 ký tự.');
       return;
     }
+    if (newPassword.length > 32) {
+      setError('Mật khẩu mới không được vượt quá 32 ký tự.');
+      return;
+    }
 
     if (newPassword !== confirmPassword) {
       setError('Mật khẩu xác nhận không khớp với mật khẩu mới.');
@@ -187,16 +191,17 @@ export default function ChangePasswordPage() {
         {/* New password */}
         <div>
           <label className="block text-xs font-bold text-text-main mb-1.5">
-            Mật khẩu mới (Tối thiểu 6 ký tự) <span className="text-red-500">*</span>
+            Mật khẩu mới (Từ 6 đến 32 ký tự) <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <input
               type={showNewPass ? 'text' : 'password'}
               required
               minLength={6}
+              maxLength={32}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Nhập mật khẩu mới..."
+              placeholder="Nhập mật khẩu mới (6 - 32 ký tự)..."
               className="w-full pl-3.5 pr-10 py-2.5 rounded-2xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main transition-all"
             />
             <button
@@ -219,6 +224,7 @@ export default function ChangePasswordPage() {
             type={showNewPass ? 'text' : 'password'}
             required
             minLength={6}
+            maxLength={32}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Nhập lại mật khẩu mới..."

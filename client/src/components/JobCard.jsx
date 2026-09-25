@@ -46,6 +46,11 @@ export function JobCard({ job, onSave, isSaved, compact = false }) {
                   🎯 Khớp {job.matchScore}%
                 </span>
               )}
+              {job.distanceMeters !== null && job.distanceMeters !== undefined && (
+                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold flex items-center gap-0.5" title="Khoảng cách tính theo đường chim bay từ vị trí GPS của bạn">
+                  📍 Cách {job.distanceMeters < 1000 ? `${Math.round(job.distanceMeters)}m` : `${(job.distanceMeters / 1000).toFixed(1)}km`}
+                </span>
+              )}
             </div>
             <h3 className="font-bold text-text-main text-base leading-tight line-clamp-2">{job.title}</h3>
             <p className="text-text-muted text-sm mt-0.5">{employer?.storeName || job.storeName}</p>

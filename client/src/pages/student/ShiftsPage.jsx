@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Calendar, Clock, MapPin, CheckCircle, QrCode, ShieldCheck,
-  AlertTriangle, Check, User, ShoppingBag, Navigation, AlertCircle
+  AlertTriangle, Check, User, ShoppingBag, Navigation, AlertCircle,
+  RefreshCw, FileText, CheckCircle2, Loader2, ArrowRight
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -10,35 +11,7 @@ import { getShifts, checkIn, checkOut } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
-
-function getGPSLocation() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      return resolve({ error: 'Trình duyệt không hỗ trợ định vị GPS.' });
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: Math.round(position.coords.accuracy || 0),
-        });
-      },
-      (err) => {
-        let msg = 'Không thể lấy tọa độ GPS hiện tại.';
-        if (err.code === 1) {
-          msg = 'Vui lòng cho phép truy cập vị trí trong cài đặt trình duyệt để điểm danh tại quán.';
-        } else if (err.code === 2) {
-          msg = 'Không tìm thấy tín hiệu định vị vị trí.';
-        } else if (err.code === 3) {
-          msg = 'Quá thời gian lấy tọa độ vị trí.';
-        }
-        resolve({ error: msg });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
-  });
-}
+import { isValidCoordinate } from '@/utils';
 
 function getShiftStatusBadge(status) {
   switch (status) {
@@ -47,26 +20,49 @@ function getShiftStatusBadge(status) {
       return { variant: 'success', label: 'Đã duyệt công 🎉' };
     case 'pending_approval':
       return { variant: 'purple', label: 'Chờ duyệt công ⏳' };
+    case 'needs_review':
+      return { variant: 'warning', label: 'Cần xem xét GPS ⚠️' };
     case 'checked_in':
-      return { variant: 'warning', label: 'Đang trong ca làm' };
+      return { variant: 'info', label: 'Đang trong ca làm' };
     case 'disputed':
       return { variant: 'danger', label: 'Cần đối soát ⚠️' };
     case 'cancelled':
       return { variant: 'neutral', label: 'Đã hủy' };
     case 'scheduled':
     default:
-      return { variant: 'info', label: 'Đã xếp ca' };
+      return { variant: 'neutral', label: 'Đã xếp ca' };
   }
 }
+
+const REASON_CODE_LABELS = {
+  VERIFIED: 'Tọa độ thiết bị hợp lệ trong bán kính quán',
+  OUTSIDE_RADIUS: 'Thiết bị nằm ngoài bán kính cho phép',
+  LOW_ACCURACY: 'Sai số GPS thiết bị quá lớn (> 100m)',
+  STALE_POSITION: 'Dữ liệu GPS đã cũ (> 2 phút)',
+  GPS_UNAVAILABLE: 'Không nhận được tín hiệu GPS từ thiết bị',
+  PERMISSION_DENIED: 'Quyền truy cập vị trí bị từ chối',
+  JOB_LOCATION_UNCONFIRMED: 'Quán chưa xác nhận vị trí chính xác',
+  INVALID_COORDINATES: 'Tọa độ gửi lên không hợp lệ',
+  MANUAL_REQUEST: 'Yêu cầu chấm công thủ công từ học sinh',
+  ACCURACY_MARGIN: 'Nằm gần ranh giới sai số của quán',
+};
 
 export default function StudentShiftsPage() {
   const { user } = useAuth();
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modalShift, setModalShift] = useState(null);
-  const [gpsStatus, setGpsStatus] = useState(null);
   const [toast, setToast] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Modal State
+  const [modalShift, setModalShift] = useState(null);
+  const [gpsState, setGpsState] = useState({
+    status: 'idle', // 'idle' | 'requesting' | 'success' | 'error' | 'low_accuracy'
+    coords: null,
+    error: null,
+  });
+  const [mode, setMode] = useState('gps'); // 'gps' | 'manual'
+  const [manualReason, setManualReason] = useState('');
 
   useEffect(() => {
     loadShifts();
@@ -84,80 +80,172 @@ export default function StudentShiftsPage() {
     }
   }
 
-  async function handleCheckIn(shiftId) {
-    try {
-      setActionLoading(true);
-      setGpsStatus('Đang xác định tọa độ GPS...');
-      const coords = await getGPSLocation();
-
-      if (coords.error) {
-        setGpsStatus(coords.error);
-        setToast({ type: 'warning', message: coords.error });
-      } else {
-        setGpsStatus(`Tọa độ: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)} (±${coords.accuracy}m)`);
-      }
-
-      const res = await checkIn(shiftId, {
-        lat: coords.lat,
-        lng: coords.lng,
-        accuracy: coords.accuracy,
+  // Request fresh, high-accuracy GPS specifically for attendance
+  const requestFreshGps = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGpsState({
+        status: 'error',
+        coords: null,
+        error: 'Trình duyệt hoặc thiết bị của bạn không hỗ trợ Geolocation GPS.',
       });
-
-      setShifts((prev) =>
-        prev.map((s) =>
-          (s._id === shiftId || s.id === shiftId)
-            ? { ...s, ...(res.shift || {}), status: 'checked_in' }
-            : s
-        )
-      );
-
-      const distanceMsg = res.distanceMeters !== null
-        ? ` (Khoảng cách tới quán: ${res.distanceMeters}m)`
-        : '';
-
-      setToast({
-        type: res.verified ? 'success' : 'info',
-        message: res.message || `Điểm danh vào ca thành công!${distanceMsg}`,
-      });
-      setModalShift(null);
-    } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Lỗi điểm danh. Vui lòng thử lại.' });
-    } finally {
-      setActionLoading(false);
-      setGpsStatus(null);
+      return;
     }
+
+    if (window.isSecureContext === false) {
+      setGpsState({
+        status: 'error',
+        coords: null,
+        error: 'Tính năng GPS yêu cầu kết nối bảo mật HTTPS.',
+      });
+      return;
+    }
+
+    setGpsState({
+      status: 'requesting',
+      coords: null,
+      error: null,
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        const timestamp = pos.timestamp || Date.now();
+
+        if (!isValidCoordinate(latitude, longitude)) {
+          setGpsState({
+            status: 'error',
+            coords: null,
+            error: 'Tọa độ GPS nhận được không hợp lệ.',
+          });
+          return;
+        }
+
+        const isLowAccuracy = accuracy > 100;
+        setGpsState({
+          status: isLowAccuracy ? 'low_accuracy' : 'success',
+          coords: {
+            lat: latitude,
+            lng: longitude,
+            accuracy: Math.round(accuracy),
+            timestamp,
+          },
+          error: isLowAccuracy
+            ? `Độ chính xác GPS hiện tại chưa cao (sai số ±${Math.round(accuracy)}m > 100m). Yêu cầu có thể được chuyển sang Cần quản lý duyệt.`
+            : null,
+        });
+      },
+      (err) => {
+        let msg = 'Không thể lấy tọa độ GPS từ thiết bị.';
+        if (err.code === 1) {
+          msg = 'Bạn đã từ chối quyền vị trí. Vui lòng bật quyền truy cập vị trí trên trình duyệt.';
+        } else if (err.code === 2) {
+          msg = 'Thiết bị không dò được sóng GPS/WiFi định vị.';
+        } else if (err.code === 3) {
+          msg = 'Quá thời gian chờ lấy tọa độ GPS từ thiết bị.';
+        }
+        setGpsState({
+          status: 'error',
+          coords: null,
+          error: msg,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0, // Must be fresh!
+      }
+    );
+  }, []);
+
+  function handleOpenModal(shift) {
+    setModalShift(shift);
+    setMode('gps');
+    setManualReason('');
+    requestFreshGps();
   }
 
-  async function handleCheckOut(shiftId) {
+  function handleCloseModal() {
+    setModalShift(null);
+    setGpsState({ status: 'idle', coords: null, error: null });
+    setManualReason('');
+    setActionLoading(false);
+  }
+
+  async function handleSubmitAttendance() {
+    if (!modalShift) return;
+    const isCheckIn = modalShift.status !== 'checked_in';
+    const shiftId = modalShift._id || modalShift.id;
+
+    // Build Payload
+    let payload = {};
+    if (mode === 'manual') {
+      if (!manualReason.trim()) {
+        setToast({ type: 'warning', message: 'Vui lòng nhập lý do chấm công thủ công để quản lý duyệt.' });
+        return;
+      }
+      payload = {
+        isManual: true,
+        manualReason: manualReason.trim(),
+      };
+    } else {
+      // GPS mode
+      if (!gpsState.coords || !isValidCoordinate(gpsState.coords.lat, gpsState.coords.lng)) {
+        setToast({ type: 'warning', message: 'Chưa có tọa độ GPS hợp lệ từ thiết bị. Vui lòng bấm Thử lại GPS hoặc chọn Chấm công thủ công.' });
+        return;
+      }
+      payload = {
+        lat: gpsState.coords.lat,
+        lng: gpsState.coords.lng,
+        accuracy: gpsState.coords.accuracy,
+        timestamp: gpsState.coords.timestamp,
+        isManual: false,
+      };
+    }
+
     try {
       setActionLoading(true);
-      setGpsStatus('Đang lấy tọa độ kết thúc ca...');
-      const coords = await getGPSLocation();
+      const res = isCheckIn
+        ? await checkIn(shiftId, payload)
+        : await checkOut(shiftId, payload);
 
-      const res = await checkOut(shiftId, {
-        lat: coords.lat,
-        lng: coords.lng,
-        accuracy: coords.accuracy,
-      });
+      const updatedShift = res.shift || {};
+      const newStatus = isCheckIn ? 'checked_in' : 'pending_approval';
 
       setShifts((prev) =>
         prev.map((s) =>
           (s._id === shiftId || s.id === shiftId)
-            ? { ...s, ...(res.shift || {}), status: 'pending_approval' }
+            ? { ...s, ...updatedShift, status: newStatus }
             : s
         )
       );
 
-      setToast({
-        type: 'success',
-        message: res.message || 'Check-out ra ca thành công! Đã gửi yêu cầu duyệt công.',
-      });
-      setModalShift(null);
+      if (res.verified) {
+        setToast({
+          type: 'success',
+          message: isCheckIn
+            ? `✓ Điểm danh vào ca thành công! (Xác minh tự động theo tọa độ thiết bị, khoảng cách: ${Math.round(res.distanceMeters || 0)}m)`
+            : `✓ Check-out ra ca thành công! (Xác minh tự động theo tọa độ thiết bị)`,
+        });
+      } else if (res.verificationStatus === 'needs_review' || payload.isManual) {
+        setToast({
+          type: 'info',
+          message: `⏳ Đã gửi yêu cầu ${isCheckIn ? 'vào ca' : 'ra ca'}. Đang ở trạng thái "Cần quản lý duyệt" (${res.reasonCode || 'Yêu cầu thủ công'}).`,
+        });
+      } else {
+        setToast({
+          type: 'info',
+          message: res.message || 'Yêu cầu điểm danh đã được ghi nhận.',
+        });
+      }
+
+      handleCloseModal();
     } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Lỗi khi check-out.' });
+      setToast({
+        type: 'error',
+        message: err.message || 'Lỗi khi điểm danh ca làm. Vui lòng kiểm tra lại.',
+      });
     } finally {
       setActionLoading(false);
-      setGpsStatus(null);
     }
   }
 
@@ -169,36 +257,47 @@ export default function StudentShiftsPage() {
       <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-green-main" /> Lịch làm việc & Điểm danh GPS
+            <Calendar className="w-6 h-6 text-green-main" /> Lịch làm việc & Điểm danh ca
           </h1>
           <p className="text-xs text-text-muted mt-1">
-            Chấm công vào ca bằng GPS thực tế tại cơ sở Hòa Lạc, theo dõi số giờ làm và tiền công.
+            Chấm công vào và ra ca bằng tọa độ thiết bị thực tế tại quán hoặc gửi yêu cầu thủ công có lý do xác thực.
           </p>
         </div>
 
         <Link
           to="/student/tasks"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-semibold border border-orange-200 transition-colors self-start sm:self-center"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-cream/70 hover:bg-green-50 text-text-main hover:text-green-dark text-xs font-bold transition-all border border-green-100"
         >
-          <ShoppingBag className="w-4 h-4 text-orange-600" /> Chợ việc vặt sinh viên →
+          <Clock className="w-4 h-4 text-green-main" />
+          <span>Xem công việc đã ứng tuyển</span>
+          <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
 
       {/* Shifts List */}
       {loading ? (
-        <div className="text-center py-12 text-text-muted">Đang tải lịch ca...</div>
+        <div className="p-12 text-center text-text-muted">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-green-main mb-2" />
+          <p className="text-xs">Đang tải danh sách ca làm việc...</p>
+        </div>
       ) : shifts.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-green-50 shadow-card space-y-3">
-          <Calendar className="w-12 h-12 text-text-muted mx-auto opacity-50" />
-          <h3 className="text-base font-bold text-text-main">Chưa có ca làm nào được phân công</h3>
-          <p className="text-xs text-text-muted">Sau khi ứng tuyển thành công, nhà tuyển dụng sẽ xếp ca làm việc cho bạn tại đây.</p>
+        <div className="bg-white rounded-3xl border border-green-50 p-12 text-center shadow-card space-y-3">
+          <div className="w-16 h-16 rounded-3xl bg-green-50 text-green-main flex items-center justify-center mx-auto text-2xl">
+            📅
+          </div>
+          <h3 className="font-bold text-text-main text-base">Chưa có ca làm việc nào</h3>
+          <p className="text-xs text-text-muted max-w-md mx-auto">
+            Khi nhà tuyển dụng chấp nhận đơn ứng tuyển và phân ca làm việc, ca của bạn sẽ hiển thị tại đây để điểm danh.
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {shifts.map((shift) => {
             const badge = getShiftStatusBadge(shift.status);
-            const checkInInfo = shift.attendance?.checkInAt;
-            const distance = shift.attendance?.checkInDistanceMeters;
+            const checkInAttendance = shift.attendance;
+            const distance = checkInAttendance?.checkInDistanceMeters;
+            const verifyStatus = checkInAttendance?.checkInVerificationStatus;
+            const reasonCode = checkInAttendance?.checkInReasonCode;
 
             return (
               <div
@@ -219,7 +318,7 @@ export default function StudentShiftsPage() {
                     <h3 className="font-bold text-base text-text-main leading-snug">
                       {shift.storeName || 'Cửa hàng tuyển dụng'}
                     </h3>
-                    <p className="text-xs text-text-muted mt-0.5">{shift.role || 'Nhân viên bán ca'}</p>
+                    <p className="text-xs text-text-muted mt-0.5">{shift.role || 'Nhân viên ca làm'}</p>
                   </div>
 
                   <div className="space-y-1.5 text-xs text-text-muted pt-1">
@@ -234,17 +333,34 @@ export default function StudentShiftsPage() {
                       💰 Tiền ca: {((shift.wageRate || 25000) * (shift.hours || 4)).toLocaleString('vi-VN')}đ ({Number(shift.wageRate || 25000).toLocaleString('vi-VN')}đ/h)
                     </p>
 
-                    {/* GPS verification note */}
-                    {distance !== undefined && distance !== null && (
-                      <p className="flex items-center gap-1 text-[11px] text-gray-500 pt-1">
-                        <Navigation className="w-3 h-3 text-blue-500" />
-                        Khoảng cách GPS check-in: <strong className="text-text-main">{distance}m</strong>{' '}
-                        {shift.attendance?.checkInVerified ? (
-                          <span className="text-emerald-600 font-semibold">(Hợp lệ tại quán)</span>
-                        ) : (
-                          <span className="text-amber-600 font-semibold">(Ngoài bán kính tiêu chuẩn)</span>
-                        )}
-                      </p>
+                    {/* Attendance Verification Audit Note */}
+                    {checkInAttendance?.checkInAt && (
+                      <div className="pt-2 border-t border-gray-100 text-[11px] space-y-1">
+                        <div className="flex items-center gap-1.5 text-gray-700">
+                          <Navigation className="w-3 h-3 text-blue-500 shrink-0" />
+                          <span>
+                            Vào ca:{' '}
+                            <strong>{new Date(checkInAttendance.checkInAt).toLocaleTimeString('vi-VN')}</strong>
+                          </span>
+                        </div>
+
+                        {verifyStatus === 'verified' ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-semibold">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Đã xác minh tự động theo GPS ({Math.round(distance || 0)}m)
+                          </span>
+                        ) : verifyStatus === 'needs_review' ? (
+                          <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md font-semibold">
+                            <AlertCircle className="w-3 h-3" />
+                            Chờ duyệt ({reasonCode ? REASON_CODE_LABELS[reasonCode] || reasonCode : 'Cần đối chiếu'})
+                          </span>
+                        ) : checkInAttendance.checkInManualReason ? (
+                          <span className="inline-flex items-center gap-1 text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md font-semibold">
+                            <FileText className="w-3 h-3" />
+                            Chấm công thủ công (Chờ duyệt)
+                          </span>
+                        ) : null}
+                      </div>
                     )}
 
                     {shift.disputeReason && (
@@ -258,7 +374,7 @@ export default function StudentShiftsPage() {
                 {/* Actions Footer */}
                 <div className="pt-4 border-t border-green-50 flex items-center justify-between">
                   <button
-                    onClick={() => setModalShift(shift)}
+                    onClick={() => handleOpenModal(shift)}
                     className={clsx(
                       'px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm',
                       shift.status === 'approved' || shift.status === 'completed'
@@ -281,8 +397,8 @@ export default function StudentShiftsPage() {
                       : shift.status === 'pending_approval'
                       ? 'Đang chờ quản lý duyệt'
                       : shift.status === 'checked_in'
-                      ? 'Check-out kết thúc ca'
-                      : 'Check-in điểm danh GPS'}
+                      ? 'Check-out ra ca'
+                      : 'Check-in điểm danh'}
                   </button>
                 </div>
               </div>
@@ -291,63 +407,189 @@ export default function StudentShiftsPage() {
         </div>
       )}
 
-      {/* Check-in / Check-out GPS Modal */}
+      {/* Check-in / Check-out Attendance Modal */}
       {modalShift && (
         <Modal
           isOpen={true}
-          onClose={() => { setModalShift(null); setGpsStatus(null); }}
-          title={modalShift.status === 'checked_in' ? 'Check-Out Kết Thúc Ca Làm' : 'Check-In Điểm Danh GPS'}
+          onClose={handleCloseModal}
+          title={modalShift.status === 'checked_in' ? 'Check-Out Kết Thúc Ca Làm' : 'Check-In Điểm Danh Ca Làm'}
         >
           <div className="space-y-4 text-xs">
-            <div className="p-4 bg-green-50 rounded-2xl border border-green-100 space-y-2">
-              <div className="flex items-center gap-2 text-green-dark font-bold text-sm">
-                <Navigation className="w-5 h-5 text-green-main animate-pulse" />
-                Định vị GPS Hòa Lạc thực tế
-              </div>
-              <p className="text-text-muted leading-relaxed">
-                Hệ thống sẽ lấy tọa độ GPS từ thiết bị của bạn để đối chiếu với địa chỉ quán:{' '}
-                <strong className="text-text-main">{modalShift.storeName}</strong> (Bán kính hợp lệ: 350m).
+            {/* Store & Shift Info */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-gray-200 space-y-1">
+              <p className="font-bold text-sm text-text-main">{modalShift.storeName || 'Cửa hàng tuyển dụng'}</p>
+              <p className="text-text-muted">
+                Ca làm: <strong>{modalShift.startTime} - {modalShift.endTime}</strong> • Ngày: <strong>{modalShift.date}</strong>
               </p>
-              {gpsStatus && (
-                <div className="p-2 rounded-xl bg-white border border-green-200 text-text-main font-medium">
-                  📡 {gpsStatus}
-                </div>
-              )}
             </div>
 
-            <div className="space-y-1 text-text-muted">
-              <p>• Ca làm việc: <strong className="text-text-main">{modalShift.startTime} - {modalShift.endTime}</strong> (Ngày: {modalShift.date})</p>
-              <p>• Thời gian hiện tại: <strong className="text-text-main">{new Date().toLocaleTimeString('vi-VN')}</strong></p>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-green-50">
+            {/* Mode Switch Tabs: GPS vs Thủ công */}
+            <div className="flex border-b border-gray-200">
               <button
                 type="button"
-                onClick={() => { setModalShift(null); setGpsStatus(null); }}
-                className="px-4 py-2.5 rounded-xl bg-gray-100 text-text-muted font-semibold hover:bg-gray-200"
+                onClick={() => setMode('gps')}
+                className={clsx(
+                  'pb-2 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5',
+                  mode === 'gps'
+                    ? 'border-green-main text-green-dark'
+                    : 'border-transparent text-text-muted hover:text-text-main'
+                )}
               >
-                Hủy
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Xác minh qua GPS thiết bị</span>
               </button>
 
-              {modalShift.status === 'checked_in' ? (
-                <button
-                  type="button"
-                  onClick={() => handleCheckOut(modalShift._id || modalShift.id)}
-                  disabled={actionLoading}
-                  className="px-4 py-2.5 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600 disabled:opacity-50 shadow-sm"
-                >
-                  {actionLoading ? 'Đang xác thực GPS & Tính công...' : 'Xác nhận Check-Out Ra Ca'}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleCheckIn(modalShift._id || modalShift.id)}
-                  disabled={actionLoading}
-                  className="px-4 py-2.5 rounded-xl bg-green-main text-white font-bold hover:bg-green-dark disabled:opacity-50 shadow-sm"
-                >
-                  {actionLoading ? 'Đang lấy tọa độ GPS...' : 'Xác nhận Check-In Vào Ca'}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setMode('manual')}
+                className={clsx(
+                  'pb-2 px-3 text-xs font-bold border-b-2 transition-all flex items-center gap-1.5',
+                  mode === 'manual'
+                    ? 'border-green-main text-green-dark'
+                    : 'border-transparent text-text-muted hover:text-text-main'
+                )}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Chấm công thủ công (cần duyệt)</span>
+              </button>
+            </div>
+
+            {/* Mode 1: GPS Verification */}
+            {mode === 'gps' && (
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-2xl border bg-white space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-text-main flex items-center gap-1.5">
+                      <Navigation className="w-4 h-4 text-blue-600" />
+                      Tọa độ thiết bị của bạn:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={requestFreshGps}
+                      disabled={gpsState.status === 'requesting'}
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 font-bold"
+                    >
+                      <RefreshCw className={clsx('w-3 h-3', gpsState.status === 'requesting' && 'animate-spin')} />
+                      <span>Lấy lại GPS</span>
+                    </button>
+                  </div>
+
+                  {gpsState.status === 'requesting' && (
+                    <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center gap-2 text-blue-700 animate-pulse">
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span>Đang nhận diện tín hiệu GPS chính xác từ thiết bị...</span>
+                    </div>
+                  )}
+
+                  {(gpsState.status === 'success' || gpsState.status === 'low_accuracy') && gpsState.coords && (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Đã lấy thành công tọa độ từ thiết bị</span>
+                      </div>
+                      <p className="font-mono text-[11px] text-emerald-800">
+                        {gpsState.coords.lat.toFixed(5)}, {gpsState.coords.lng.toFixed(5)} (Sai số: ±{gpsState.coords.accuracy}m)
+                      </p>
+                      {gpsState.status === 'low_accuracy' && (
+                        <p className="text-[10px] text-amber-700 font-semibold pt-1">
+                          ⚠️ Sai số thiết bị &gt; 100m. Hệ thống sẽ ghi nhận và gửi quản lý duyệt.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {gpsState.status === 'error' && (
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-900 space-y-2">
+                      <div className="flex items-center gap-1.5 font-bold text-red-800">
+                        <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                        <span>Không thể lấy tọa độ GPS</span>
+                      </div>
+                      <p className="text-[11px] text-red-700">{gpsState.error}</p>
+                      <div className="pt-1 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={requestFreshGps}
+                          className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-800 font-bold text-[11px] transition-colors"
+                        >
+                          Thử lấy GPS lại
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMode('manual')}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-red-300 text-red-800 font-bold text-[11px] transition-colors"
+                        >
+                          Chuyển sang Chấm công thủ công
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-text-muted italic leading-relaxed">
+                  * Lưu ý: Kết quả chấm công được xác minh tự động theo tọa độ thiết bị đối chiếu với bán kính cấu hình của quán.
+                </p>
+              </div>
+            )}
+
+            {/* Mode 2: Manual Attendance Request */}
+            {mode === 'manual' && (
+              <div className="space-y-3">
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-1">
+                  <p className="font-bold">📋 Yêu cầu chấm công thủ công</p>
+                  <p>
+                    Dành cho trường hợp thiết bị lỗi GPS, hết pin hoặc quán chưa có vị trí GPS chuẩn. Ca làm việc sẽ được chuyển sang trạng thái <strong>&ldquo;Chờ quản lý duyệt&rdquo;</strong>.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-text-main mb-1">
+                    Lý do chấm công thủ công *
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={manualReason}
+                    onChange={(e) => setManualReason(e.target.value)}
+                    placeholder="Ví dụ: Thiết bị lỗi GPS không bật được vị trí, em đã đến làm việc tại quán lúc 07:45..."
+                    className="w-full p-2.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-main text-xs"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                disabled={actionLoading}
+                className="px-4 py-2.5 rounded-xl bg-gray-100 text-text-muted font-semibold hover:bg-gray-200 transition-colors"
+              >
+                Đóng
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSubmitAttendance}
+                disabled={
+                  actionLoading ||
+                  (mode === 'gps' && (!gpsState.coords || gpsState.status === 'requesting' || gpsState.status === 'error')) ||
+                  (mode === 'manual' && !manualReason.trim())
+                }
+                className={clsx(
+                  'px-4 py-2.5 rounded-xl text-white font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50',
+                  modalShift.status === 'checked_in'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-green-main hover:bg-green-dark'
+                )}
+              >
+                {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>
+                  {modalShift.status === 'checked_in'
+                    ? (mode === 'manual' ? 'Gửi yêu cầu Ra Ca thủ công' : 'Xác nhận Check-Out Ra Ca')
+                    : (mode === 'manual' ? 'Gửi yêu cầu Vào Ca thủ công' : 'Xác nhận Check-In Vào Ca')}
+                </span>
+              </button>
             </div>
           </div>
         </Modal>

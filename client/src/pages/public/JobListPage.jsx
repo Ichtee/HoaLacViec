@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, ChevronDown, Map, List, Navigation, MapPin, Compass } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -6,16 +6,17 @@ import { JobCard } from '@/components/JobCard.jsx';
 import { JobMap } from '@/components/JobMap.jsx';
 import { EmptyState, LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { Select } from '@/components/Form.jsx';
-import { useAsync, useDebounce } from '@/hooks';
+import { useAsync, useDebounce, useGeolocation } from '@/hooks';
 import { getJobs, toggleSaveJob, isSavedJob, getSavedJobs } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JOB_TYPES, JOB_TYPE_LABELS, AREAS } from '@/constants';
+import { haversineDistance, isValidCoordinate } from '@/utils';
 
 const PAGE_SIZE = 9;
 
 export default function JobListPage() {
   const [params, setParams] = useSearchParams();
-  const { isAuthenticated, profileId } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const [search, setSearch] = useState(params.get('search') || '');
   const [type, setType] = useState(params.get('type') || '');
@@ -36,42 +37,42 @@ export default function JobListPage() {
     setArea(params.get('area') || '');
   }, [params]);
 
-  // GPS User Location State (No default preset location!)
-  const [userLocation, setUserLocation] = useState(null);
-  const [geoStatus, setGeoStatus] = useState('loading'); // 'loading' | 'granted' | 'denied' | 'unavailable'
+  // Standardized Geolocation Hook — never prompts automatically on mount!
+  const {
+    status: geoStatus,
+    coords: geoCoords,
+    error: geoError,
+    requestLocation: requestGpsLocation,
+    clearLocation: clearGpsLocation,
+  } = useGeolocation();
 
-  function requestUserLocation() {
-    if (!navigator.geolocation) {
-      setGeoStatus('unavailable');
-      return;
+  const userLocation = useMemo(() => {
+    if (geoCoords && isValidCoordinate(geoCoords.lat, geoCoords.lng)) {
+      return {
+        lat: geoCoords.lat,
+        lng: geoCoords.lng,
+        accuracy: geoCoords.accuracy,
+        label: `Vị trí GPS của bạn (±${geoCoords.accuracy}m)`,
+      };
     }
-    setGeoStatus('loading');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setUserLocation({
-          lat: latitude,
-          lng: longitude,
-          label: 'Vị trí GPS thực tế của bạn',
-        });
-        setGeoStatus('granted');
-      },
-      (err) => {
-        console.warn('Geolocation error / denied:', err);
-        setGeoStatus('denied');
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
+    return null;
+  }, [geoCoords]);
+
+  function handleTriggerGps() {
+    requestGpsLocation({ enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   }
 
-  // Request location immediately when entering the page
-  useEffect(() => {
-    requestUserLocation();
-  }, []);
+  function handleSortChange(newSort) {
+    setSort(newSort);
+    setPage(1);
+    if (newSort === 'nearest' && !userLocation) {
+      handleTriggerGps();
+    }
+  }
 
   const dSearch = useDebounce(search, 350);
 
-  const { data: allJobs, loading, error, run } = useAsync(
+  const { data: jobData, loading, error, run } = useAsync(
     () => getJobs({
       public: true,
       search: dSearch,
@@ -79,23 +80,53 @@ export default function JobListPage() {
       area,
       verified: verifiedOnly || undefined,
       featured: featuredOnly ? 'true' : undefined,
+      minSalary: minSalary || undefined,
       limit: 100,
-      sort: sort
+      sort: sort !== 'nearest' ? sort : undefined,
     }),
-    [dSearch, type, area, verifiedOnly, featuredOnly, sort],
+    [dSearch, type, area, verifiedOnly, featuredOnly, minSalary, sort],
     { initialData: [] }
   );
 
+  const allJobs = useMemo(() => {
+    if (Array.isArray(jobData)) return jobData;
+    return jobData?.items || jobData?.jobs || [];
+  }, [jobData]);
+
   // Load saved job ids
   useEffect(() => {
-    if (!isAuthenticated || !profileId) return;
-    getSavedJobs(profileId).then((jobs) => {
+    if (!isAuthenticated) return;
+    getSavedJobs().then((jobs) => {
       setSavedJobIds(new Set(jobs.map((j) => j._id || j.id)));
+    }).catch(() => {});
+  }, [isAuthenticated]);
+
+  // Compute real client-side distance without leaking user coordinates to the server
+  const jobsWithDistance = useMemo(() => {
+    return (allJobs || []).map((job) => {
+      let distanceMeters = null;
+      let distanceKm = null;
+      if (userLocation && isValidCoordinate(job.location?.lat, job.location?.lng)) {
+        distanceMeters = haversineDistance(
+          userLocation.lat,
+          userLocation.lng,
+          job.location.lat,
+          job.location.lng
+        );
+        if (distanceMeters !== null) {
+          distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;
+        }
+      }
+      return {
+        ...job,
+        distanceMeters,
+        distanceKm,
+      };
     });
-  }, [isAuthenticated, profileId]);
+  }, [allJobs, userLocation]);
 
   // Filter jobs by minimum salary & featuredOnly
-  const filtered = (allJobs || []).filter((j) => {
+  const filtered = jobsWithDistance.filter((j) => {
     if (minSalary && (j.salaryAmount || 0) < Number(minSalary)) return false;
     if (featuredOnly && !j.featured) return false;
     return true;
@@ -103,6 +134,14 @@ export default function JobListPage() {
 
   // Sort
   const sorted = [...filtered].sort((a, b) => {
+    if (sort === 'nearest') {
+      if (a.distanceMeters !== null && b.distanceMeters !== null) {
+        return a.distanceMeters - b.distanceMeters;
+      }
+      if (a.distanceMeters !== null) return -1;
+      if (b.distanceMeters !== null) return 1;
+      return 0;
+    }
     if (sort === 'salary_desc') return (b.salaryAmount || 0) - (a.salaryAmount || 0);
     if (sort === 'salary_asc') return (a.salaryAmount || 0) - (b.salaryAmount || 0);
     if (sort === 'rating') {
@@ -133,12 +172,33 @@ export default function JobListPage() {
       window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
       return;
     }
-    const result = await toggleSaveJob(profileId, jobId);
+    const wasSaved = savedJobIds.has(jobId);
+    // Optimistic update
     setSavedJobIds((prev) => {
       const next = new Set(prev);
-      result.saved ? next.add(jobId) : next.delete(jobId);
+      if (wasSaved) next.delete(jobId);
+      else next.add(jobId);
       return next;
     });
+
+    try {
+      const result = await toggleSaveJob(jobId);
+      setSavedJobIds((prev) => {
+        const next = new Set(prev);
+        if (result.saved) next.add(jobId);
+        else next.delete(jobId);
+        return next;
+      });
+    } catch (err) {
+      // Rollback on failure
+      setSavedJobIds((prev) => {
+        const next = new Set(prev);
+        if (wasSaved) next.add(jobId);
+        else next.delete(jobId);
+        return next;
+      });
+      alert(err.message || 'Không thể lưu công việc. Vui lòng thử lại.');
+    }
   }
 
   function clearFilters() {
@@ -208,40 +268,58 @@ export default function JobListPage() {
             'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm',
             userLocation ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
           )}>
-            <Compass className={clsx('w-4 h-4', geoStatus === 'loading' && 'animate-spin')} />
+            <Compass className={clsx('w-4 h-4', geoStatus === 'requesting' && 'animate-spin')} />
           </div>
           <div>
-            <p className="font-bold text-text-main flex items-center gap-1.5">
+            <div className="font-bold text-text-main flex flex-wrap items-center gap-1.5">
               <span>Định vị vị trí của bạn:</span>
               {userLocation ? (
                 <span className="text-blue-600 font-semibold text-[11px] bg-blue-50 px-2 py-0.5 rounded-md">
-                  ✓ Đã định vị chính xác qua GPS
+                  ✓ Đã nhận diện tọa độ thiết bị (sai số ±{geoCoords?.accuracy || 0}m)
                 </span>
-              ) : geoStatus === 'loading' ? (
+              ) : geoStatus === 'requesting' ? (
                 <span className="text-amber-600 font-semibold text-[11px] bg-amber-50 px-2 py-0.5 rounded-md animate-pulse">
-                  ⏳ Đang tìm vị trí GPS...
+                  ⏳ Đang xin tọa độ GPS từ thiết bị...
+                </span>
+              ) : geoStatus === 'denied' ? (
+                <span className="text-red-500 font-semibold text-[11px] bg-red-50 px-2 py-0.5 rounded-md">
+                  Đã từ chối quyền vị trí
+                </span>
+              ) : geoStatus === 'insecure' ? (
+                <span className="text-red-500 font-semibold text-[11px] bg-red-50 px-2 py-0.5 rounded-md">
+                  Trình duyệt yêu cầu kết nối HTTPS để dùng GPS
+                </span>
+              ) : geoStatus === 'low_accuracy' ? (
+                <span className="text-amber-600 font-semibold text-[11px] bg-amber-50 px-2 py-0.5 rounded-md">
+                  Độ chính xác GPS thấp ({geoCoords?.accuracy}m)
+                </span>
+              ) : geoStatus === 'timeout' || geoStatus === 'unavailable' ? (
+                <span className="text-amber-600 font-semibold text-[11px] bg-amber-50 px-2 py-0.5 rounded-md">
+                  Không lấy được tín hiệu GPS
                 </span>
               ) : (
-                <span className="text-red-500 font-semibold text-[11px] bg-red-50 px-2 py-0.5 rounded-md">
-                  Chưa cấp quyền vị trí
+                <span className="text-text-muted font-normal text-[11px] bg-gray-100 px-2 py-0.5 rounded-md">
+                  Chưa kích hoạt GPS
                 </span>
               )}
-            </p>
+            </div>
             <p className="text-[11px] text-text-muted mt-0.5">
               {userLocation
-                ? `Tọa độ GPS: ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`
-                : 'Vui lòng cho phép quyền vị trí trên trình duyệt để kích hoạt bản đồ & tính khoảng cách'}
+                ? `Tọa độ thiết bị: ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)} • Đã tính khoảng cách thực tế tới các việc làm`
+                : geoError
+                ? geoError
+                : 'Bật vị trí thiết bị để tự động tính khoảng cách và sắp xếp việc làm gần bạn nhất.'}
             </p>
           </div>
         </div>
 
         <button
-          onClick={requestUserLocation}
-          disabled={geoStatus === 'loading'}
-          className="self-start sm:self-center inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition-colors border border-blue-100 shrink-0"
+          onClick={handleTriggerGps}
+          disabled={geoStatus === 'requesting'}
+          className="self-start sm:self-center inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition-colors border border-blue-100 shrink-0 disabled:opacity-50"
         >
           <Navigation className="w-3.5 h-3.5" />
-          <span>{userLocation ? 'Cập nhật lại GPS' : 'Cấp quyền vị trí'}</span>
+          <span>{userLocation ? 'Cập nhật lại GPS' : 'Kích hoạt định vị'}</span>
         </button>
       </div>
 
@@ -276,13 +354,11 @@ export default function JobListPage() {
         <Select
           id="sort-select"
           value={sort}
-          onChange={(e) => {
-            setSort(e.target.value);
-            setPage(1);
-          }}
+          onChange={(e) => handleSortChange(e.target.value)}
           className="w-auto min-w-[190px]"
         >
           <option value="newest">🕒 Mới nhất</option>
+          <option value="nearest">📍 Gần tôi nhất</option>
           <option value="featured">⭐ Việc nổi bật</option>
           <option value="rating">🌟 Đánh giá cao nhất</option>
           <option value="salary_desc">💰 Lương cao nhất</option>
@@ -379,52 +455,40 @@ export default function JobListPage() {
 
       {/* MAP VIEW SECTION */}
       {viewMode === 'map' && (
-        <div className="space-y-4">
-          {userLocation ? (
-            <JobMap
-              jobs={sorted}
-              userLocation={userLocation}
-              onUserLocationChange={(newLoc) => setUserLocation(newLoc)}
-              selectedJobId={selectedJobId}
-              onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
-              height="460px"
-            />
-          ) : (
-            <div className="rounded-3xl border-2 border-dashed border-green-200 bg-white p-8 sm:p-12 text-center shadow-card space-y-4 animate-fade-in">
-              <div className="w-16 h-16 rounded-3xl bg-pink-50 text-pink-main flex items-center justify-center mx-auto text-3xl shadow-sm animate-bounce">
-                📍
+        <div className="space-y-3">
+          {!userLocation && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🗺️</span>
+                <span>
+                  <strong>Bản đồ đang lấy tâm khu vực Hòa Lạc</strong> (đây là tâm bản đồ chung, chưa phải vị trí GPS của bạn).
+                </span>
               </div>
-              <div className="max-w-md mx-auto space-y-1.5">
-                <h3 className="text-base sm:text-lg font-bold text-text-main">
-                  Cần quyền vị trí GPS để mở Bản đồ
-                </h3>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {geoStatus === 'loading'
-                    ? 'Đang gửi yêu cầu vị trí GPS tới trình duyệt của bạn...'
-                    : geoStatus === 'denied'
-                    ? 'Bạn đã từ chối cấp quyền vị trí. Vui lòng nhấn vào biểu tượng Ổ khóa / Cài đặt trang web trên thanh địa chỉ, bật "Vị trí", rồi bấm thử lại bên dưới.'
-                    : 'Bản đồ chỉ mở khi có vị trí thực tế của bạn để ghim tâm bản đồ và tính khoảng cách chính xác đến các quán xung quanh.'}
-                </p>
-              </div>
-              <div>
-                <button
-                  onClick={requestUserLocation}
-                  disabled={geoStatus === 'loading'}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50"
-                >
-                  <Navigation className="w-4 h-4" />
-                  <span>{geoStatus === 'loading' ? 'Đang lấy vị trí GPS...' : 'Cho phép vị trí & Xem bản đồ'}</span>
-                </button>
-              </div>
+              <button
+                onClick={handleTriggerGps}
+                disabled={geoStatus === 'requesting'}
+                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-sm transition-all"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Bật vị trí thiết bị</span>
+              </button>
             </div>
           )}
+
+          <JobMap
+            jobs={sorted}
+            userLocation={userLocation}
+            selectedJobId={selectedJobId}
+            onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
+            height="460px"
+          />
         </div>
       )}
 
       {/* Results Header */}
       <div className="flex items-center justify-between pt-2">
         <h3 className="font-bold text-sm text-text-main">
-          Danh sách công việc {userLocation ? `(Khoảng cách tính từ vị trí GPS của bạn)` : ''}
+          Danh sách công việc {userLocation ? `(Đã tính khoảng cách thực tế từ vị trí của bạn)` : ''}
         </h3>
       </div>
 

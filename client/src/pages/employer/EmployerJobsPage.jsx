@@ -1,65 +1,24 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Briefcase, Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight, MapPin,
-  Clock, DollarSign, Users, Eye, CheckCircle, Navigation, Crosshair, ExternalLink, Sparkles,
-  Loader2, AlertCircle, PauseCircle, PlayCircle
+  Clock, DollarSign, Users, Eye, ExternalLink,
+  Loader2, PauseCircle, PlayCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getJobs, createJob, updateJob, deleteJob, resolveMapLink, searchPlaces, getEmployerProfile, updateUserProfile } from '@/services';
-import { loadGoogleMapsScript } from '@/services/googleMaps';
-import { Badge } from '@/components/Badge.jsx';
+import {
+  getEmployerMyJobs,
+  createJob,
+  updateJob,
+  deleteJob,
+  getEmployerProfile,
+  updateUserProfile,
+} from '@/services';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
-import { formatVND } from '@/utils';
+import LocationPicker from '@/components/LocationPicker';
+import { formatVND, isValidCoordinate } from '@/utils';
 import { getProvinces, getDistricts, getWards, getWardCoordinates } from '@/services/provinces';
-
-// Quick client-side parser for coordinates and Google Maps URLs
-function parseGoogleCoordsClient(input) {
-  if (!input || typeof input !== 'string') return null;
-  const text = input.trim();
-
-  // 1. Raw coordinates (e.g. "21.03752, 105.51203" or "21.03752 105.51203")
-  const rawMatch = text.match(/^(-?\d+\.\d{3,})[,\s]+(-?\d+\.\d{3,})$/);
-  if (rawMatch) {
-    return { lat: parseFloat(rawMatch[1]), lng: parseFloat(rawMatch[2]) };
-  }
-
-  // 2. DMS coordinates: 21°02'15.0"N 105°30'44.3"E
-  const dmsRegex = /(\d+)[°\s]+(\d+)['\s]+([\d.]+)"?\s*([NSEW])/gi;
-  const dmsMatches = [...text.matchAll(dmsRegex)];
-  if (dmsMatches.length >= 2) {
-    const toDec = (deg, min, sec, dir) => {
-      let d = parseFloat(deg) + parseFloat(min) / 60 + parseFloat(sec) / 3600;
-      if (dir === 'S' || dir === 'W') d = -d;
-      return Math.round(d * 100000) / 100000;
-    };
-    return {
-      lat: toDec(dmsMatches[0][1], dmsMatches[0][2], dmsMatches[0][3], dmsMatches[0][4].toUpperCase()),
-      lng: toDec(dmsMatches[1][1], dmsMatches[1][2], dmsMatches[1][3], dmsMatches[1][4].toUpperCase())
-    };
-  }
-
-  // 3. URL with @lat,lng
-  const atMatch = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-  if (atMatch) {
-    return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
-  }
-
-  // 4. URL with query / q / destination / ll
-  const qMatch = text.match(/[?&](?:q|query|destination|ll)=(-?\d+\.\d+)[,+](-?\d+\.\d+)/);
-  if (qMatch) {
-    return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) };
-  }
-
-  // 5. Protobuf coordinates !3dlat!4dlng in Google Maps URLs
-  const protoMatch = text.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-  if (protoMatch) {
-    return { lat: parseFloat(protoMatch[1]), lng: parseFloat(protoMatch[2]) };
-  }
-
-  return null;
-}
 
 export default function EmployerJobsPage() {
   const { user, updateUser } = useAuth();
@@ -121,10 +80,12 @@ export default function EmployerJobsPage() {
     salaryAmount: 25000,
     salaryUnit: 'hour',
     contactPhone: user?.phone || '',
-    address: 'Xã Tân Xã, Huyện Thạch Thất, Thành phố Hà Nội',
+    address: '',
     area: 'tan_xa',
-    lat: 21.0175,
-    lng: 105.5220,
+    lat: null,
+    lng: null,
+    locationStatus: 'unconfirmed',
+    locationSource: null,
     shiftDetail: '',
     slots: 1,
     description: '',
@@ -134,39 +95,11 @@ export default function EmployerJobsPage() {
 
   const [editingJob, setEditingJob] = useState(null);
 
-  useEffect(() => {
-    loadJobs();
-    initProvinces();
-    if (user?.id || user?.profileId) {
-      getEmployerProfile(user?.profileId || user?.id)
-        .then(profile => {
-          if (profile?.contactPhone) {
-            setEmployerPhone(profile.contactPhone);
-            setFormData(prev => ({
-              ...prev,
-              contactPhone: prev.contactPhone || profile.contactPhone
-            }));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user?.phone) {
-      setEmployerPhone(prev => prev || user.phone);
-      setFormData(prev => ({
-        ...prev,
-        contactPhone: prev.contactPhone || user.phone
-      }));
-    }
-  }, [user?.phone]);
-
   async function loadJobs() {
     try {
       setLoading(true);
-      const res = await getJobs({ storeName: user?.name, employerId: user?.id });
-      const list = Array.isArray(res) ? res : (res?.jobs || []);
+      const res = await getEmployerMyJobs();
+      const list = Array.isArray(res) ? res : (res?.items || res?.jobs || []);
       setJobs(list);
     } catch (err) {
       console.error(err);
@@ -216,6 +149,34 @@ export default function EmployerJobsPage() {
     }
   }
 
+  useEffect(() => {
+    loadJobs();
+    initProvinces();
+    if (user?.id || user?.profileId) {
+      getEmployerProfile(user?.profileId || user?.id)
+        .then(profile => {
+          if (profile?.contactPhone) {
+            setEmployerPhone(profile.contactPhone);
+            setFormData(prev => ({
+              ...prev,
+              contactPhone: prev.contactPhone || profile.contactPhone
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.phone) {
+      setEmployerPhone(prev => prev || user.phone);
+      setFormData(prev => ({
+        ...prev,
+        contactPhone: prev.contactPhone || user.phone
+      }));
+    }
+  }, [user?.phone]);
+
   // Initialize Google Places Autocomplete when modal is open and API Key is present
   useEffect(() => {
     if (!isModalOpen || !detailAddressInputRef.current) return;
@@ -242,7 +203,6 @@ export default function EmployerJobsPage() {
               lat,
               lng,
             }));
-            setGeoCustomVerified(true);
             setMapLinkInput(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
           }
         });
@@ -308,22 +268,13 @@ export default function EmployerJobsPage() {
     setFormData(prev => ({
       ...prev,
       area: coords.area,
-      lat: coords.lat,
-      lng: coords.lng,
     }));
-    // Reset custom verified if ward is manually changed, unless already custom pinned
   }
 
-  // Google Maps Link & Coordinate Extraction State
-  const [mapLinkInput, setMapLinkInput] = useState('');
-  const [resolvingGeo, setResolvingGeo] = useState(false);
-  const [geoCustomVerified, setGeoCustomVerified] = useState(false);
   const [geoError, setGeoError] = useState('');
   const [geoNotFound, setGeoNotFound] = useState(false);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [suggestedPlaces, setSuggestedPlaces] = useState([]);
-  const [showManualLink, setShowManualLink] = useState(false);
-  const debounceTimerRef = useRef(null);
 
   // Search Google Maps places via SerpApi with intelligent local context
   async function handleSearchSerpApiPlaces(overrideQuery) {
@@ -387,75 +338,12 @@ export default function EmployerJobsPage() {
       ...prev,
       lat: place.lat,
       lng: place.lng,
+      locationStatus: 'confirmed',
+      locationSource: 'places',
       address: place.address || prev.address,
     }));
-    setGeoCustomVerified(true);
     setSuggestedPlaces([]);
     setMapLinkInput(`${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}`);
-  }
-
-  // Auto parse as user types or pastes
-  async function handleResolveMapLink(inputVal) {
-    const val = (inputVal !== undefined ? inputVal : mapLinkInput).trim();
-    if (!val) {
-      setGeoError('Vui lòng nhập link Google Maps hoặc tọa độ');
-      return;
-    }
-    setGeoError('');
-
-    // 1. Instant client-side regex parse
-    const clientParsed = parseGoogleCoordsClient(val);
-    if (clientParsed) {
-      setFormData(prev => ({ ...prev, lat: clientParsed.lat, lng: clientParsed.lng }));
-      setGeoCustomVerified(true);
-      setGeoError('');
-      return;
-    }
-
-    // 2. Call backend redirect resolver (for maps.app.goo.gl short links)
-    try {
-      setResolvingGeo(true);
-      const res = await resolveMapLink(val);
-      if (res?.lat && res?.lng) {
-        setFormData(prev => ({ ...prev, lat: res.lat, lng: res.lng }));
-        setGeoCustomVerified(true);
-        setGeoError('');
-      } else {
-        setGeoError('Không tìm thấy tọa độ. Bạn có thể mở Google Maps rồi copy số tọa độ (VD: 21.0375, 105.5120) dán vào đây.');
-      }
-    } catch {
-      setGeoError('Không thể phân giải link. Bạn hãy copy số tọa độ trên Google Maps (VD: 21.0375, 105.5120) dán vào đây.');
-    } finally {
-      setResolvingGeo(false);
-    }
-  }
-
-  // Get current device GPS location for store owner
-  function handleGetDeviceLocation() {
-    if (!navigator.geolocation) {
-      setGeoError('Trình duyệt không hỗ trợ định vị GPS.');
-      return;
-    }
-    setResolvingGeo(true);
-    setGeoError('');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setFormData(prev => ({
-          ...prev,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        }));
-        setGeoCustomVerified(true);
-        setResolvingGeo(false);
-        setMapLinkInput(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
-      },
-      (err) => {
-        console.warn('Geo error:', err);
-        setResolvingGeo(false);
-        setGeoError('Không thể lấy vị trí GPS: Vui lòng cho phép quyền truy cập vị trí trên trình duyệt.');
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
   }
 
   function handleOpenCreate() {
@@ -467,10 +355,12 @@ export default function EmployerJobsPage() {
       salaryAmount: 25000,
       salaryUnit: 'hour',
       contactPhone: user?.phone || employerPhone || '',
-      address: 'Xã Tân Xã, Huyện Thạch Thất, Thành phố Hà Nội',
+      address: '',
       area: 'tan_xa',
-      lat: 21.0175,
-      lng: 105.5220,
+      lat: null,
+      lng: null,
+      locationStatus: 'unconfirmed',
+      locationSource: null,
       shiftDetail: '',
       slots: 1,
       description: '',
@@ -486,6 +376,7 @@ export default function EmployerJobsPage() {
   function handleOpenEdit(job) {
     setEditingJob(job);
     setDetailAddress(job.address?.split(',')[0] || '');
+    const hasValidCoords = isValidCoordinate(job.location?.lat, job.location?.lng);
     setFormData({
       title: job.title || '',
       jobType: job.type === 'shift' ? 'Theo ca' : 'Part-time',
@@ -494,15 +385,17 @@ export default function EmployerJobsPage() {
       contactPhone: job.contactPhone || user?.phone || employerPhone || '',
       address: job.address || '',
       area: job.area || 'tan_xa',
-      lat: job.location?.lat || 21.0175,
-      lng: job.location?.lng || 105.5220,
+      lat: hasValidCoords ? job.location.lat : null,
+      lng: hasValidCoords ? job.location.lng : null,
+      locationStatus: job.locationStatus || (hasValidCoords ? 'confirmed' : 'unconfirmed'),
+      locationSource: job.locationSource || (hasValidCoords ? 'map_pin' : null),
       shiftDetail: job.shiftDetail || 'Sáng: 7h-12h | Tối: 17h-22h',
       slots: job.slots || 2,
       description: job.description || '',
       requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : (job.requirements || ''),
       benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : (job.benefits || ''),
     });
-    setGeoCustomVerified(Boolean(job.location?.lat && job.location?.lng));
+    setGeoCustomVerified(hasValidCoords && job.locationStatus === 'confirmed');
     setGeoError('');
     setGeoNotFound(false);
     setIsModalOpen(true);
@@ -514,22 +407,13 @@ export default function EmployerJobsPage() {
       setSubmitting(true);
 
       const finalAddress = fullAddressPreview || formData.address;
-      let finalLat = Number(formData.lat);
-      let finalLng = Number(formData.lng);
-
-      if (!geoCustomVerified && finalAddress) {
-        try {
-          const geoRes = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(finalAddress)}`,
-            { headers: { 'Accept-Language': 'vi', 'User-Agent': 'HoaLacViec/1.0' } }
-          );
-          const geoData = await geoRes.json();
-          if (geoData?.[0]?.lat && geoData?.[0]?.lon) {
-            finalLat = parseFloat(geoData[0].lat);
-            finalLng = parseFloat(geoData[0].lon);
+      const isConfirmed = isValidCoordinate(formData.lat, formData.lng) && formData.locationStatus === 'confirmed';
+      const locationPayload = isConfirmed
+        ? {
+            lat: Number(Number(formData.lat).toFixed(6)),
+            lng: Number(Number(formData.lng).toFixed(6)),
           }
-        } catch {}
-      }
+        : null;
 
       const inputPhone = formData.contactPhone?.trim() || user?.phone || employerPhone || '';
       const payload = {
@@ -542,10 +426,10 @@ export default function EmployerJobsPage() {
         contactPhone: inputPhone,
         area: formData.area,
         address: finalAddress,
-        location: {
-          lat: finalLat,
-          lng: finalLng,
-        },
+        location: locationPayload,
+        locationStatus: isConfirmed ? 'confirmed' : 'unconfirmed',
+        locationSource: isConfirmed ? (formData.locationSource || 'map_pin') : null,
+        locationConfirmedAt: isConfirmed ? new Date() : null,
         slots: Number(formData.slots) || 2,
         shiftDetail: formData.shiftDetail,
         description: formData.description,
@@ -564,7 +448,12 @@ export default function EmployerJobsPage() {
       } else {
         const newJob = await createJob(payload);
         setJobs(prev => [newJob, ...prev]);
-        setToast({ type: 'success', message: 'Tạo tin tuyển dụng thành công! Đã ghim vị trí quán lên Bản đồ việc làm.' });
+        setToast({
+          type: 'success',
+          message: isConfirmed
+            ? 'Tạo tin tuyển dụng thành công! Đã ghim vị trí quán lên Bản đồ việc làm.'
+            : 'Đã lưu tin tuyển dụng (chưa ghim vị trí, chưa bật chấm công GPS).'
+        });
       }
 
       if (inputPhone && !user?.phone) {
@@ -932,60 +821,6 @@ export default function EmployerJobsPage() {
                   </button>
                 </div>
 
-                {/* Tiện ích trợ giúp nhanh */}
-                <div className="flex items-center justify-between text-[11px] text-gray-500 pt-0.5">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleGetDeviceLocation}
-                      disabled={resolvingGeo}
-                      className="inline-flex items-center gap-1 text-gray-600 hover:text-blue-600 transition-colors py-0.5 font-medium"
-                      title="Lấy vị trí GPS nếu bạn đang ở tại quán"
-                    >
-                      <Crosshair className="w-3 h-3 text-blue-500" />
-                      <span>Lấy vị trí hiện tại của bạn</span>
-                    </button>
-                    <span>•</span>
-                    <button
-                      type="button"
-                      onClick={() => setShowManualLink(prev => !prev)}
-                      className="inline-flex items-center gap-1 text-gray-600 hover:text-blue-600 transition-colors py-0.5 font-medium"
-                    >
-                      <Navigation className="w-3 h-3 text-blue-500" />
-                      <span>{showManualLink ? 'Ẩn ô dán link' : 'Hoặc dán link Google Maps'}</span>
-                    </button>
-                  </div>
-
-                  {searchingPlaces && (
-                    <span className="text-pink-600 flex items-center gap-1 animate-pulse font-medium">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Đang tìm kiếm...
-                    </span>
-                  )}
-                </div>
-
-                {/* Hộp dán link mở rộng (khi cần) */}
-                {showManualLink && (
-                  <div className="p-2.5 bg-blue-50/70 rounded-xl border border-blue-100 space-y-1.5 animate-fade-in">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={mapLinkInput}
-                        onChange={e => setMapLinkInput(e.target.value)}
-                        placeholder="Dán link Google Maps (maps.app.goo.gl/...)..."
-                        className="flex-1 p-2 rounded-lg border border-blue-200 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleResolveMapLink(mapLinkInput)}
-                        disabled={resolvingGeo || !mapLinkInput.trim()}
-                        className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shrink-0 disabled:opacity-50"
-                      >
-                        {resolvingGeo ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Xác nhận'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Danh sách gợi ý từ Google Maps */}
                 {suggestedPlaces.length > 0 && (
                   <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-2 space-y-1 max-h-56 overflow-y-auto z-10 animate-fade-in">
@@ -1023,51 +858,38 @@ export default function EmployerJobsPage() {
                   </div>
                 )}
 
-                {/* Khi không tìm thấy trên Google Maps (Fallback mượt mà) */}
+                {/* Khi không tìm thấy trên Google Places */}
                 {geoNotFound && !suggestedPlaces.length && (
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs space-y-1.5 animate-fade-in">
-                    <div className="flex items-center gap-1.5 font-bold text-blue-950">
-                      <span>💡 Quán chưa đăng ký trên Google Maps? Không sao cả!</span>
-                    </div>
-                    <p className="text-blue-800 text-[11px] leading-relaxed">
-                      Bạn vẫn đăng tin bình thường với tên quán <strong>"{detailAddress}"</strong>. Hệ thống sẽ tự động ghim vị trí quán tại trung tâm <strong>{selectedWardName || 'Xã / Phường bạn đã chọn'}</strong> trên Bản đồ.
-                    </p>
-                    <p className="text-[11px] text-blue-700">
-                      👉 <em>Mẹo chuẩn từng mét:</em> Bấm <strong>"Lấy vị trí hiện tại của bạn"</strong> ở trên nếu bạn đang ngồi tại quán.
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs space-y-1 animate-fade-in">
+                    <p className="font-bold">💡 Chưa thấy quán trên danh mục Google?</p>
+                    <p className="text-[11px] text-blue-800">
+                      Không sao cả! Bạn chỉ cần click trực tiếp vào bản đồ bên dưới để ghim vị trí quán hoặc bấm &ldquo;Lấy GPS tại quán&rdquo;.
                     </p>
                   </div>
                 )}
 
-                {/* Thông báo lỗi nhẹ nhàng khác nếu có */}
-                {geoError && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 text-amber-800 text-xs border border-amber-200">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
-                    <span>{geoError}</span>
-                  </div>
-                )}
-
-                {/* Thẻ xác nhận đã định vị vị trí thành công */}
-                {geoCustomVerified && (
-                  <div className="p-3 rounded-xl bg-emerald-50/90 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-3 animate-fade-in">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold truncate">Đã định vị thành công trên Google Maps</p>
-                        <p className="text-[11px] text-emerald-700 truncate">{detailAddress || 'Tọa độ GPS chính xác'}</p>
-                      </div>
-                    </div>
-                    <a
-                      href={`https://www.google.com/maps?q=${formData.lat},${formData.lng}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-emerald-700 hover:text-emerald-900 font-semibold text-[11px] flex items-center gap-1 shrink-0 bg-white/90 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm transition-colors"
-                    >
-                      <ExternalLink className="w-3 h-3" /> Xem bản đồ
-                    </a>
-                  </div>
-                )}
+                {/* Interactive Leaflet Location Picker with draggable pin */}
+                <div className="pt-2">
+                  <LocationPicker
+                    value={{
+                      lat: formData.lat,
+                      lng: formData.lng,
+                      locationStatus: formData.locationStatus,
+                      locationSource: formData.locationSource,
+                    }}
+                    onChange={({ lat, lng, locationStatus, locationSource }) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        lat,
+                        lng,
+                        locationStatus,
+                        locationSource,
+                      }));
+                      setGeoCustomVerified(Boolean(lat !== null && lng !== null));
+                    }}
+                    addressHint={fullAddressPreview || detailAddress}
+                  />
+                </div>
               </div>
 
               {/* Địa chỉ hiển thị trên bài đăng */}

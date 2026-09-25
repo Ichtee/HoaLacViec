@@ -23,6 +23,7 @@ const shiftSchema = new mongoose.Schema({
       'scheduled',
       'checked_in',
       'checked_out',
+      'needs_review',
       'pending_approval',
       'approved',
       'completed', // Alias for approved
@@ -38,18 +39,44 @@ const shiftSchema = new mongoose.Schema({
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
       accuracy: { type: Number, default: null },
+      timestamp: { type: Date, default: null },
     },
     checkInDistanceMeters: { type: Number, default: null },
     checkInVerified: { type: Boolean, default: false },
+    checkInVerificationStatus: {
+      type: String,
+      enum: ['verified', 'needs_review', 'rejected', null],
+      default: null,
+    },
+    checkInReasonCode: { type: String, default: null },
+    checkInTargetCoords: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
+    checkInConfiguredRadius: { type: Number, default: null },
+    checkInManualReason: { type: String, default: null },
 
     checkOutAt: { type: Date, default: null },
     checkOutCoords: {
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
       accuracy: { type: Number, default: null },
+      timestamp: { type: Date, default: null },
     },
     checkOutDistanceMeters: { type: Number, default: null },
     checkOutVerified: { type: Boolean, default: false },
+    checkOutVerificationStatus: {
+      type: String,
+      enum: ['verified', 'needs_review', 'rejected', null],
+      default: null,
+    },
+    checkOutReasonCode: { type: String, default: null },
+    checkOutTargetCoords: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
+    checkOutConfiguredRadius: { type: Number, default: null },
+    checkOutManualReason: { type: String, default: null },
 
     locationVerified: { type: Boolean, default: false },
   },

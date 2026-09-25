@@ -4,27 +4,17 @@ import { Job } from '../models/Job.js';
 import { StudentProfile } from '../models/StudentProfile.js';
 import { Availability } from '../models/Availability.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
+import { Application } from '../models/Application.js';
+import { Shift } from '../models/Shift.js';
 import { resolveGoogleMapInput } from '../utils/parseMapLink.js';
 import { searchGoogleMapsPlaces } from '../services/serpApi.js';
-import { authenticate, authorize } from '../middlewares/auth.js';
+import { authenticate, authorize, optionalAuthenticate } from '../middlewares/auth.js';
+import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
+import { geocodeAddress } from '../services/geocodingService.js';
 
 const router = express.Router();
 
-// Helper: Haversine distance in km
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
-  const R = 6371; // Earth radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 10) / 10;
-}
-
-// Helper: Create Vietnamese diacritic-agnostic regex (matches both with and without accents)
+// Helper: Create Vietnamese diacritic-agnostic regex
 function createVietnameseRegex(query) {
   if (!query) return null;
   const map = {
@@ -55,7 +45,6 @@ function computeMatch(job, availability, studentLocation) {
   let hasConflict = false;
   let scheduleInfo = 'Chưa có thông tin lịch rảnh';
 
-  // Real Schedule match calculation
   if (availability && availability.slots && Object.keys(availability.slots).length > 0 && job.schedule && job.schedule.length > 0) {
     const dayKeys = ['', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
     let matches = 0;
@@ -76,20 +65,25 @@ function computeMatch(job, availability, studentLocation) {
       : 'Trùng khớp 100% lịch rảnh';
   }
 
-  // Real Distance match calculation
   let distanceKm = null;
   let distanceScore = null;
   let distanceInfo = 'Chưa thiết lập vị trí sinh viên';
 
-  if (studentLocation && studentLocation.lat && job.location && job.location.lat) {
-    distanceKm = calculateDistance(
+  if (
+    studentLocation &&
+    isValidCoordinate(studentLocation.lat, studentLocation.lng) &&
+    job.location &&
+    isValidCoordinate(job.location.lat, job.location.lng)
+  ) {
+    const distMeters = calculateHaversineDistanceMeters(
       studentLocation.lat, studentLocation.lng,
       job.location.lat, job.location.lng
     );
-    if (distanceKm !== null) {
-      if (distanceKm <= 1.0) distanceScore = 100; // Đi bộ được (< 1km)
-      else if (distanceKm <= 2.5) distanceScore = 85; // Đi xe đạp/xe máy 5 phút
-      else if (distanceKm <= 5.0) distanceScore = 70; // Hòa Lạc nội khu
+    if (distMeters !== null) {
+      distanceKm = Math.round((distMeters / 1000) * 10) / 10;
+      if (distanceKm <= 1.0) distanceScore = 100;
+      else if (distanceKm <= 2.5) distanceScore = 85;
+      else if (distanceKm <= 5.0) distanceScore = 70;
       else distanceScore = Math.max(30, Math.round(100 - distanceKm * 7));
 
       distanceInfo = distanceKm <= 1.2
@@ -98,7 +92,6 @@ function computeMatch(job, availability, studentLocation) {
     }
   }
 
-  // If both are missing, match score is null
   let overallScore = null;
   if (scheduleScore !== null && distanceScore !== null) {
     overallScore = Math.round(scheduleScore * 0.6 + distanceScore * 0.4);
@@ -121,8 +114,59 @@ function computeMatch(job, availability, studentLocation) {
   };
 }
 
-// GET /api/jobs
-router.get('/', async (req, res) => {
+// GET /api/jobs/employer/my-jobs (Authenticated - Employer view own jobs at all lifecycle states)
+router.get('/employer/my-jobs', authenticate, authorize('employer', 'admin'), async (req, res, next) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
+    const skip = (pageNum - 1) * limitNum;
+
+    const filter = { archivedAt: null };
+
+    if (req.user.role === 'employer') {
+      const profile = await EmployerProfile.findOne({ userId: req.user._id });
+      const allowedOwnerIds = [req.user._id];
+      if (profile) allowedOwnerIds.push(profile._id);
+
+      filter.$or = [
+        { employerUserId: req.user._id },
+        { employerProfileId: { $in: allowedOwnerIds } },
+        { employerId: { $in: allowedOwnerIds } },
+      ];
+    } else if (req.user.role === 'admin' && req.query.employerUserId) {
+      filter.employerUserId = req.query.employerUserId;
+    }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    const total = await Job.countDocuments(filter);
+    const jobs = await Job.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+
+    res.json({
+      items: jobs,
+      jobs,
+      total,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum) || 1,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/jobs (Public queries - ONLY returns approved, active, unexpired, non-archived jobs)
+router.get('/', optionalAuthenticate, async (req, res, next) => {
   try {
     const {
       search,
@@ -130,13 +174,11 @@ router.get('/', async (req, res) => {
       type,
       area,
       studentId,
-      storeName,
-      employerId,
-      employerUserId,
-      status,
       page = 1,
       limit = 50,
       featured,
+      verified,
+      minSalary,
       sort,
     } = req.query;
 
@@ -146,40 +188,53 @@ router.get('/', async (req, res) => {
 
     const andConditions = [];
 
-    // Status filter: Public visitors only see approved jobs
-    if (status) {
-      andConditions.push({ status });
-    } else if (!storeName && !employerId && !employerUserId) {
-      andConditions.push({ status: 'approved' });
+    // Security & Visibility: Public visitors only see approved, unexpired, active jobs
+    andConditions.push({ status: 'approved' });
+    andConditions.push({ archivedAt: null });
+    andConditions.push({
+      $or: [
+        { closesAt: null },
+        { closesAt: { $exists: false } },
+        { closesAt: { $gt: new Date() } },
+      ],
+    });
+
+    // Category filter (real backend filtering)
+    if (category && category !== 'all') {
+      andConditions.push({
+        $or: [
+          { category: category.trim() },
+          { tags: category.trim() },
+        ],
+      });
     }
 
-    // Employer / Store scoping
-    const empTarget = employerUserId || employerId;
-    if (storeName || empTarget) {
-      const empOr = [];
-      if (storeName) {
-        empOr.push({ storeName: { $regex: new RegExp(`^${storeName}$`, 'i') } });
-      }
-      if (empTarget) {
-        empOr.push({ employerUserId: empTarget });
-        empOr.push({ employerProfileId: empTarget });
-        empOr.push({ employerId: empTarget });
-        try {
-          const profile = await EmployerProfile.findOne({
-            $or: [{ _id: empTarget }, { userId: empTarget }]
-          });
-          if (profile) {
-            empOr.push({ employerProfileId: profile._id });
-            empOr.push({ employerUserId: profile.userId });
-            if (profile.storeName) {
-              empOr.push({ storeName: { $regex: new RegExp(`^${profile.storeName}$`, 'i') } });
-            }
-          }
-        } catch (e) {}
-      }
-      if (empOr.length > 0) {
-        andConditions.push({ $or: empOr });
-      }
+    // Type and Area filters
+    if (type) andConditions.push({ type });
+    if (area) andConditions.push({ area });
+
+    // Featured filter
+    if (featured === 'true') {
+      andConditions.push({ featured: true });
+    }
+
+    // Minimum salary filter
+    if (minSalary && !isNaN(Number(minSalary))) {
+      andConditions.push({ salaryAmount: { $gte: Number(minSalary) } });
+    }
+
+    // Verified employer filter (real backend check)
+    if (verified === 'true') {
+      const verifiedProfiles = await EmployerProfile.find({ verified: true }).select('_id userId').lean();
+      const verifiedProfileIds = verifiedProfiles.map(p => p._id);
+      const verifiedUserIds = verifiedProfiles.map(p => p.userId).filter(Boolean);
+      andConditions.push({
+        $or: [
+          { employerProfileId: { $in: verifiedProfileIds } },
+          { employerUserId: { $in: verifiedUserIds } },
+          { employerId: { $in: verifiedProfileIds } },
+        ],
+      });
     }
 
     // Search filter (diacritic-insensitive)
@@ -193,20 +248,15 @@ router.get('/', async (req, res) => {
           { description: { $regex: searchRegex } },
           { address: { $regex: searchRegex } },
           { tags: { $in: [searchRegex, tagRegex] } },
-        ]
+        ],
       });
     }
 
-    if (type) andConditions.push({ type });
-    if (area) andConditions.push({ area });
-    if (featured === 'true') andConditions.push({ featured: true });
+    const finalFilter = { $and: andConditions };
 
-    const finalFilter = andConditions.length > 0 ? { $and: andConditions } : {};
-
-    // Get total count server-side
     const total = await Job.countDocuments(finalFilter);
 
-    // Sorting logic: default newest first (createdAt: -1)
+    // Sorting
     let sortObj = { createdAt: -1 };
     if (sort === 'oldest') {
       sortObj = { createdAt: 1 };
@@ -224,49 +274,58 @@ router.get('/', async (req, res) => {
       .limit(limitNum)
       .lean();
 
-    // Attach employer profile info and rating to each job
+    // Attach real employer profile info — NO FAKE FALLBACKS!
     try {
       const employerProfileIds = jobs.map(j => j.employerProfileId || j.employerId).filter(Boolean);
-      const storeNames = jobs.map(j => j.storeName).filter(Boolean);
+      const employerUserIds = jobs.map(j => j.employerUserId).filter(Boolean);
+
       const employerProfiles = await EmployerProfile.find({
         $or: [
           { _id: { $in: employerProfileIds } },
-          { storeName: { $in: storeNames } }
-        ]
+          { userId: { $in: employerUserIds } },
+        ],
       }).lean();
 
       const empMap = new Map();
       employerProfiles.forEach(p => {
         empMap.set(p._id.toString(), p);
-        if (p.storeName) empMap.set(p.storeName.toLowerCase(), p);
+        if (p.userId) empMap.set(p.userId.toString(), p);
       });
 
       jobs = jobs.map(job => {
         const emp = (job.employerProfileId && empMap.get(job.employerProfileId.toString())) ||
+                    (job.employerUserId && empMap.get(job.employerUserId.toString())) ||
                     (job.employerId && empMap.get(job.employerId.toString())) ||
-                    (job.storeName && empMap.get(job.storeName.toLowerCase())) ||
                     null;
+
         return {
           ...job,
-          employer: emp || {
-            storeName: job.storeName,
-            verified: true,
-            rating: 4.8,
-            ratingCount: 12,
-          },
-          rating: emp?.rating || 4.8,
+          employer: emp
+            ? {
+                storeName: emp.storeName,
+                address: emp.address,
+                area: emp.area,
+                verified: Boolean(emp.verified),
+                rating: emp.rating || null,
+                ratingCount: emp.ratingCount || 0,
+              }
+            : {
+                storeName: job.storeName,
+                address: job.address,
+                area: job.area,
+                verified: false,
+                rating: null,
+                ratingCount: 0,
+              },
+          rating: emp?.rating || null,
         };
       });
     } catch (err) {
       console.warn('Error attaching employer info to jobs:', err.message);
     }
 
-    if (sort === 'rating') {
-      jobs.sort((a, b) => (b.rating || b.employer?.rating || 0) - (a.rating || a.employer?.rating || 0));
-    }
-
-    // If studentId provided, enhance with schedule and distance match score
-    if (studentId) {
+    // Match score if studentId provided
+    if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
       const [avail, profile] = await Promise.all([
         Availability.findOne({ userId: studentId }),
         StudentProfile.findOne({ userId: studentId }),
@@ -287,6 +346,7 @@ router.get('/', async (req, res) => {
     }
 
     res.json({
+      items: jobs,
       jobs,
       total,
       pagination: {
@@ -294,33 +354,48 @@ router.get('/', async (req, res) => {
         limit: limitNum,
         total,
         totalPages: Math.ceil(total / limitNum) || 1,
-      }
+      },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// GET /api/jobs/:id
-router.get('/:id', async (req, res) => {
+// GET /api/jobs/:id (Public view 404s unapproved jobs; Owner or Admin can view)
+router.get('/:id', optionalAuthenticate, async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+      return res.status(404).json({ error: 'Không tìm thấy việc làm', code: 'JOB_NOT_FOUND' });
     }
-    const job = await Job.findById(req.params.id).lean();
-    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
 
-    let employer = null;
-    if (job.employerId) {
-      employer = await EmployerProfile.findById(job.employerId).lean();
+    const job = await Job.findById(req.params.id).lean();
+    if (!job) {
+      return res.status(404).json({ error: 'Không tìm thấy việc làm', code: 'JOB_NOT_FOUND' });
     }
-    if (!employer) {
-      employer = await EmployerProfile.findOne({ storeName: job.storeName }).lean();
+
+    // If job is not approved or is archived, only the owner employer or admin may view it
+    if (job.status !== 'approved' || job.archivedAt) {
+      const isOwner = req.user && job.employerUserId && job.employerUserId.toString() === req.user._id.toString();
+      const isAdmin = req.user && req.user.role === 'admin';
+      if (!isOwner && !isAdmin) {
+        return res.status(404).json({ error: 'Không tìm thấy việc làm', code: 'JOB_NOT_FOUND' });
+      }
+    }
+
+    // Attach real employer profile
+    let employer = null;
+    if (job.employerProfileId || job.employerId) {
+      employer = await EmployerProfile.findOne({
+        $or: [
+          { _id: job.employerProfileId || job.employerId },
+          { userId: job.employerUserId },
+        ],
+      }).lean();
     }
 
     const { studentId } = req.query;
     let matchResult = null;
-    if (studentId) {
+    if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
       const [avail, profile] = await Promise.all([
         Availability.findOne({ userId: studentId }),
         StudentProfile.findOne({ userId: studentId }),
@@ -330,33 +405,45 @@ router.get('/:id', async (req, res) => {
 
     res.json({
       ...job,
-      employer: employer || {
-        storeName: job.storeName,
-        address: job.address,
-        area: job.area,
-        contactPhone: job.contactPhone,
-        verified: true,
-        rating: 4.8,
-        ratingCount: 15,
-      },
+      employer: employer
+        ? {
+            storeName: employer.storeName,
+            address: employer.address,
+            area: employer.area,
+            contactPhone: employer.contactPhone,
+            verified: Boolean(employer.verified),
+            rating: employer.rating || null,
+            ratingCount: employer.ratingCount || 0,
+          }
+        : {
+            storeName: job.storeName,
+            address: job.address,
+            area: job.area,
+            contactPhone: job.contactPhone,
+            verified: false,
+            rating: null,
+            ratingCount: 0,
+          },
       matchResult,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/jobs (Employer create job)
-router.post('/', authenticate, async (req, res) => {
+// POST /api/jobs (Employer/Admin create job)
+router.post('/', authenticate, async (req, res, next) => {
   try {
     if (req.user.role !== 'employer' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Chỉ nhà tuyển dụng hoặc quản trị viên mới có quyền đăng tin tuyển dụng.' });
+      return res.status(403).json({
+        error: 'Chỉ nhà tuyển dụng hoặc quản trị viên mới có quyền đăng tin tuyển dụng.',
+        code: 'FORBIDDEN',
+      });
     }
 
+    const profile = await EmployerProfile.findOne({ userId: req.user._id });
     const data = { ...req.body };
 
-    // Resolve employer identity from authenticated user
-    const profile = await EmployerProfile.findOne({ userId: req.user._id });
     data.employerUserId = req.user._id;
     if (profile) {
       data.employerProfileId = profile._id;
@@ -374,14 +461,22 @@ router.post('/', authenticate, async (req, res) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Status: if admin, allow status in body; else pending waiting for admin approval
+    // Status: draft if requested, otherwise pending for admin approval; admin can directly approve
     if (req.user.role === 'admin') {
       data.status = data.status || 'approved';
     } else {
-      data.status = 'pending';
+      data.status = data.status === 'draft' ? 'draft' : 'pending';
     }
 
-    // Normalize requirements & benefits if given as string
+    // If employer wants to submit immediately to pending, check verified
+    if (data.status === 'pending' && req.user.role !== 'admin') {
+      if (!profile || !profile.verified) {
+        // Can only save as draft if not verified
+        data.status = 'draft';
+      }
+    }
+
+    // Normalize requirements & benefits
     if (typeof data.requirements === 'string') {
       data.requirements = data.requirements.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
     }
@@ -389,68 +484,286 @@ router.post('/', authenticate, async (req, res) => {
       data.benefits = data.benefits.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
     }
 
-    // Normalize location & address
-    if (typeof data.location === 'string') {
-      data.address = data.location;
-      data.location = { lat: 21.0128, lng: 105.5255 };
-    } else if (!data.location || !data.location.lat) {
-      data.location = { lat: 21.0128, lng: 105.5255 };
-    }
-    if (!data.address) {
-      data.address = 'Khu công nghệ cao Hòa Lạc';
+    // Normalize location & address: Real coordinates only, NO FAKE DEFAULTS!
+    if (isValidCoordinate(data.location?.lat, data.location?.lng)) {
+      data.location = {
+        lat: Number(data.location.lat),
+        lng: Number(data.location.lng),
+      };
+      data.locationStatus = data.locationStatus || 'confirmed';
+      data.locationSource = data.locationSource || 'manual_coordinates';
+      data.locationConfirmedAt = data.locationConfirmedAt || new Date();
+    } else {
+      data.location = { lat: null, lng: null };
+      data.locationStatus = 'unconfirmed';
+      data.locationSource = null;
+      data.locationConfirmedAt = null;
     }
 
     const newJob = await Job.create(data);
     res.status(201).json(newJob);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
+  }
+});
+
+// ACTION: POST /api/jobs/:id/submit (Draft -> Pending, Requires verified employer)
+router.post('/:id/submit', authenticate, async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+
+    if (req.user.role !== 'admin' && job.employerUserId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Bạn không có quyền gửi duyệt tin tuyển dụng này.', code: 'FORBIDDEN' });
+    }
+
+    if (job.status !== 'draft') {
+      return res.status(400).json({ error: `Chỉ tin ở trạng thái bản nháp (draft) mới có thể gửi duyệt (hiện tại: ${job.status}).`, code: 'INVALID_STATE' });
+    }
+
+    // Employer must be verified to submit for approval
+    if (req.user.role !== 'admin') {
+      const profile = await EmployerProfile.findOne({ userId: req.user._id });
+      if (!profile || !profile.verified) {
+        return res.status(403).json({
+          error: 'Chỉ nhà tuyển dụng đã xác minh tài khoản mới được gửi tin tuyển dụng để xét duyệt.',
+          code: 'EMPLOYER_NOT_VERIFIED',
+        });
+      }
+    }
+
+    job.status = 'pending';
+    job.moderationNote = 'Chờ xét duyệt từ Ban Quản Trị';
+    await job.save();
+
+    res.json({ message: 'Tin tuyển dụng đã được gửi duyệt thành công.', job });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ACTION: POST /api/jobs/:id/pause (Approved -> Paused)
+router.post('/:id/pause', authenticate, async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+
+    if (req.user.role !== 'admin' && job.employerUserId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Bạn không có quyền tạm dừng tin tuyển dụng này.', code: 'FORBIDDEN' });
+    }
+
+    if (job.status !== 'approved') {
+      return res.status(400).json({ error: 'Chỉ có thể tạm dừng tin đang hoạt động (approved).', code: 'INVALID_STATE' });
+    }
+
+    job.status = 'paused';
+    await job.save();
+
+    res.json({ message: 'Đã tạm dừng nhận hồ sơ tuyển dụng.', job });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ACTION: POST /api/jobs/:id/close (Approved|Paused -> Closed)
+router.post('/:id/close', authenticate, async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+
+    if (req.user.role !== 'admin' && job.employerUserId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Bạn không có quyền đóng tin tuyển dụng này.', code: 'FORBIDDEN' });
+    }
+
+    if (!['approved', 'paused'].includes(job.status)) {
+      return res.status(400).json({ error: 'Chỉ có thể đóng tin đang hoạt động hoặc đang tạm dừng.', code: 'INVALID_STATE' });
+    }
+
+    job.status = 'closed';
+    await job.save();
+
+    res.json({ message: 'Đã đóng tuyển dụng cho vị trí này.', job });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ACTION: POST /api/jobs/:id/reopen (Paused|Closed -> Pending, must re-moderate)
+router.post('/:id/reopen', authenticate, async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+
+    if (req.user.role !== 'admin' && job.employerUserId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Bạn không có quyền mở lại tin tuyển dụng này.', code: 'FORBIDDEN' });
+    }
+
+    if (!['paused', 'closed'].includes(job.status)) {
+      return res.status(400).json({ error: 'Chỉ có thể mở lại tin đang đóng hoặc đang tạm dừng.', code: 'INVALID_STATE' });
+    }
+
+    // Reopen MUST return to pending for admin re-approval
+    job.status = 'pending';
+    job.moderationNote = 'Tin tuyển dụng được mở lại và chờ xét duyệt.';
+    await job.save();
+
+    res.json({ message: 'Tin tuyển dụng đã được gửi lại để Ban Quản Trị xét duyệt.', job });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ACTION: POST /api/jobs/:id/approve (Admin only: Pending -> Approved)
+router.post('/:id/approve', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+
+    job.status = 'approved';
+    job.moderatedBy = req.user._id;
+    job.moderatedAt = new Date();
+    job.moderationNote = 'Đã được duyệt bởi Quản trị viên.';
+    job.rejectionReason = '';
+    await job.save();
+
+    res.json({ message: 'Đã phê duyệt tin tuyển dụng thành công.', job });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ACTION: POST /api/jobs/:id/reject (Admin only: Pending -> Rejected)
+router.post('/:id/reject', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+
+    job.status = 'rejected';
+    job.moderatedBy = req.user._id;
+    job.moderatedAt = new Date();
+    job.rejectionReason = reason || 'Thông tin tin tuyển dụng chưa đáp ứng quy chuẩn.';
+    await job.save();
+
+    res.json({ message: 'Đã từ chối tin tuyển dụng.', job });
+  } catch (err) {
+    next(err);
   }
 });
 
 // PUT /api/jobs/:id (Update job - Owner or Admin)
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', authenticate, async (req, res, next) => {
   try {
     const job = await Job.findById(req.params.id);
-    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm', code: 'JOB_NOT_FOUND' });
 
     if (req.user.role !== 'admin') {
-      const profile = await EmployerProfile.findOne({ userId: req.user._id });
-      const allowedOwnerIds = [req.user._id.toString()];
-      if (profile) allowedOwnerIds.push(profile._id.toString());
-
-      const isOwner = (job.employerUserId && job.employerUserId.toString() === req.user._id.toString()) ||
-                      (job.employerId && allowedOwnerIds.includes(job.employerId.toString()));
+      const isOwner = job.employerUserId && job.employerUserId.toString() === req.user._id.toString();
       if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa tin tuyển dụng này.' });
+        return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa tin tuyển dụng này.', code: 'FORBIDDEN' });
       }
 
-      // Strip fields employer is not allowed to mutate directly
+      // Strip protected fields
       delete req.body.employerUserId;
       delete req.body.employerProfileId;
       delete req.body.employerId;
       delete req.body.featured;
       delete req.body.moderatedBy;
       delete req.body.moderatedAt;
+      delete req.body.archivedAt;
 
-      // State machine check: if approved job modifies critical info, revert to pending for review
+      // If approved job changes core information, revert to pending for review
       const isChangingCore = req.body.title || req.body.salaryAmount || req.body.address || req.body.schedule || req.body.location;
       if (job.status === 'approved' && isChangingCore) {
         req.body.status = 'pending';
         req.body.moderationNote = 'Tin tuyển dụng cần duyệt lại do thay đổi nội dung quan trọng.';
-      } else if (req.body.status && !['paused', 'closed', 'pending'].includes(req.body.status)) {
+      } else if (req.body.status && !['paused', 'closed', 'draft', 'pending'].includes(req.body.status)) {
         delete req.body.status;
       }
     }
 
-    const updated = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    // Normalize location
+    if (req.body.location !== undefined) {
+      if (isValidCoordinate(req.body.location?.lat, req.body.location?.lng)) {
+        req.body.location = {
+          lat: Number(req.body.location.lat),
+          lng: Number(req.body.location.lng),
+        };
+        req.body.locationStatus = req.body.locationStatus || 'confirmed';
+        req.body.locationSource = req.body.locationSource || 'manual_coordinates';
+        req.body.locationConfirmedAt = req.body.locationConfirmedAt || new Date();
+      } else {
+        req.body.location = { lat: null, lng: null };
+        req.body.locationStatus = 'unconfirmed';
+        req.body.locationSource = null;
+        req.body.locationConfirmedAt = null;
+      }
+    }
+
+    const updated = await Job.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
+  }
+});
+
+// DELETE /api/jobs/:id (Owner or Admin: soft delete if has application/shift, else hard delete)
+router.delete('/:id', authenticate, async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm', code: 'JOB_NOT_FOUND' });
+
+    if (req.user.role !== 'admin') {
+      const isOwner = job.employerUserId && job.employerUserId.toString() === req.user._id.toString();
+      if (!isOwner) {
+        return res.status(403).json({ error: 'Bạn không có quyền xóa tin tuyển dụng này.', code: 'FORBIDDEN' });
+      }
+    }
+
+    // Check if job has applications or shifts
+    const [appCount, shiftCount] = await Promise.all([
+      Application.countDocuments({ jobId: job._id }),
+      Shift.countDocuments({ jobId: job._id }),
+    ]);
+
+    if (appCount > 0 || shiftCount > 0) {
+      // Soft-delete with archivedAt to preserve history and contract integrity
+      job.archivedAt = new Date();
+      job.status = 'closed';
+      await job.save();
+      return res.json({
+        message: 'Tin tuyển dụng đã có người ứng tuyển hoặc ca làm việc, đã được chuyển sang chế độ lưu trữ.',
+        archived: true,
+        job,
+      });
+    }
+
+    await Job.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Đã xóa hoàn toàn tin tuyển dụng.', archived: false });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/jobs/geocode (OpenStreetMap Nominatim geocoding)
+router.post('/geocode', async (req, res, next) => {
+  try {
+    const { address } = req.body;
+    if (!address || typeof address !== 'string' || !address.trim()) {
+      return res.status(400).json({ success: false, error: 'Vui lòng cung cấp địa chỉ cần tìm tọa độ.' });
+    }
+    const result = await geocodeAddress(address);
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    next(err);
   }
 });
 
 // POST /api/jobs/resolve-map-link
-router.post('/resolve-map-link', async (req, res) => {
+router.post('/resolve-map-link', async (req, res, next) => {
   try {
     const { input } = req.body;
     if (!input) {
@@ -462,12 +775,12 @@ router.post('/resolve-map-link', async (req, res) => {
     }
     res.json({ success: true, lat: coords.lat, lng: coords.lng });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    next(err);
   }
 });
 
 // POST /api/jobs/search-places (via SerpApi Google Maps)
-router.post('/search-places', async (req, res) => {
+router.post('/search-places', async (req, res, next) => {
   try {
     const { query, center } = req.body;
     if (!query || !query.trim()) {
@@ -476,34 +789,8 @@ router.post('/search-places', async (req, res) => {
     const places = await searchGoogleMapsPlaces(query, center);
     res.json({ success: true, places });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// DELETE /api/jobs/:id (Delete job - Owner or Admin)
-router.delete('/:id', authenticate, async (req, res) => {
-  try {
-    const job = await Job.findById(req.params.id);
-    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
-
-    if (req.user.role !== 'admin') {
-      const profile = await EmployerProfile.findOne({ userId: req.user._id });
-      const allowedOwnerIds = [req.user._id.toString()];
-      if (profile) allowedOwnerIds.push(profile._id.toString());
-
-      const isOwner = (job.employerUserId && job.employerUserId.toString() === req.user._id.toString()) ||
-                      (job.employerId && allowedOwnerIds.includes(job.employerId.toString()));
-      if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền xóa tin tuyển dụng này.' });
-      }
-    }
-
-    await Job.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Đã xóa công việc' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 export default router;
-

@@ -128,6 +128,34 @@ export async function apiSearchPlaces(query, center) {
   });
 }
 
+export async function apiGeocodeAddress(address) {
+  return request('/jobs/geocode', {
+    method: 'POST',
+    body: JSON.stringify({ address }),
+  });
+}
+
+export async function apiGetEmployerMyJobs(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/jobs/employer/my-jobs${query ? `?${query}` : ''}`);
+}
+
+export async function apiSubmitJobForReview(id) {
+  return request(`/jobs/${id}/submit`, { method: 'POST' });
+}
+
+export async function apiPauseJob(id) {
+  return request(`/jobs/${id}/pause`, { method: 'POST' });
+}
+
+export async function apiCloseJob(id) {
+  return request(`/jobs/${id}/close`, { method: 'POST' });
+}
+
+export async function apiReopenJob(id) {
+  return request(`/jobs/${id}/reopen`, { method: 'POST' });
+}
+
 export async function apiUpdateJob(id, jobData) {
   return request(`/jobs/${id}`, {
     method: 'PUT',
@@ -439,11 +467,8 @@ export async function apiUnsaveJob(jobId) {
   return request(`/saved-jobs/${jobId}`, { method: 'DELETE' });
 }
 
-export async function apiToggleSaveJob(jobId, isCurrentlySaved) {
-  if (isCurrentlySaved) {
-    return apiUnsaveJob(jobId);
-  }
-  return apiSaveJob(jobId);
+export async function apiToggleSaveJob(jobId) {
+  return request(`/saved-jobs/toggle/${jobId}`, { method: 'POST' });
 }
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────

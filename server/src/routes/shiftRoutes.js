@@ -3,20 +3,18 @@ import mongoose from 'mongoose';
 import { Shift } from '../models/Shift.js';
 import { Job } from '../models/Job.js';
 import { User } from '../models/User.js';
+import { Application } from '../models/Application.js';
 import { Notification } from '../models/Notification.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { authenticate } from '../middlewares/auth.js';
-import { calculateHaversineDistanceMeters } from '../utils/haversine.js';
+import { evaluateAttendanceGPS, clampRadius, evaluateCheckinWindow } from '../utils/geoHelper.js';
 
 const router = express.Router();
 
 router.use(authenticate);
 
-// Default coordinates for Hòa Lạc High-Tech Park (if job has no coordinates set)
-const DEFAULT_HOALAC_COORDS = { lat: 21.0128, lng: 105.5255 };
-
 // GET /api/shifts
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const { studentId, employerId, storeId, storeName, status, date } = req.query;
     const filter = {};
@@ -31,14 +29,10 @@ router.get('/', async (req, res) => {
       const employerIds = [req.user._id];
       if (profile) employerIds.push(profile._id);
 
-      const empOr = [
+      filter.$or = [
         { employerUserId: req.user._id },
         { employerId: { $in: employerIds } },
       ];
-      if (profile?.storeName) {
-        empOr.push({ storeName: { $regex: new RegExp(`^${profile.storeName}$`, 'i') } });
-      }
-      filter.$or = empOr;
     } else if (req.user.role === 'admin') {
       if (studentId) {
         filter.$or = [{ studentUserId: studentId }, { studentId }];
@@ -63,29 +57,31 @@ router.get('/', async (req, res) => {
     const formatted = shifts.map((s) => ({
       ...s,
       id: s._id,
-      // Map 'completed' status to 'approved' for UI consistency
       status: s.status === 'completed' ? 'approved' : s.status,
     }));
 
     res.json(formatted);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/shifts/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Mã ca làm không hợp lệ.', code: 'INVALID_ID' });
+    }
+
     const shift = await Shift.findById(req.params.id)
       .populate('jobId', 'title storeName address location')
       .populate('studentUserId', 'name email phone avatar')
       .lean();
 
     if (!shift) {
-      return res.status(404).json({ error: 'Không tìm thấy ca làm việc.' });
+      return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
     }
 
-    // Role access check
     if (req.user.role !== 'admin') {
       const isStudent =
         (shift.studentUserId && shift.studentUserId._id?.toString() === req.user._id.toString()) ||
@@ -95,21 +91,21 @@ router.get('/:id', async (req, res) => {
         (shift.employerId && shift.employerId.toString() === req.user._id.toString());
 
       if (!isStudent && !isEmployer) {
-        return res.status(403).json({ error: 'Bạn không có quyền xem thông tin ca làm việc này.' });
+        return res.status(403).json({ error: 'Bạn không có quyền xem thông tin ca làm việc này.', code: 'FORBIDDEN' });
       }
     }
 
     res.json({ ...shift, id: shift._id });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/shifts (Phân ca mới - Employer/Admin)
-router.post('/', async (req, res) => {
+// POST /api/shifts (Create shift: Employer owner of job only, student must have hired application)
+router.post('/', async (req, res, next) => {
   try {
     if (req.user.role !== 'employer' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Chỉ nhà tuyển dụng mới có quyền phân ca làm việc.' });
+      return res.status(403).json({ error: 'Chỉ nhà tuyển dụng mới có quyền phân ca làm việc.', code: 'FORBIDDEN' });
     }
 
     const {
@@ -127,29 +123,55 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     const assignedStudentId = studentUserId || studentId;
-    if (!assignedStudentId) {
-      return res.status(400).json({ error: 'Vui lòng chọn sinh viên nhận ca làm việc.' });
+    if (!assignedStudentId || !mongoose.Types.ObjectId.isValid(assignedStudentId)) {
+      return res.status(400).json({ error: 'Vui lòng chọn sinh viên nhận ca làm việc hợp lệ.', code: 'INVALID_STUDENT' });
+    }
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      return res.status(400).json({ error: 'Vui lòng chọn công việc phân ca hợp lệ.', code: 'INVALID_JOB' });
     }
     if (!date || !startTime || !endTime) {
-      return res.status(400).json({ error: 'Vui lòng cung cấp ngày, giờ bắt đầu và giờ kết thúc ca làm.' });
+      return res.status(400).json({ error: 'Vui lòng cung cấp ngày, giờ bắt đầu và giờ kết thúc ca làm.', code: 'MISSING_SCHEDULE' });
     }
 
+    // Verify Job existence and ownership
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+    }
+
+    if (req.user.role !== 'admin') {
+      const isJobOwner = job.employerUserId && job.employerUserId.toString() === req.user._id.toString();
+      if (!isJobOwner) {
+        return res.status(403).json({
+          error: 'Bạn chỉ có thể tạo ca làm cho tin tuyển dụng do chính mình quản lý.',
+          code: 'FORBIDDEN',
+        });
+      }
+    }
+
+    // Verify student account
     const student = await User.findById(assignedStudentId);
     if (!student) {
-      return res.status(404).json({ error: 'Không tìm thấy thông tin tài khoản sinh viên được phân ca.' });
+      return res.status(404).json({ error: 'Không tìm thấy thông tin tài khoản sinh viên được phân ca.', code: 'STUDENT_NOT_FOUND' });
     }
 
-    let jobStoreName = storeName;
-    if (!jobStoreName && jobId) {
-      const job = await Job.findById(jobId);
-      if (job) jobStoreName = job.storeName;
-    }
-    if (!jobStoreName) {
-      const empProfile = await EmployerProfile.findOne({ userId: req.user._id });
-      if (empProfile) jobStoreName = empProfile.storeName;
+    // Verify that student has a HIRED application for this job
+    if (req.user.role !== 'admin') {
+      const hiredApp = await Application.findOne({
+        jobId: job._id,
+        studentId: student._id,
+        status: { $in: ['hired', 'accepted', 'approved'] },
+      });
+
+      if (!hiredApp) {
+        return res.status(400).json({
+          error: 'Sinh viên phải có hồ sơ ứng tuyển ở trạng thái trúng tuyển (hired) cho công việc này mới có thể được xếp ca.',
+          code: 'STUDENT_NOT_HIRED',
+        });
+      }
     }
 
-    // Calculate planned hours if not provided
+    // Calculate planned hours
     let calculatedHours = hours ? Number(hours) : 4;
     try {
       const [sh, sm] = startTime.split(':').map(Number);
@@ -159,25 +181,27 @@ router.post('/', async (req, res) => {
         calculatedHours = Number((diffMinutes / 60).toFixed(1));
       }
     } catch {
-      // fallback to default
+      // fallback
     }
 
+    const effectiveRate = Number(wageRate) || job.salaryAmount || 25000;
+
     const newShift = await Shift.create({
-      jobId: jobId || null,
+      jobId: job._id,
       applicationId: applicationId || null,
-      storeName: jobStoreName || 'Cửa hàng tuyển dụng',
+      storeName: storeName || job.storeName || 'Cửa hàng tuyển dụng',
       employerUserId: req.user._id,
       employerId: req.user._id,
       studentUserId: student._id,
       studentId: student._id,
       studentName: student.name,
-      role: role || 'Nhân viên bán ca',
+      role: role || job.title || 'Nhân viên bán ca',
       date,
       startTime,
       endTime,
       hours: calculatedHours,
-      wageRate: Number(wageRate) || 25000,
-      totalPay: Math.round(calculatedHours * (Number(wageRate) || 25000)),
+      wageRate: effectiveRate,
+      totalPay: Math.round(calculatedHours * effectiveRate),
       status: 'scheduled',
       history: [
         {
@@ -189,12 +213,12 @@ router.post('/', async (req, res) => {
       ],
     });
 
-    // Send in-app notification to student
+    // Notify student
     try {
       await Notification.create({
         userId: student._id,
         title: 'Bạn có lịch phân ca mới! 📅',
-        message: `Quán ${jobStoreName || ''} đã xếp bạn vào ca làm ngày ${date} từ ${startTime} đến ${endTime}.`,
+        message: `Quán ${newShift.storeName} đã xếp bạn vào ca làm ngày ${date} từ ${startTime} đến ${endTime}.`,
         type: 'shift',
         link: '/student/shifts',
       });
@@ -204,52 +228,76 @@ router.post('/', async (req, res) => {
 
     res.status(201).json(newShift);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/shifts/:id/checkin (Điểm danh vào ca bằng GPS thực tế)
-router.post('/:id/checkin', async (req, res) => {
+// ACTION: POST /api/shifts/:id/checkin (Check-in window: -30m to +60m from startTime, Asia/Ho_Chi_Minh)
+router.post('/:id/checkin', async (req, res, next) => {
   try {
-    const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.' });
+    const shift = await Shift.findById(req.params.id).populate('jobId');
+    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
-    // Only the assigned student or admin can check in
+    // Only assigned student or admin can check in
     const isAssigned =
       (shift.studentUserId && shift.studentUserId.toString() === req.user._id.toString()) ||
       (shift.studentId && shift.studentId.toString() === req.user._id.toString());
 
     if (req.user.role !== 'admin' && !isAssigned) {
-      return res.status(403).json({ error: 'Bạn không có quyền điểm danh cho ca làm của người khác.' });
+      return res.status(403).json({ error: 'Bạn không có quyền điểm danh cho ca làm của người khác.', code: 'FORBIDDEN' });
     }
 
-    // State machine check
     if (shift.status !== 'scheduled') {
       return res.status(400).json({
-        error: `Không thể điểm danh vào ca vì trạng thái hiện tại là "${shift.status}".`,
+        error: `Không thể điểm danh vào ca vì ca làm đang ở trạng thái "${shift.status}".`,
+        code: 'INVALID_STATUS',
       });
     }
 
-    const { lat, lng, accuracy } = req.body;
-    let distanceMeters = null;
-    let isVerified = false;
+    // Time window validation: [-30min, +60min] relative to shift startTime (Asia/Ho_Chi_Minh: +07:00)
+    const windowCheck = evaluateCheckinWindow(shift.date, shift.startTime);
+    if (!windowCheck.allowed && windowCheck.code !== 'INVALID_DATETIME') {
+      return res.status(400).json({
+        error: windowCheck.error,
+        code: windowCheck.code,
+      });
+    }
 
-    // Find reference store coordinates
-    let targetCoords = null;
-    if (shift.jobId) {
-      const job = await Job.findById(shift.jobId);
-      if (job?.location?.lat && job?.location?.lng) {
-        targetCoords = { lat: job.location.lat, lng: job.location.lng };
+    const { lat, lng, accuracy, timestamp, isManual, manualReason } = req.body;
+
+    let employerRadius = 150;
+    try {
+      const employerTarget = shift.employerUserId || shift.employerId;
+      if (employerTarget) {
+        const empProfile = await EmployerProfile.findOne({
+          $or: [{ userId: employerTarget }, { _id: employerTarget }]
+        }).lean();
+        if (empProfile?.checkinRadius) {
+          employerRadius = clampRadius(empProfile.checkinRadius);
+        }
       }
-    }
-    if (!targetCoords) {
-      targetCoords = DEFAULT_HOALAC_COORDS;
+    } catch (err) {
+      console.warn('Could not read employer checkinRadius:', err.message);
     }
 
-    if (lat && lng) {
-      distanceMeters = calculateHaversineDistanceMeters(lat, lng, targetCoords.lat, targetCoords.lng);
-      // Validated radius: 350m (tolerance for GPS drift in student campus)
-      isVerified = distanceMeters !== null && distanceMeters <= 350;
+    const job = shift.jobId;
+    const evaluation = evaluateAttendanceGPS({
+      lat,
+      lng,
+      accuracy,
+      timestamp,
+      jobLocation: job?.location,
+      jobLocationStatus: job?.locationStatus,
+      checkinRadius: employerRadius,
+      isManual: Boolean(isManual),
+      manualReason: manualReason || '',
+    });
+
+    if (evaluation.status === 'rejected') {
+      return res.status(400).json({
+        error: evaluation.message,
+        reasonCode: evaluation.reasonCode,
+      });
     }
 
     shift.status = 'checked_in';
@@ -257,34 +305,40 @@ router.post('/:id/checkin', async (req, res) => {
       ...shift.attendance,
       checkInAt: new Date(),
       checkInCoords: {
-        lat: lat || null,
-        lng: lng || null,
-        accuracy: accuracy || null,
+        lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
+        lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
+        accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+        timestamp: timestamp ? new Date(timestamp) : new Date(),
       },
-      checkInDistanceMeters: distanceMeters,
-      checkInVerified: isVerified,
-      locationVerified: isVerified,
+      checkInDistanceMeters: evaluation.distanceMeters,
+      checkInVerified: evaluation.verified,
+      checkInVerificationStatus: evaluation.status,
+      checkInReasonCode: evaluation.reasonCode,
+      checkInTargetCoords: evaluation.targetCoords,
+      checkInConfiguredRadius: evaluation.configuredRadius,
+      checkInManualReason: manualReason || null,
+      locationVerified: evaluation.verified,
     };
 
     shift.history.push({
       status: 'checked_in',
       changedAt: new Date(),
       changedBy: req.user._id,
-      note: isVerified
-        ? `Điểm danh vào ca tại quán (Khoảng cách GPS: ${distanceMeters}m)`
-        : `Điểm danh vào ca (Cách địa điểm: ${distanceMeters ? `${distanceMeters}m` : 'chưa có GPS'}, cần NTD duyệt)`,
+      note: evaluation.verified
+        ? `Điểm danh vào ca tại quán (Khoảng cách GPS: ${Math.round(evaluation.distanceMeters)}m, bán kính ${evaluation.configuredRadius}m)`
+        : `Điểm danh vào ca (${evaluation.message})`,
     });
 
     await shift.save();
 
-    // Send notification to employer
+    // Notify employer
     try {
       const employerTarget = shift.employerUserId || shift.employerId;
       if (employerTarget) {
         await Notification.create({
           userId: employerTarget,
           title: `Sinh viên ${shift.studentName || ''} đã check-in vào ca`,
-          message: `Check-in ca ${shift.startTime} - ${shift.endTime}. Khoảng cách GPS: ${distanceMeters ? `${distanceMeters}m` : 'N/A'}. Trạng thái: ${isVerified ? 'Hợp lệ tại quán' : 'Ngoài phạm vi'}`,
+          message: `Check-in ca ${shift.startTime} - ${shift.endTime}. Trạng thái: ${evaluation.verified ? 'Xác thực GPS tự động' : `Cần duyệt (${evaluation.reasonCode})`}`,
           type: 'shift',
           link: '/employer/shifts',
         });
@@ -294,65 +348,83 @@ router.post('/:id/checkin', async (req, res) => {
     }
 
     res.json({
-      message: isVerified
-        ? 'Điểm danh vào ca thành công! Tọa độ GPS trùng khớp với quán.'
-        : `Đã ghi nhận điểm danh vào ca (Khoảng cách: ${distanceMeters ? `${distanceMeters}m` : 'chưa xác định'}).`,
+      message: evaluation.message,
       shift,
-      verified: isVerified,
-      distanceMeters,
+      verified: evaluation.verified,
+      verificationStatus: evaluation.status,
+      reasonCode: evaluation.reasonCode,
+      distanceMeters: evaluation.distanceMeters,
+      configuredRadius: evaluation.configuredRadius,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/shifts/:id/checkout (Điểm danh ra ca - Tính giờ & tiền công thực tế)
-router.post('/:id/checkout', async (req, res) => {
+// ACTION: POST /api/shifts/:id/checkout
+router.post('/:id/checkout', async (req, res, next) => {
   try {
-    const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.' });
+    const shift = await Shift.findById(req.params.id).populate('jobId');
+    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
     const isAssigned =
       (shift.studentUserId && shift.studentUserId.toString() === req.user._id.toString()) ||
       (shift.studentId && shift.studentId.toString() === req.user._id.toString());
 
     if (req.user.role !== 'admin' && !isAssigned) {
-      return res.status(403).json({ error: 'Bạn không có quyền điểm danh cho ca làm của người khác.' });
+      return res.status(403).json({ error: 'Bạn không có quyền điểm danh cho ca làm của người khác.', code: 'FORBIDDEN' });
     }
 
     if (shift.status !== 'checked_in') {
       return res.status(400).json({
         error: 'Chỉ có thể check-out sau khi đã check-in vào ca làm việc.',
+        code: 'INVALID_STATUS',
       });
     }
 
-    const { lat, lng, accuracy } = req.body;
-    let distanceMeters = null;
-    let isVerified = false;
+    const { lat, lng, accuracy, timestamp, isManual, manualReason } = req.body;
 
-    let targetCoords = null;
-    if (shift.jobId) {
-      const job = await Job.findById(shift.jobId);
-      if (job?.location?.lat && job?.location?.lng) {
-        targetCoords = { lat: job.location.lat, lng: job.location.lng };
+    let employerRadius = 150;
+    try {
+      const employerTarget = shift.employerUserId || shift.employerId;
+      if (employerTarget) {
+        const empProfile = await EmployerProfile.findOne({
+          $or: [{ userId: employerTarget }, { _id: employerTarget }]
+        }).lean();
+        if (empProfile?.checkinRadius) {
+          employerRadius = clampRadius(empProfile.checkinRadius);
+        }
       }
-    }
-    if (!targetCoords) {
-      targetCoords = DEFAULT_HOALAC_COORDS;
+    } catch (err) {
+      console.warn('Could not read employer checkinRadius:', err.message);
     }
 
-    if (lat && lng) {
-      distanceMeters = calculateHaversineDistanceMeters(lat, lng, targetCoords.lat, targetCoords.lng);
-      isVerified = distanceMeters !== null && distanceMeters <= 350;
+    const job = shift.jobId;
+    const evaluation = evaluateAttendanceGPS({
+      lat,
+      lng,
+      accuracy,
+      timestamp,
+      jobLocation: job?.location,
+      jobLocationStatus: job?.locationStatus,
+      checkinRadius: employerRadius,
+      isManual: Boolean(isManual),
+      manualReason: manualReason || '',
+    });
+
+    if (evaluation.status === 'rejected') {
+      return res.status(400).json({
+        error: evaluation.message,
+        reasonCode: evaluation.reasonCode,
+      });
     }
 
     const checkInTime = shift.attendance?.checkInAt || new Date();
     const checkOutTime = new Date();
     const workedMinutes = Math.max(1, Math.round((checkOutTime - checkInTime) / (1000 * 60)));
-    const workedHours = Number((workedMinutes / 60).toFixed(2));
     const calculatedPay = Math.round((workedMinutes / 60) * (shift.wageRate || 25000));
 
-    shift.status = 'pending_approval'; // Waiting for employer to review and approve pay
+    shift.status = 'pending_approval';
     shift.workedMinutes = workedMinutes;
     shift.totalPay = calculatedPay;
 
@@ -360,75 +432,73 @@ router.post('/:id/checkout', async (req, res) => {
       ...shift.attendance,
       checkOutAt: checkOutTime,
       checkOutCoords: {
-        lat: lat || null,
-        lng: lng || null,
-        accuracy: accuracy || null,
+        lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
+        lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
+        accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+        timestamp: timestamp ? new Date(timestamp) : new Date(),
       },
-      checkOutDistanceMeters: distanceMeters,
-      checkOutVerified: isVerified,
+      checkOutDistanceMeters: evaluation.distanceMeters,
+      checkOutVerified: evaluation.verified,
+      checkOutVerificationStatus: evaluation.status,
+      checkOutReasonCode: evaluation.reasonCode,
+      checkOutTargetCoords: evaluation.targetCoords,
+      checkOutConfiguredRadius: evaluation.configuredRadius,
+      checkOutManualReason: manualReason || null,
     };
 
     shift.history.push({
       status: 'pending_approval',
       changedAt: new Date(),
       changedBy: req.user._id,
-      note: `Check-out ra ca: làm việc ${workedMinutes} phút (~${workedHours} giờ). Đang chờ quản lý duyệt công.`,
+      note: `Check-out ra ca: làm việc ${workedMinutes} phút. ${evaluation.verified ? 'Xác thực GPS hợp lệ tại quán.' : `Chờ duyệt (${evaluation.reasonCode})`}`,
     });
 
     await shift.save();
 
-    // Send notification to employer
-    try {
-      const employerTarget = shift.employerUserId || shift.employerId;
-      if (employerTarget) {
-        await Notification.create({
-          userId: employerTarget,
-          title: `Sinh viên ${shift.studentName || ''} đã check-out ra ca`,
-          message: `Đã hoàn thành ca làm ngày ${shift.date} (${workedMinutes} phút). Vui lòng xác nhận duyệt công.`,
-          type: 'shift',
-          link: '/employer/shifts',
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Shift checkout notification error:', notifErr.message);
-    }
-
     res.json({
-      message: 'Check-out ra ca thành công! Ca làm đã được gửi cho nhà tuyển dụng để duyệt công.',
+      message: evaluation.message || 'Check-out ra ca thành công! Ca làm đã được gửi cho nhà tuyển dụng để duyệt công.',
       shift,
+      verified: evaluation.verified,
+      verificationStatus: evaluation.status,
+      reasonCode: evaluation.reasonCode,
+      distanceMeters: evaluation.distanceMeters,
+      configuredRadius: evaluation.configuredRadius,
       workedMinutes,
       totalPay: calculatedPay,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/shifts/:id/approve (NTD duyệt chốt công ca làm)
-router.post('/:id/approve', async (req, res) => {
+// ACTION: POST /api/shifts/:id/approve (Employer cannot approve before checkout/pending_approval)
+router.post('/:id/approve', async (req, res, next) => {
   try {
     const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.' });
+    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
     if (req.user.role !== 'admin') {
-      const profile = await EmployerProfile.findOne({ userId: req.user._id });
-      const allowedIds = [req.user._id.toString()];
-      if (profile) allowedIds.push(profile._id.toString());
-
       const isOwner =
-        (shift.employerUserId && allowedIds.includes(shift.employerUserId.toString())) ||
-        (shift.employerId && allowedIds.includes(shift.employerId.toString()));
+        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
+        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
 
       if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền duyệt công cho ca làm việc này.' });
+        return res.status(403).json({ error: 'Bạn không có quyền duyệt công cho ca làm việc này.', code: 'FORBIDDEN' });
       }
+    }
+
+    // Must be in pending_approval or checked_out state
+    if (!['pending_approval', 'checked_out'].includes(shift.status)) {
+      return res.status(400).json({
+        error: 'Không thể duyệt ca làm khi sinh viên chưa check-out hoàn thành ca làm.',
+        code: 'CANNOT_APPROVE_UNFINISHED_SHIFT',
+      });
     }
 
     shift.status = 'approved';
     if (!shift.attendance) shift.attendance = {};
     if (!shift.attendance.checkOutAt) shift.attendance.checkOutAt = new Date();
 
-    // Ensure totalPay is calculated
     if (!shift.totalPay || shift.totalPay === 0) {
       const hours = shift.hours || 4;
       shift.totalPay = Math.round(hours * (shift.wageRate || 25000));
@@ -438,12 +508,12 @@ router.post('/:id/approve', async (req, res) => {
       status: 'approved',
       changedAt: new Date(),
       changedBy: req.user._id,
-      note: 'Nhà tuyển dụng đã xác nhận duyệt công và tiền lương.',
+      note: 'Nhà tuyển dụng đã xác nhận duyệt công và chi trả tiền lương.',
     });
 
     await shift.save();
 
-    // Send notification to student
+    // Notify student
     try {
       const studentTarget = shift.studentUserId || shift.studentId;
       if (studentTarget) {
@@ -461,28 +531,24 @@ router.post('/:id/approve', async (req, res) => {
 
     res.json({ message: 'Đã xác nhận hoàn thành công cho sinh viên thành công', shift });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// POST /api/shifts/:id/dispute (NTD báo cáo bất thường về ca làm)
-router.post('/:id/dispute', async (req, res) => {
+// ACTION: POST /api/shifts/:id/dispute (Dispute attendance)
+router.post('/:id/dispute', async (req, res, next) => {
   try {
     const { reason } = req.body;
     const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.' });
+    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
     if (req.user.role !== 'admin') {
-      const profile = await EmployerProfile.findOne({ userId: req.user._id });
-      const allowedIds = [req.user._id.toString()];
-      if (profile) allowedIds.push(profile._id.toString());
-
       const isOwner =
-        (shift.employerUserId && allowedIds.includes(shift.employerUserId.toString())) ||
-        (shift.employerId && allowedIds.includes(shift.employerId.toString()));
+        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
+        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
 
       if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền báo cáo ca làm việc này.' });
+        return res.status(403).json({ error: 'Bạn không có quyền báo cáo ca làm việc này.', code: 'FORBIDDEN' });
       }
     }
 
@@ -515,61 +581,120 @@ router.post('/:id/dispute', async (req, res) => {
 
     res.json({ message: 'Đã chuyển ca làm sang trạng thái cần đối soát', shift });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// PUT /api/shifts/:id (Cập nhật thông tin ca)
-router.put('/:id', async (req, res) => {
+// ACTION: POST /api/shifts/:id/reschedule (Reschedule a scheduled shift)
+router.post('/:id/reschedule', async (req, res, next) => {
   try {
+    const { date, startTime, endTime, reason } = req.body;
+    if (!date || !startTime || !endTime) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp ngày và thời gian mới.', code: 'MISSING_FIELDS' });
+    }
+
     const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.' });
+    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
     if (req.user.role !== 'admin') {
-      const profile = await EmployerProfile.findOne({ userId: req.user._id });
-      const allowedIds = [req.user._id.toString()];
-      if (profile) allowedIds.push(profile._id.toString());
-
       const isOwner =
-        (shift.employerUserId && allowedIds.includes(shift.employerUserId.toString())) ||
-        (shift.employerId && allowedIds.includes(shift.employerId.toString()));
-
+        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
+        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
       if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa ca làm việc này.' });
+        return res.status(403).json({ error: 'Bạn không có quyền đổi lịch ca làm việc này.', code: 'FORBIDDEN' });
       }
     }
 
-    const updated = await Shift.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(updated);
+    if (shift.status !== 'scheduled') {
+      return res.status(400).json({
+        error: 'Chỉ có thể đổi lịch cho ca làm đang ở trạng thái đã xếp lịch (scheduled).',
+        code: 'INVALID_STATUS',
+      });
+    }
+
+    const oldSchedule = `${shift.date} (${shift.startTime} - ${shift.endTime})`;
+    shift.date = date;
+    shift.startTime = startTime;
+    shift.endTime = endTime;
+
+    shift.history.push({
+      status: 'scheduled',
+      changedAt: new Date(),
+      changedBy: req.user._id,
+      note: `Đổi lịch từ ${oldSchedule} sang ${date} (${startTime} - ${endTime}). Lý do: ${reason || 'Điều chỉnh kế hoạch làm việc'}`,
+    });
+
+    await shift.save();
+
+    res.json({ message: 'Đã đổi lịch ca làm thành công.', shift });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
+  }
+});
+
+// ACTION: POST /api/shifts/:id/cancel (Cancel scheduled shift)
+router.post('/:id/cancel', async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const shift = await Shift.findById(req.params.id);
+    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
+
+    if (req.user.role !== 'admin') {
+      const isOwner =
+        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
+        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
+      if (!isOwner) {
+        return res.status(403).json({ error: 'Bạn không có quyền hủy ca làm việc này.', code: 'FORBIDDEN' });
+      }
+    }
+
+    if (['approved', 'completed'].includes(shift.status)) {
+      return res.status(400).json({ error: 'Không thể hủy ca làm đã được duyệt hoàn thành.', code: 'INVALID_STATUS' });
+    }
+
+    shift.status = 'cancelled';
+    shift.history.push({
+      status: 'cancelled',
+      changedAt: new Date(),
+      changedBy: req.user._id,
+      note: `Hủy ca làm. Lý do: ${reason || 'Nhà tuyển dụng hủy lịch'}`,
+    });
+
+    await shift.save();
+
+    res.json({ message: 'Đã hủy ca làm việc.', shift });
+  } catch (err) {
+    next(err);
   }
 });
 
 // DELETE /api/shifts/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.' });
+    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
     if (req.user.role !== 'admin') {
-      const profile = await EmployerProfile.findOne({ userId: req.user._id });
-      const allowedIds = [req.user._id.toString()];
-      if (profile) allowedIds.push(profile._id.toString());
-
       const isOwner =
-        (shift.employerUserId && allowedIds.includes(shift.employerUserId.toString())) ||
-        (shift.employerId && allowedIds.includes(shift.employerId.toString()));
+        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
+        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
 
       if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền xóa ca làm việc này.' });
+        return res.status(403).json({ error: 'Bạn không có quyền xóa ca làm việc này.', code: 'FORBIDDEN' });
       }
     }
 
+    if (['checked_in', 'checked_out', 'approved', 'completed'].includes(shift.status)) {
+      return res.status(400).json({
+        error: 'Không thể xóa ca làm đã diễn ra hoặc đã hoàn thành. Vui lòng sử dụng tính năng hủy ca.',
+        code: 'CANNOT_DELETE_ACTIVE_SHIFT',
+      });
+    }
+
     await Shift.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Đã hủy ca làm việc' });
+    res.json({ message: 'Đã xóa ca làm việc.' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 

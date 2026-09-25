@@ -1,99 +1,356 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { User } from '../models/User.js';
 import { StudentProfile } from '../models/StudentProfile.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { EmployerVerification } from '../models/EmployerVerification.js';
 import { Availability } from '../models/Availability.js';
-import { authenticate } from '../middlewares/auth.js';
+import { authenticate, optionalAuthenticate } from '../middlewares/auth.js';
+import { isValidCoordinate } from '../utils/geoHelper.js';
 
 const router = express.Router();
 
+// Allowlist definitions
+const STUDENT_SELF_UPDATE_FIELDS = [
+  'university',
+  'studentCode',
+  'yearOfStudy',
+  'major',
+  'area',
+  'address',
+  'bio',
+  'skills',
+  'transport',
+];
+
+const EMPLOYER_SELF_UPDATE_FIELDS = [
+  'storeName',
+  'storeType',
+  'address',
+  'area',
+  'contactName',
+  'contactPhone',
+  'description',
+  'busRoutes',
+];
+
+const ADMIN_ALLOWED_FIELDS_STUDENT = [
+  ...STUDENT_SELF_UPDATE_FIELDS,
+  'verified',
+  'verifiedAt',
+  'verificationStatus',
+  'rejectionReason',
+  'reviewedBy',
+  'reviewedAt',
+  'reputationScore',
+  'reputationCount',
+  'profileComplete',
+  'locationStatus',
+  'locationSource',
+];
+
+const ADMIN_ALLOWED_FIELDS_EMPLOYER = [
+  ...EMPLOYER_SELF_UPDATE_FIELDS,
+  'verified',
+  'verifiedAt',
+  'checkinRadius',
+  'rating',
+  'ratingCount',
+  'locationStatus',
+  'locationSource',
+  'locationConfirmedAt',
+];
+
+// DTO transformers
+function toPublicStudentDTO(profile) {
+  if (!profile) return null;
+  return {
+    _id: profile._id,
+    userId: profile.userId,
+    university: profile.university,
+    yearOfStudy: profile.yearOfStudy,
+    major: profile.major,
+    area: profile.area,
+    bio: profile.bio,
+    skills: profile.skills,
+    transport: profile.transport,
+    reputationScore: profile.reputationScore,
+    reputationCount: profile.reputationCount,
+    verified: profile.verified,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
+  };
+}
+
+function toPrivateStudentDTO(profile) {
+  if (!profile) return null;
+  return {
+    _id: profile._id,
+    userId: profile.userId,
+    university: profile.university,
+    studentCode: profile.studentCode,
+    yearOfStudy: profile.yearOfStudy,
+    major: profile.major,
+    area: profile.area,
+    address: profile.address,
+    location: profile.location,
+    locationStatus: profile.locationStatus,
+    locationSource: profile.locationSource,
+    bio: profile.bio,
+    skills: profile.skills,
+    transport: profile.transport,
+    reputationScore: profile.reputationScore,
+    reputationCount: profile.reputationCount,
+    profileComplete: profile.profileComplete,
+    studentCardPhoto: profile.studentCardPhoto,
+    verified: profile.verified,
+    verifiedAt: profile.verifiedAt,
+    verificationStatus: profile.verificationStatus,
+    rejectionReason: profile.rejectionReason,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
+  };
+}
+
+function toPublicEmployerDTO(profile) {
+  if (!profile) return null;
+  return {
+    _id: profile._id,
+    userId: profile.userId,
+    storeName: profile.storeName,
+    storeType: profile.storeType,
+    address: profile.address,
+    area: profile.area,
+    location: profile.location,
+    locationStatus: profile.locationStatus,
+    contactName: profile.contactName,
+    contactPhone: profile.contactPhone,
+    description: profile.description,
+    verified: profile.verified,
+    busRoutes: profile.busRoutes,
+    rating: profile.rating,
+    ratingCount: profile.ratingCount,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
+  };
+}
+
+function toPrivateEmployerDTO(profile) {
+  if (!profile) return null;
+  return {
+    ...toPublicEmployerDTO(profile),
+    checkinRadius: profile.checkinRadius,
+    verifiedAt: profile.verifiedAt,
+    locationConfirmedAt: profile.locationConfirmedAt,
+    locationSource: profile.locationSource,
+  };
+}
+
 // GET /api/profiles/student/:userId
-router.get('/student/:userId', async (req, res) => {
+router.get('/student/:userId', optionalAuthenticate, async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+
     const profile = await StudentProfile.findOne({ userId: req.params.userId });
-    res.json(profile);
+    if (!profile) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ sinh viên.', code: 'NOT_FOUND' });
+    }
+
+    const isSelfOrAdmin = req.user && (req.user.role === 'admin' || req.user._id.toString() === req.params.userId);
+    res.json(isSelfOrAdmin ? toPrivateStudentDTO(profile) : toPublicStudentDTO(profile));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// PUT /api/profiles/student/:userId (Chỉ chính chủ sinh viên hoặc admin mới được sửa)
-router.put('/student/:userId', authenticate, async (req, res) => {
+// PUT /api/profiles/student/:userId (Protected - self or admin)
+router.put('/student/:userId', authenticate, async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.userId) {
-      return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa hồ sơ của người khác.' });
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+
+    const isSelf = req.user._id.toString() === req.params.userId;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && !isSelf) {
+      return res.status(403).json({
+        error: 'Bạn không có quyền chỉnh sửa hồ sơ của người khác.',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const allowedKeys = isAdmin ? ADMIN_ALLOWED_FIELDS_STUDENT : STUDENT_SELF_UPDATE_FIELDS;
+    const updateData = {};
+
+    for (const key of allowedKeys) {
+      if (req.body[key] !== undefined) {
+        updateData[key] = req.body[key];
+      }
+    }
+
+    // Handle location updates safely
+    if (req.body.location !== undefined) {
+      if (req.body.location === null) {
+        updateData.location = { lat: null, lng: null };
+        updateData.locationStatus = 'unconfirmed';
+        updateData.locationSource = null;
+      } else if (typeof req.body.location === 'object') {
+        const { lat, lng } = req.body.location;
+        if (lat !== undefined && lng !== undefined && lat !== null && lng !== null) {
+          if (!isValidCoordinate(lat, lng)) {
+            return res.status(400).json({
+              error: 'Tọa độ vị trí không hợp lệ.',
+              code: 'INVALID_COORDINATES',
+            });
+          }
+          updateData.location = { lat: Number(lat), lng: Number(lng) };
+          updateData.locationStatus = 'confirmed';
+          updateData.locationSource = ['device', 'places', 'map_pin', 'manual_coordinates'].includes(req.body.locationSource)
+            ? req.body.locationSource
+            : 'manual_coordinates';
+        }
+      }
     }
 
     const profile = await StudentProfile.findOneAndUpdate(
       { userId: req.params.userId },
-      req.body,
-      { new: true, upsert: true }
+      { $set: updateData },
+      { new: true, upsert: true, runValidators: true }
     );
-    res.json(profile);
+
+    res.json(toPrivateStudentDTO(profile));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/profiles/availability/:userId
-router.get('/availability/:userId', async (req, res) => {
+router.get('/availability/:userId', async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+
     const avail = await Availability.findOne({ userId: req.params.userId });
     res.json(avail ? avail.slots : null);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// PUT /api/profiles/availability/:userId (Chỉ chính chủ sinh viên hoặc admin)
-router.put('/availability/:userId', authenticate, async (req, res) => {
+// PUT /api/profiles/availability/:userId (Protected - self or admin)
+router.put('/availability/:userId', authenticate, async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+
     if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.userId) {
-      return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa lịch rảnh của người khác.' });
+      return res.status(403).json({
+        error: 'Bạn không có quyền chỉnh sửa lịch rảnh của người khác.',
+        code: 'FORBIDDEN',
+      });
     }
 
     const avail = await Availability.findOneAndUpdate(
       { userId: req.params.userId },
       { slots: req.body },
-      { new: true, upsert: true }
+      { new: true, upsert: true, runValidators: true }
     );
     res.json(avail.slots);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/profiles/employer/:userId
-router.get('/employer/:userId', async (req, res) => {
+router.get('/employer/:userId', optionalAuthenticate, async (req, res, next) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+
     const profile = await EmployerProfile.findOne({ userId: req.params.userId });
-    res.json(profile);
+    if (!profile) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ nhà tuyển dụng.', code: 'NOT_FOUND' });
+    }
+
+    const isSelfOrAdmin = req.user && (req.user.role === 'admin' || req.user._id.toString() === req.params.userId);
+    res.json(isSelfOrAdmin ? toPrivateEmployerDTO(profile) : toPublicEmployerDTO(profile));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// PUT /api/profiles/employer/:userId (Chỉ chủ nhà tuyển dụng hoặc admin)
-router.put('/employer/:userId', authenticate, async (req, res) => {
+// PUT /api/profiles/employer/:userId (Protected - self or admin)
+router.put('/employer/:userId', authenticate, async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.userId) {
-      return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa hồ sơ cửa hàng của người khác.' });
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+
+    const isSelf = req.user._id.toString() === req.params.userId;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && !isSelf) {
+      return res.status(403).json({
+        error: 'Bạn không có quyền chỉnh sửa hồ sơ của người khác.',
+        code: 'FORBIDDEN',
+      });
+    }
+
+    const allowedKeys = isAdmin ? ADMIN_ALLOWED_FIELDS_EMPLOYER : EMPLOYER_SELF_UPDATE_FIELDS;
+    const updateData = {};
+
+    for (const key of allowedKeys) {
+      if (req.body[key] !== undefined) {
+        updateData[key] = req.body[key];
+      }
+    }
+
+    // Handle location updates safely
+    if (req.body.location !== undefined) {
+      if (req.body.location === null) {
+        updateData.location = { lat: null, lng: null };
+        updateData.locationStatus = 'unconfirmed';
+        updateData.locationSource = null;
+        updateData.locationConfirmedAt = null;
+      } else if (typeof req.body.location === 'object') {
+        const { lat, lng } = req.body.location;
+        if (lat !== undefined && lng !== undefined && lat !== null && lng !== null) {
+          if (!isValidCoordinate(lat, lng)) {
+            return res.status(400).json({
+              error: 'Tọa độ vị trí không hợp lệ.',
+              code: 'INVALID_COORDINATES',
+            });
+          }
+          updateData.location = { lat: Number(lat), lng: Number(lng) };
+          updateData.locationStatus = 'confirmed';
+          updateData.locationSource = ['device', 'places', 'map_pin', 'manual_coordinates'].includes(req.body.locationSource)
+            ? req.body.locationSource
+            : 'manual_coordinates';
+          updateData.locationConfirmedAt = new Date();
+        }
+      }
     }
 
     const profile = await EmployerProfile.findOneAndUpdate(
       { userId: req.params.userId },
-      req.body,
-      { new: true, upsert: true }
+      { $set: updateData },
+      { new: true, upsert: true, runValidators: true }
     );
-    res.json(profile);
+
+    res.json(toPrivateEmployerDTO(profile));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/profiles/student-verification/me (Kiểm tra trạng thái xác minh sinh viên)
-router.get('/student-verification/me', authenticate, async (req, res) => {
+router.get('/student-verification/me', authenticate, async (req, res, next) => {
   try {
     const profile = await StudentProfile.findOne({ userId: req.user._id });
     res.json({
@@ -109,41 +366,49 @@ router.get('/student-verification/me', authenticate, async (req, res) => {
       rejectionReason: profile?.rejectionReason || '',
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/profiles/student-verification/submit (Sinh viên nộp thẻ SV để Admin duyệt)
-router.post('/student-verification/submit', authenticate, async (req, res) => {
+router.post('/student-verification/submit', authenticate, async (req, res, next) => {
   try {
     const { studentCardPhoto, university, studentCode, major, transport, bio } = req.body;
 
     if (!studentCardPhoto) {
-      return res.status(400).json({ error: 'Vui lòng tải lên ảnh chụp thẻ sinh viên của bạn.' });
+      return res.status(400).json({
+        error: 'Vui lòng tải lên ảnh chụp thẻ sinh viên của bạn.',
+        code: 'MISSING_PHOTO',
+      });
     }
 
     if (!studentCode || !studentCode.trim()) {
-      return res.status(400).json({ error: 'Vui lòng nhập mã số sinh viên của bạn.' });
+      return res.status(400).json({
+        error: 'Vui lòng nhập mã số sinh viên của bạn.',
+        code: 'MISSING_STUDENT_CODE',
+      });
     }
 
     const profile = await StudentProfile.findOneAndUpdate(
       { userId: req.user._id },
       {
-        userId: req.user._id,
-        studentCardPhoto,
-        university: (university || 'Đại học FPT Hòa Lạc').trim(),
-        studentCode: studentCode.trim().toUpperCase(),
-        major: (major || 'Kỹ thuật phần mềm').trim(),
-        transport: transport || 'xe_may',
-        bio: (bio || '').trim(),
-        verified: false,
-        verificationStatus: 'pending',
-        rejectionReason: '',
-        reviewedBy: null,
-        reviewedAt: null,
-        profileComplete: true,
+        $set: {
+          userId: req.user._id,
+          studentCardPhoto,
+          university: (university || 'Đại học FPT Hòa Lạc').trim(),
+          studentCode: studentCode.trim().toUpperCase(),
+          major: (major || 'Kỹ thuật phần mềm').trim(),
+          transport: transport || 'xe_may',
+          bio: (bio || '').trim(),
+          verified: false,
+          verificationStatus: 'pending',
+          rejectionReason: '',
+          reviewedBy: null,
+          reviewedAt: null,
+          profileComplete: true,
+        },
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true, runValidators: true }
     );
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -168,30 +433,32 @@ router.post('/student-verification/submit', authenticate, async (req, res) => {
         profileId: profile._id,
         profile,
       },
-      profile,
+      profile: toPrivateStudentDTO(profile),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/profiles/employer-verification/me (Kiểm tra trạng thái xác minh của NTD hiện tại)
-router.get('/employer-verification/me', authenticate, async (req, res) => {
+router.get('/employer-verification/me', authenticate, async (req, res, next) => {
   try {
     const verification = await EmployerVerification.findOne({ employerUserId: req.user._id });
     res.json(verification || { status: 'draft' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/profiles/employer-verification/submit (NTD nộp hồ sơ xác minh để Admin duyệt)
-router.post('/employer-verification/submit', authenticate, async (req, res) => {
+router.post('/employer-verification/submit', authenticate, async (req, res, next) => {
   try {
-    // Cho phép người dùng ở trạng thái pending, employer hoặc admin nộp hồ sơ
     const allowedRoles = ['pending', 'employer', 'admin'];
     if (!allowedRoles.includes(req.user.role) && req.user.status !== 'pending') {
-      return res.status(403).json({ error: 'Tài khoản không đủ quyền để nộp hồ sơ nhà tuyển dụng.' });
+      return res.status(403).json({
+        error: 'Tài khoản không đủ quyền để nộp hồ sơ nhà tuyển dụng.',
+        code: 'FORBIDDEN',
+      });
     }
 
     const {
@@ -207,23 +474,28 @@ router.post('/employer-verification/submit', authenticate, async (req, res) => {
     } = req.body;
 
     if (!storeName || !legalName || !businessAddress || !contactPhone) {
-      return res.status(400).json({ error: 'Vui lòng cung cấp đầy đủ tên cơ sở, người đại diện, địa chỉ và số điện thoại liên hệ.' });
+      return res.status(400).json({
+        error: 'Vui lòng cung cấp đầy đủ tên cơ sở, người đại diện, địa chỉ và số điện thoại liên hệ.',
+        code: 'MISSING_FIELDS',
+      });
     }
 
     // Upsert hồ sơ cửa hàng
     await EmployerProfile.findOneAndUpdate(
       { userId: req.user._id },
       {
-        userId: req.user._id,
-        storeName: storeName.trim(),
-        storeType: (storeType || 'Cửa hàng').trim(),
-        address: businessAddress.trim(),
-        contactPhone: contactPhone.trim(),
-        contactName: legalName.trim(),
-        description: (description || '').trim(),
-        verified: false,
+        $set: {
+          userId: req.user._id,
+          storeName: storeName.trim(),
+          storeType: (storeType || 'Cửa hàng').trim(),
+          address: businessAddress.trim(),
+          contactPhone: contactPhone.trim(),
+          contactName: legalName.trim(),
+          description: (description || '').trim(),
+          verified: false,
+        },
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true, runValidators: true }
     );
 
     // Cập nhật trạng thái người dùng thành employer, pending
@@ -235,20 +507,22 @@ router.post('/employer-verification/submit', authenticate, async (req, res) => {
     const verification = await EmployerVerification.findOneAndUpdate(
       { employerUserId: req.user._id },
       {
-        employerUserId: req.user._id,
-        storeName: storeName.trim(),
-        legalName: legalName.trim(),
-        taxCode: (taxCode || '').trim(),
-        idCardNumber: (idCardNumber || '').trim(),
-        businessAddress: businessAddress.trim(),
-        contactPhone: contactPhone.trim(),
-        documents: Array.isArray(documents) ? documents : [],
-        status: 'pending',
-        rejectionReason: '',
-        reviewedBy: null,
-        reviewedAt: null,
+        $set: {
+          employerUserId: req.user._id,
+          storeName: storeName.trim(),
+          legalName: legalName.trim(),
+          taxCode: (taxCode || '').trim(),
+          idCardNumber: (idCardNumber || '').trim(),
+          businessAddress: businessAddress.trim(),
+          contactPhone: contactPhone.trim(),
+          documents: Array.isArray(documents) ? documents : [],
+          status: 'pending',
+          rejectionReason: '',
+          reviewedBy: null,
+          reviewedAt: null,
+        },
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true, runValidators: true }
     );
 
     res.json({
@@ -256,9 +530,18 @@ router.post('/employer-verification/submit', authenticate, async (req, res) => {
       verification,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 export default router;
-
+export {
+  STUDENT_SELF_UPDATE_FIELDS,
+  EMPLOYER_SELF_UPDATE_FIELDS,
+  ADMIN_ALLOWED_FIELDS_STUDENT,
+  ADMIN_ALLOWED_FIELDS_EMPLOYER,
+  toPublicStudentDTO,
+  toPrivateStudentDTO,
+  toPublicEmployerDTO,
+  toPrivateEmployerDTO,
+};

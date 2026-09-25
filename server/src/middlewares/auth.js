@@ -85,3 +85,71 @@ export function authorize(...roles) {
   };
 }
 
+/**
+ * Optional authentication middleware
+ * Attaches user to req.user if a valid token is provided; otherwise proceeds as guest
+ */
+export async function optionalAuthenticate(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      req.user = null;
+      return next();
+    }
+
+    const token = authHeader.split(' ')[1];
+    if (!process.env.JWT_SECRET) {
+      req.user = null;
+      return next();
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
+      req.user = null;
+      return next();
+    }
+
+    const user = await User.findById(decoded.id);
+    if (!user || user.status === 'locked' || user.status === 'suspended' || user.status === 'deleted') {
+      req.user = null;
+      return next();
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    req.user = null;
+    next();
+  }
+}
+
+/**
+ * Ensures user is active before accessing core business endpoints
+ * (pending/locked users can only access profile setup & verification endpoints)
+ */
+export function requireActiveUser(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Yêu cầu đăng nhập để thực hiện thao tác này.',
+      code: 'UNAUTHORIZED',
+    });
+  }
+
+  // Admins always bypass status restriction
+  if (req.user.role === 'admin') {
+    return next();
+  }
+
+  if (req.user.status !== 'active') {
+    return res.status(403).json({
+      error: 'Tài khoản chưa hoàn tất kích hoạt hoặc chưa được phê duyệt để thực hiện thao tác này.',
+      code: 'ACCOUNT_NOT_ACTIVE',
+      status: req.user.status,
+    });
+  }
+
+  next();
+}
+

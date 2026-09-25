@@ -40,7 +40,8 @@ export default function SavedJobsPage() {
   }
 
   async function handleToggleSave(jobId) {
-    const isNowSaved = await toggleSaveJob(jobId);
+    const res = await toggleSaveJob(jobId);
+    const isNowSaved = typeof res === 'object' ? res.saved : Boolean(res);
     if (!isNowSaved) {
       setSavedJobs(prev => prev.filter(j => j.id !== jobId));
       setToast({ type: 'info', message: 'Đã xóa công việc khỏi danh sách lưu.' });

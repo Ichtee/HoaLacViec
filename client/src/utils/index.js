@@ -53,23 +53,61 @@ export const getAppStatusLabel = (status) => APP_STATUS_LABELS[status] || status
 export const getShiftStatusLabel = (status) => SHIFT_STATUS_LABELS[status] || status;
 export const getSwapStatusLabel = (status) => SWAP_STATUS_LABELS[status] || status;
 
+/** Validate coordinates strictly */
+export function isValidCoordinate(lat, lng) {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) {
+    return false;
+  }
+  if (typeof lat === 'boolean' || typeof lng === 'boolean') {
+    return false;
+  }
+  if (typeof lat === 'object' || typeof lng === 'object') {
+    return false;
+  }
+  if (typeof lat === 'string' && lat.trim() === '') {
+    return false;
+  }
+  if (typeof lng === 'string' && lng.trim() === '') {
+    return false;
+  }
+
+  const nLat = typeof lat === 'number' ? lat : Number(lat);
+  const nLng = typeof lng === 'number' ? lng : Number(lng);
+
+  if (!Number.isFinite(nLat) || !Number.isFinite(nLng)) {
+    return false;
+  }
+
+  return nLat >= -90 && nLat <= 90 && nLng >= -180 && nLng <= 180;
+}
+
 /** Calculate haversine distance between two lat/lng points in meters */
 export function haversineDistance(lat1, lng1, lat2, lng2) {
+  if (!isValidCoordinate(lat1, lng1) || !isValidCoordinate(lat2, lng2)) {
+    return null;
+  }
+  const nLat1 = Number(lat1);
+  const nLng1 = Number(lng1);
+  const nLat2 = Number(lat2);
+  const nLng2 = Number(lng2);
+
   const R = 6371000; // Earth radius in meters
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const dLat = ((nLat2 - nLat1) * Math.PI) / 180;
+  const dLng = ((nLng2 - nLng1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
+    Math.cos((nLat1 * Math.PI) / 180) *
+      Math.cos((nLat2 * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 /** Format distance for display */
 export function formatDistance(meters) {
-  if (meters < 1000) return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
+  if (meters === null || meters === undefined || !Number.isFinite(Number(meters))) return '';
+  const n = Number(meters);
+  if (n < 1000) return `${Math.round(n)}m`;
+  return `${(n / 1000).toFixed(1)}km`;
 }
 
 /**

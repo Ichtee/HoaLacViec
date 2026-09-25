@@ -37,7 +37,8 @@ export default function RegisterPage() {
       e.phone = 'Số điện thoại không hợp lệ (10 chữ số).';
     }
     if (!password) e.password = 'Vui lòng nhập mật khẩu.';
-    else if (password.length < 6) e.password = 'Mật khẩu tối thiểu 6 ký tự.';
+    else if (password.length < 6) e.password = 'Mật khẩu phải có tối thiểu 6 ký tự.';
+    else if (password.length > 32) e.password = 'Mật khẩu không được vượt quá 32 ký tự.';
     if (password !== confirm) e.confirm = 'Mật khẩu xác nhận không khớp.';
     return e;
   }
@@ -134,7 +135,9 @@ export default function RegisterPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder="Từ 6 đến 32 ký tự"
+                minLength={6}
+                maxLength={32}
                 required
                 error={errors.password}
               />
@@ -145,7 +148,9 @@ export default function RegisterPage() {
                 type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Nhập lại"
+                placeholder="Nhập lại mật khẩu"
+                minLength={6}
+                maxLength={32}
                 required
                 error={errors.confirm}
               />

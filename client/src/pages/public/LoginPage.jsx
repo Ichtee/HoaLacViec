@@ -83,6 +83,14 @@ export default function LoginPage() {
       setError('Vui lòng nhập mật khẩu.');
       return;
     }
+    if (password.length < 6) {
+      setError('Mật khẩu phải có tối thiểu 6 ký tự.');
+      return;
+    }
+    if (password.length > 32) {
+      setError('Mật khẩu không được vượt quá 32 ký tự.');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -193,9 +201,11 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  minLength={6}
+                  maxLength={32}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu của bạn"
+                  placeholder="Nhập mật khẩu (6 - 32 ký tự)"
                   className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all placeholder-gray-400"
                 />
                 <button

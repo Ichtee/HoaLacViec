@@ -58,12 +58,11 @@ userSchema.pre('save', async function (next) {
 // Compare password securely
 userSchema.methods.comparePassword = async function (candidatePassword) {
   if (!this.password || !candidatePassword) return false;
-  // If stored password is a bcrypt hash
-  if (this.password.startsWith('$2a$') || this.password.startsWith('$2b$')) {
+  // Secure bcrypt compare only - strictly disallow plaintext matching
+  if (this.password.startsWith('$2a$') || this.password.startsWith('$2b$') || this.password.startsWith('$2y$')) {
     return bcrypt.compare(candidatePassword, this.password);
   }
-  // Safety fallback for any legacy unmigrated plaintext
-  return candidatePassword === this.password;
+  return false;
 };
 
 export const User = mongoose.model('User', userSchema);

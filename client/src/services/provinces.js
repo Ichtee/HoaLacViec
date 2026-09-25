@@ -73,20 +73,16 @@ export async function getWards(districtCode) {
   }
 }
 
-// Automatically resolve Google Maps coordinates and area code for any ward/district
+// Automatically resolve area code for any ward/district (does NOT return fake coordinates)
 export function getWardCoordinates(provinceName = '', districtName = '', wardName = '') {
   const q = `${provinceName} ${districtName} ${wardName}`.toLowerCase();
-  if (q.includes('tân xã')) return { lat: 21.0175, lng: 105.5220, area: 'tan_xa' };
-  if (q.includes('thạch hòa') || q.includes('đhqg')) return { lat: 21.0045, lng: 105.5292, area: 'dhqg_dorm' };
-  if (q.includes('bình yên')) return { lat: 21.0085, lng: 105.5080, area: 'binh_yen' };
-  if (q.includes('hạ bằng')) return { lat: 20.9980, lng: 105.5350, area: 'ha_bang' };
-  if (q.includes('phú cát')) return { lat: 20.9920, lng: 105.5320, area: 'thach_hoa' };
-  if (q.includes('cổ đông')) return { lat: 21.0450, lng: 105.5020, area: 'thach_hoa' };
-  if (q.includes('thạch thất') || q.includes('hòa lạc')) return { lat: 21.0134, lng: 105.5263, area: 'fpt_university' };
-  if (q.includes('cầu giấy')) return { lat: 21.0375, lng: 105.7820, area: 'fpt_university' };
-  if (q.includes('hồ chí minh') || q.includes('thủ đức')) return { lat: 10.8415, lng: 106.8095, area: 'fpt_university' };
-  if (q.includes('đà nẵng') || q.includes('ngũ hành sơn')) return { lat: 15.9723, lng: 108.2618, area: 'fpt_university' };
-  return { lat: 21.0128, lng: 105.5255, area: 'fpt_university' };
+  let area = 'fpt_university';
+  if (q.includes('tân xã')) area = 'tan_xa';
+  else if (q.includes('thạch hòa') || q.includes('đhqg')) area = 'dhqg_dorm';
+  else if (q.includes('bình yên')) area = 'binh_yen';
+  else if (q.includes('hạ bằng')) area = 'ha_bang';
+  else if (q.includes('phú cát') || q.includes('cổ đông')) area = 'thach_hoa';
+  return { lat: null, lng: null, area };
 }
 
 // Special Google Maps landmarks for university & tech park areas

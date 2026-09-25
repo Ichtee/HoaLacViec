@@ -18,6 +18,12 @@ export {
   apiCreateJob as createJob,
   apiResolveMapLink as resolveMapLink,
   apiSearchPlaces as searchPlaces,
+  apiGeocodeAddress as geocodeAddress,
+  apiGetEmployerMyJobs as getEmployerMyJobs,
+  apiSubmitJobForReview as submitJobForReview,
+  apiPauseJob as pauseJob,
+  apiCloseJob as closeJob,
+  apiReopenJob as reopenJob,
   apiUpdateJob as updateJob,
   apiDeleteJob as deleteJob,
   apiApply as applyToJob,
@@ -72,10 +78,6 @@ import {
   apiApproveVerification,
   apiRejectVerification,
   apiGetJobs,
-  apiGetSavedJobs,
-  apiGetSavedJobIds,
-  apiSaveJob,
-  apiUnsaveJob,
 } from './api.js';
 
 export async function reviewVerification(id, action, reason) {
@@ -104,40 +106,28 @@ function getLocalSavedJobIds() {
 }
 
 export async function getSavedJobs() {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (token) {
-    try {
-      const data = await apiGetSavedJobs();
-      return Array.isArray(data) ? data : [];
-    } catch (err) {
-      console.warn('Fallback to local saved jobs:', err.message);
-    }
+    const data = await apiGetSavedJobs();
+    return Array.isArray(data) ? data : [];
   }
   const ids = getLocalSavedJobIds();
   if (ids.length === 0) return [];
   const all = await apiGetJobs();
-  const list = Array.isArray(all) ? all : (all?.jobs || []);
+  const list = Array.isArray(all) ? all : (all?.items || all?.jobs || []);
   return list.filter((j) => ids.includes(j._id || j.id));
 }
 
 export async function toggleSaveJob(jobId) {
-  const token = localStorage.getItem('token');
+  if (!jobId) throw new Error('Mã việc làm không được để trống');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (token) {
-    try {
-      const currentIds = await apiGetSavedJobIds();
-      const isSaved = Array.isArray(currentIds) && currentIds.includes(jobId);
-      if (isSaved) {
-        await apiUnsaveJob(jobId);
-        return false;
-      } else {
-        await apiSaveJob(jobId);
-        return true;
-      }
-    } catch (err) {
-      console.warn('apiToggleSaveJob error, fallback local:', err.message);
-    }
+    // Authenticated user: DO NOT silently fallback to localStorage on API error!
+    const res = await apiToggleSaveJob(jobId);
+    return { saved: Boolean(res.saved), jobId };
   }
 
+  // Guest users only: localStorage fallback
   let ids = getLocalSavedJobIds();
   const exists = ids.includes(jobId);
   if (exists) {
@@ -146,17 +136,18 @@ export async function toggleSaveJob(jobId) {
     ids.push(jobId);
   }
   localStorage.setItem('hlv_saved_jobs', JSON.stringify(ids));
-  return !exists;
+  return { saved: !exists, jobId };
 }
 
 export async function isSavedJob(jobId) {
-  const token = localStorage.getItem('token');
+  if (!jobId) return false;
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   if (token) {
     try {
       const ids = await apiGetSavedJobIds();
       return Array.isArray(ids) && ids.includes(jobId);
     } catch {
-      // fallback
+      return false;
     }
   }
   const ids = getLocalSavedJobIds();

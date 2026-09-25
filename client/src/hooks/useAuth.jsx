@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback } from 'react';
-import { login as serviceLogin, register as serviceRegister, googleLogin as serviceGoogleLogin } from '@/services';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { login as serviceLogin, register as serviceRegister, googleLogin as serviceGoogleLogin, getMe } from '@/services';
 
 /**
  * AuthContext — Authentication & session management
@@ -30,6 +30,32 @@ function saveSession(session) {
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => loadSession());
+
+  // Bootstrap session from server /auth/me on startup
+  useEffect(() => {
+    let isMounted = true;
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+
+    getMe()
+      .then((serverUser) => {
+        if (!isMounted || !serverUser) return;
+        const profileId = serverUser?.profileId || serverUser?.profile?._id || serverUser?.profile?.id || null;
+        const newSession = { user: serverUser, profileId };
+        setSession(newSession);
+        saveSession(newSession);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSession(null);
+          saveSession(null);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleAuthResult = useCallback((result) => {
     const user = result?.user || result;
