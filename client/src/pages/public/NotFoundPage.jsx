@@ -1,7 +1,16 @@
 import { Link } from 'react-router-dom';
-import { Leaf, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth.jsx';
 
 export default function NotFoundPage() {
+  const { isAuthenticated, role, user } = useAuth();
+  const isPending = user?.status === 'pending' || role === 'pending';
+  const homePath = isPending
+    ? '/verify-account'
+    : isAuthenticated
+    ? { student: '/student', employer: '/employer', admin: '/admin' }[role] || '/student'
+    : '/';
+
   return (
     <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-6 text-center">
       <div className="mb-6 animate-bounce">
@@ -13,7 +22,7 @@ export default function NotFoundPage() {
         Đường dẫn bạn truy cập không nằm trên hệ thống Hoa Lạc Việc hoặc đã bị di chuyển.
       </p>
       <Link
-        to="/"
+        to={homePath}
         className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-green-main text-white font-bold text-sm hover:bg-green-dark transition-all shadow-sm"
       >
         <ArrowLeft className="w-4 h-4" /> Trở về Trang chủ

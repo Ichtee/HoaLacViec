@@ -36,16 +36,16 @@ export default function LoginPage() {
       navigate('/verify-account', { replace: true });
       return;
     }
-    if (from) {
-      navigate(from, { replace: true });
-      return;
-    }
     const dashboards = {
       student: '/student',
       employer: '/employer',
       admin: '/admin',
     };
-    navigate(dashboards[sessionUser?.role] || '/');
+    if (from && from !== '/' && from !== '/login' && from !== '/register') {
+      navigate(from, { replace: true });
+      return;
+    }
+    navigate(dashboards[sessionUser?.role] || '/student', { replace: true });
   };
 
   async function handleGoogleSuccess(credentialResponse) {

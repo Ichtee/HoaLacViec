@@ -20,7 +20,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-gray-50 flex">
       <aside className="w-60 bg-green-dark text-white flex flex-col fixed inset-y-0 left-0 z-30">
         <div className="px-4 py-3.5 border-b border-green-700 flex items-center justify-between">
-          <Link to="/" className="bg-white px-3 py-1.5 rounded-2xl inline-flex items-center shadow-sm">
+          <Link to="/admin" className="bg-white px-3 py-1.5 rounded-2xl inline-flex items-center shadow-sm">
             <img src="/logo.png" alt="Hoa Lạc Việc" className="h-10 w-auto object-contain" />
           </Link>
           <span className="font-bold text-[11px] uppercase tracking-wider text-green-200">Admin</span>

@@ -66,7 +66,14 @@ export default function App() {
       <Routes>
         {/* Public Routes */}
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<HomePage />} />
+          <Route
+            path="/"
+            element={
+              <RedirectIfAuthenticated>
+                <HomePage />
+              </RedirectIfAuthenticated>
+            }
+          />
           <Route path="/jobs" element={<JobListPage />} />
           <Route path="/jobs/:id" element={<JobDetailPage />} />
           <Route path="/tasks" element={<MicroTasksPage />} />

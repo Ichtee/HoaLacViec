@@ -78,15 +78,16 @@ export function RedirectIfAuthenticated({ children }) {
       return <Navigate to="/verify-account" replace />;
     }
     const dashboards = { student: '/student', employer: '/employer', admin: '/admin' };
-    return <Navigate to={dashboards[role] || '/'} replace />;
+    const target = dashboards[role] || (user?.role && dashboards[user.role]) || '/student';
+    return <Navigate to={target} replace />;
   }
   return children;
 }
 
 /**
- * Global enforcer: If a logged-in user is in pending state,
- * they are ONLY allowed to access /verify-account.
- * Any attempt to access any other route is immediately redirected to /verify-account.
+ * Global enforcer:
+ * 1. If a logged-in user is in pending state, they are ONLY allowed to access /verify-account.
+ * 2. If an authenticated user attempts to access '/', redirect them to their portal (/student, /employer, /admin).
  */
 export function PendingRouteEnforcer() {
   const { isAuthenticated, user, role } = useAuth();
@@ -96,6 +97,12 @@ export function PendingRouteEnforcer() {
 
   if (isPending && location.pathname !== '/verify-account') {
     return <Navigate to="/verify-account" replace />;
+  }
+
+  if (isAuthenticated && !isPending && location.pathname === '/') {
+    const dashboards = { student: '/student', employer: '/employer', admin: '/admin' };
+    const target = dashboards[role] || (user?.role && dashboards[user.role]) || '/student';
+    return <Navigate to={target} replace />;
   }
 
   return null;
