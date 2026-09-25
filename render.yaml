@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 5000
       - key: FRONTEND_URL
-        value: https://client-orcin-two-27.vercel.app
+        value: https://hoalacviec.vercel.app
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
