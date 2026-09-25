@@ -27,28 +27,26 @@ const MAP_LAYERS = {
   },
 };
 
-// Custom Marker HTML for jobs
+// Custom Marker HTML for jobs (clean pin without money/price labels)
 function createJobMarkerIcon(job, isSelected = false) {
-  const priceText = job.salaryAmount ? `${Math.round(job.salaryAmount / 1000)}k` : 'Việc';
   return L.divIcon({
     className: 'custom-job-marker',
     html: `
       <div class="relative group cursor-pointer transform transition-all duration-200 ${
         isSelected ? 'scale-125 z-50' : 'hover:scale-110 z-20'
       }">
-        <div class="flex items-center gap-1 px-2.5 py-1 rounded-full shadow-lg border-2 ${
+        <div class="flex items-center justify-center w-7 h-7 rounded-full shadow-lg border-2 ${
           isSelected
             ? 'bg-pink-600 text-white border-white ring-4 ring-pink-300'
             : 'bg-emerald-700 text-white border-white hover:bg-emerald-800'
-        } font-bold text-xs whitespace-nowrap">
+        } text-xs">
           <span>💼</span>
-          <span>${priceText}</span>
         </div>
-        <div class="w-2.5 h-2.5 ${isSelected ? 'bg-pink-600' : 'bg-emerald-700'} rotate-45 mx-auto -mt-1 shadow-sm"></div>
+        <div class="w-2 h-2 ${isSelected ? 'bg-pink-600' : 'bg-emerald-700'} rotate-45 mx-auto -mt-1 shadow-sm"></div>
       </div>
     `,
-    iconSize: [60, 32],
-    iconAnchor: [30, 32],
+    iconSize: [28, 32],
+    iconAnchor: [14, 32],
   });
 }
 
@@ -211,6 +209,11 @@ export function JobMap({
       const marker = L.marker([lat, lng], {
         icon: createJobMarkerIcon(job, isSelected),
       }).addTo(map);
+
+      marker.bindTooltip(job.storeName || job.title, {
+        direction: 'top',
+        offset: [0, -16],
+      });
 
       marker.on('click', () => {
         setActiveJob(job);
