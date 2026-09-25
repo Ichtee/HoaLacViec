@@ -90,14 +90,15 @@ export default function SavedJobsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
           {displayedJobs.map(job => (
-            <JobCard
-              key={job.id}
-              job={job}
-              isSaved={true}
-              onToggleSave={handleToggleSave}
-            />
+            <div key={job.id} className="h-full flex flex-col">
+              <JobCard
+                job={job}
+                isSaved={true}
+                onToggleSave={handleToggleSave}
+              />
+            </div>
           ))}
         </div>
       )}

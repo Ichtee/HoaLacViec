@@ -164,9 +164,11 @@ export default function HomePage() {
         {loading ? (
           <LoadingPage />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
             {featured.map((job) => (
-              <JobCard key={job._id || job.id} job={job} />
+              <div key={job._id || job.id} className="h-full flex flex-col">
+                <JobCard job={job} />
+              </div>
             ))}
           </div>
         )}

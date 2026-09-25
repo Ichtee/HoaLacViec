@@ -450,14 +450,14 @@ export default function JobListPage() {
       ) : (
         <>
           <div className={clsx(
-            "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 transition-opacity duration-150",
+            "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 transition-opacity duration-150 items-stretch",
             loading && "opacity-60"
           )}>
             {paginated.map((job) => (
               <div
                 key={job._id || job.id}
                 onMouseEnter={() => setSelectedJobId(job._id || job.id)}
-                className="transition-transform"
+                className="h-full flex flex-col transition-transform"
               >
                 <JobCard
                   job={job}
