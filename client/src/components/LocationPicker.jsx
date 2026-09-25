@@ -105,13 +105,15 @@ export default function LocationPicker({
       attributionControl: true,
     });
 
-    const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+    const tileLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      maxZoom: 20,
+      attribution: '&copy; Google Maps',
     });
 
     tileLayer.on('tileerror', () => {
-      setTileError(true);
+      // Fallback to CARTO CDN if Google Maps tile encounters network error
+      tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
     });
 
     tileLayer.addTo(map);
