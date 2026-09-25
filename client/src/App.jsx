@@ -55,11 +55,6 @@ import AccountInfoPage from '@/pages/common/AccountInfoPage.jsx';
 import ChangePasswordPage from '@/pages/common/ChangePasswordPage.jsx';
 
 export default function App() {
-  useEffect(() => {
-    // Pre-warm Render backend on initial app load to minimize cold-start latency
-    fetch('https://hoalacviec.onrender.com/api/health').catch(() => {});
-  }, []);
-
   return (
     <Router>
       <PendingRouteEnforcer />

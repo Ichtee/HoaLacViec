@@ -540,15 +540,16 @@ export default function JobListPage() {
 
       {/* Results Header */}
       <div className="flex items-center justify-between pt-2">
-        <h3 className="font-bold text-sm text-text-main">
-          Danh sách công việc {userLocation ? `(Đã tính khoảng cách thực tế từ vị trí của bạn)` : ''}
+        <h3 className="font-bold text-sm text-text-main flex items-center gap-2">
+          <span>Danh sách công việc {userLocation ? `(Đã tính khoảng cách thực tế từ vị trí của bạn)` : ''}</span>
+          {loading && <Loader2 className="w-4 h-4 text-green-main animate-spin" />}
         </h3>
       </div>
 
       {/* Results Grid */}
-      {loading ? (
+      {loading && allJobs.length === 0 ? (
         <LoadingPage />
-      ) : error ? (
+      ) : error && allJobs.length === 0 ? (
         <ErrorAlert message={error} onRetry={run} />
       ) : paginated.length === 0 ? (
         <EmptyState
@@ -563,7 +564,10 @@ export default function JobListPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className={clsx(
+            "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 transition-opacity duration-150",
+            loading && "opacity-60"
+          )}>
             {paginated.map((job) => (
               <div
                 key={job._id || job.id}
