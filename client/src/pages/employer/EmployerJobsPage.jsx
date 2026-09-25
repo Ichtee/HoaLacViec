@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getJobs, createJob, updateJob, deleteJob, resolveMapLink, searchPlaces } from '@/services';
+import { getJobs, createJob, updateJob, deleteJob, resolveMapLink, searchPlaces, getEmployerProfile, updateUserProfile } from '@/services';
 import { loadGoogleMapsScript } from '@/services/googleMaps';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
@@ -62,12 +62,13 @@ function parseGoogleCoordsClient(input) {
 }
 
 export default function EmployerJobsPage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [employerPhone, setEmployerPhone] = useState(user?.phone || '');
 
   // Dynamic Provinces, Districts, Wards from open-api.vn
   const [provinces, setProvinces] = useState([]);
@@ -136,7 +137,30 @@ export default function EmployerJobsPage() {
   useEffect(() => {
     loadJobs();
     initProvinces();
+    if (user?.id || user?.profileId) {
+      getEmployerProfile(user?.profileId || user?.id)
+        .then(profile => {
+          if (profile?.contactPhone) {
+            setEmployerPhone(profile.contactPhone);
+            setFormData(prev => ({
+              ...prev,
+              contactPhone: prev.contactPhone || profile.contactPhone
+            }));
+          }
+        })
+        .catch(() => {});
+    }
   }, [user]);
+
+  useEffect(() => {
+    if (user?.phone) {
+      setEmployerPhone(prev => prev || user.phone);
+      setFormData(prev => ({
+        ...prev,
+        contactPhone: prev.contactPhone || user.phone
+      }));
+    }
+  }, [user?.phone]);
 
   async function loadJobs() {
     try {
@@ -442,7 +466,7 @@ export default function EmployerJobsPage() {
       jobType: 'Theo ca',
       salaryAmount: 25000,
       salaryUnit: 'hour',
-      contactPhone: user?.phone || '',
+      contactPhone: user?.phone || employerPhone || '',
       address: 'Xã Tân Xã, Huyện Thạch Thất, Thành phố Hà Nội',
       area: 'tan_xa',
       lat: 21.0175,
@@ -467,7 +491,7 @@ export default function EmployerJobsPage() {
       jobType: job.type === 'shift' ? 'Theo ca' : 'Part-time',
       salaryAmount: job.salaryAmount || 25000,
       salaryUnit: job.salaryUnit || 'hour',
-      contactPhone: job.contactPhone || user?.phone || '',
+      contactPhone: job.contactPhone || user?.phone || employerPhone || '',
       address: job.address || '',
       area: job.area || 'tan_xa',
       lat: job.location?.lat || 21.0175,
@@ -507,6 +531,7 @@ export default function EmployerJobsPage() {
         } catch {}
       }
 
+      const inputPhone = formData.contactPhone?.trim() || user?.phone || employerPhone || '';
       const payload = {
         title: formData.title,
         type: formData.jobType === 'Theo ca' ? 'shift' : 'part_time',
@@ -514,7 +539,7 @@ export default function EmployerJobsPage() {
         employerId: user?.profileId || user?.id,
         salaryAmount: Number(formData.salaryAmount) || 25000,
         salaryUnit: formData.salaryUnit,
-        contactPhone: formData.contactPhone?.trim() || user?.phone || '',
+        contactPhone: inputPhone,
         area: formData.area,
         address: finalAddress,
         location: {
@@ -540,6 +565,13 @@ export default function EmployerJobsPage() {
         const newJob = await createJob(payload);
         setJobs(prev => [newJob, ...prev]);
         setToast({ type: 'success', message: 'Tạo tin tuyển dụng thành công! Đã ghim vị trí quán lên Bản đồ việc làm.' });
+      }
+
+      if (inputPhone && !user?.phone) {
+        try {
+          await updateUserProfile({ phone: inputPhone });
+          updateUser?.({ ...user, phone: inputPhone });
+        } catch {}
       }
 
       setIsModalOpen(false);

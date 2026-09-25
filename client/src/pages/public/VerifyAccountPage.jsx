@@ -24,6 +24,7 @@ import {
   getEmployerVerification,
   submitEmployerVerification,
   getUniversities,
+  updateUserProfile,
 } from '@/services';
 import { Input, Select } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
@@ -113,6 +114,16 @@ export default function VerifyAccountPage() {
   const [taxCode, setTaxCode] = useState('');
   const [description, setDescription] = useState('');
   const [storePhoto, setStorePhoto] = useState('');
+
+  // Auto-fill phone and name if user object updates
+  useEffect(() => {
+    if (user?.phone && !contactPhone) {
+      setContactPhone(user.phone);
+    }
+    if (user?.name && !legalName) {
+      setLegalName(user.name);
+    }
+  }, [user]);
 
   // Fetch verification status for both student and employer on load
   useEffect(() => {
@@ -282,7 +293,10 @@ export default function VerifyAccountPage() {
       });
 
       setExistingVerification(res.verification);
-      updateUser({ role: 'employer', status: 'pending' });
+      updateUser({ role: 'employer', status: 'pending', phone: contactPhone.trim() });
+      if (contactPhone.trim() && !user?.phone) {
+        updateUserProfile({ phone: contactPhone.trim() }).catch(() => {});
+      }
       setSuccess('Hồ sơ đã được gửi thành công! Ban Quản Trị sẽ xét duyệt trong vòng 24 giờ.');
     } catch (err) {
       setError(err.message || 'Lỗi khi gửi hồ sơ xác minh. Vui lòng thử lại.');

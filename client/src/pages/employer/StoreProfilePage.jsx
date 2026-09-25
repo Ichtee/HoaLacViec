@@ -5,12 +5,12 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getEmployerProfile, updateEmployerProfile } from '@/services';
+import { getEmployerProfile, updateEmployerProfile, updateUserProfile } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
 export default function StoreProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState({
     storeName: '',
     address: '',
@@ -61,6 +61,12 @@ export default function StoreProfilePage() {
     try {
       setSaving(true);
       await updateEmployerProfile(user.id, profile);
+      if (profile.phone && profile.phone.trim() !== user?.phone) {
+        try {
+          await updateUserProfile({ phone: profile.phone.trim() });
+          updateUser?.({ ...user, phone: profile.phone.trim() });
+        } catch {}
+      }
       setToast({ type: 'success', message: 'Cập nhật thông tin cửa hàng thành công!' });
     } catch (err) {
       setToast({ type: 'error', message: 'Lỗi khi lưu thông tin cửa hàng.' });

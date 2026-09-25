@@ -4,7 +4,7 @@ import {
   Clock, MapPin, Phone, User, DollarSign, Filter, Search, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getTasks, createTask, acceptTask, completeTask } from '@/services';
+import { getTasks, createTask, acceptTask, completeTask, updateUserProfile } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
@@ -19,7 +19,7 @@ const TASK_CATEGORIES = [
 ];
 
 export default function MicroTasksPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, updateUser } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('all');
@@ -44,6 +44,14 @@ export default function MicroTasksPage() {
   const [acceptPhone, setAcceptPhone] = useState(user?.phone || '');
   const [acceptNote, setAcceptNote] = useState('');
 
+  // Auto-fill phone whenever user profile updates
+  useEffect(() => {
+    if (user?.phone) {
+      setFormData(prev => ({ ...prev, phone: prev.phone || user.phone }));
+      setAcceptPhone(prev => prev || user.phone);
+    }
+  }, [user]);
+
   useEffect(() => {
     loadTasks();
   }, [category]);
@@ -58,6 +66,20 @@ export default function MicroTasksPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleOpenCreate() {
+    setFormData(prev => ({
+      ...prev,
+      phone: prev.phone || user?.phone || '',
+    }));
+    setCreateModal(true);
+  }
+
+  function handleOpenAccept(task) {
+    setAcceptModalTask(task);
+    setAcceptPhone(user?.phone || '');
+    setAcceptNote('');
   }
 
   async function handleCreateTask(e) {
@@ -75,6 +97,10 @@ export default function MicroTasksPage() {
         requesterName: user?.name || 'Thành viên Hòa Lạc',
         requesterPhone: formData.phone,
       });
+      if (formData.phone && !user?.phone) {
+        updateUserProfile({ phone: formData.phone.trim() }).catch(() => {});
+        if (updateUser) updateUser({ ...user, phone: formData.phone.trim() });
+      }
       setTasks(prev => [res, ...prev]);
       setToast({ type: 'success', message: 'Đã đăng việc vặt lên chợ thành công!' });
       setCreateModal(false);
@@ -85,7 +111,7 @@ export default function MicroTasksPage() {
         location: '',
         deadline: 'Hôm nay',
         description: '',
-        phone: user?.phone || '',
+        phone: user?.phone || formData.phone || '',
       });
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi đăng việc vặt.' });
@@ -104,6 +130,10 @@ export default function MicroTasksPage() {
         assigneePhone: acceptPhone || user?.phone || '',
         note: acceptNote,
       });
+      if (acceptPhone && !user?.phone) {
+        updateUserProfile({ phone: acceptPhone.trim() }).catch(() => {});
+        if (updateUser) updateUser({ ...user, phone: acceptPhone.trim() });
+      }
       setTasks(prev => prev.map(t => (t._id === acceptModalTask._id || t.id === acceptModalTask.id)
         ? { ...t, status: 'accepted', assigneeName: user?.name || 'Bạn sinh viên' }
         : t
@@ -153,7 +183,7 @@ export default function MicroTasksPage() {
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
-              onClick={() => setCreateModal(true)}
+              onClick={handleOpenCreate}
               className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-orange-600 font-bold text-sm hover:bg-amber-50 transition-all shadow-md"
             >
               <Plus className="w-4 h-4" /> Đăng việc cần nhờ ngay
@@ -204,7 +234,7 @@ export default function MicroTasksPage() {
           <h3 className="text-base font-bold text-text-main">Chưa có việc vặt nào trong mục này</h3>
           <p className="text-xs text-text-muted">Hãy là người đầu tiên đăng nhờ việc để các bạn sinh viên khác giúp đỡ!</p>
           <button
-            onClick={() => setCreateModal(true)}
+            onClick={handleOpenCreate}
             className="btn btn-primary text-xs px-4 py-2"
           >
             Đăng việc ngay
@@ -275,7 +305,7 @@ export default function MicroTasksPage() {
                 <div className="pt-3 border-t border-green-50 flex items-center justify-between">
                   {isOpen ? (
                     <button
-                      onClick={() => setAcceptModalTask(task)}
+                      onClick={() => handleOpenAccept(task)}
                       className="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5"
                     >
                       <CheckCircle className="w-4 h-4" /> Nhận việc này ({Number(task.reward).toLocaleString('vi-VN')}đ)

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getStudentProfile, updateStudentProfile, getAvailability, upsertAvailability } from '@/services';
+import { getStudentProfile, updateStudentProfile, getAvailability, upsertAvailability, updateUserProfile } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
@@ -33,11 +33,11 @@ const SKILL_OPTIONS = [
 ];
 
 export default function StudentProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState({
-    name: '',
-    email: '',
-    phone: '',
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
     university: '',
     studentCode: '',
     area: '',
@@ -64,9 +64,13 @@ export default function StudentProfilePage() {
     async function loadData() {
       if (user?.id) {
         const data = await getStudentProfile(user.id);
-        if (data) {
-          setProfile(prev => ({ ...prev, ...data }));
-        }
+        setProfile(prev => ({
+          ...prev,
+          ...(data || {}),
+          name: data?.name || user?.name || prev.name || '',
+          email: data?.email || user?.email || prev.email || '',
+          phone: data?.phone || user?.phone || prev.phone || '',
+        }));
         const avail = await getAvailability(user.id);
         if (avail) {
           setAvailability(avail);
@@ -104,6 +108,10 @@ export default function StudentProfilePage() {
       setSaving(true);
       await updateStudentProfile(user.id, profile);
       await upsertAvailability(user.id, availability);
+      if (profile.phone && profile.phone.trim() !== user?.phone) {
+        await updateUserProfile({ phone: profile.phone.trim() }).catch(() => {});
+        if (updateUser) updateUser({ ...user, phone: profile.phone.trim() });
+      }
       setToast({ type: 'success', message: 'Cập nhật hồ sơ rảnh ca thành công!' });
     } catch (err) {
       setToast({ type: 'error', message: 'Lỗi khi lưu thông tin. Vui lòng thử lại.' });
@@ -264,9 +272,6 @@ export default function StudentProfilePage() {
                   Chọn các ca bạn có thể đi làm. Hệ thống sẽ tự động ghép match các công việc trùng lịch rảnh của bạn.
                 </p>
               </div>
-              <span className="hidden sm:inline-flex items-center gap-1 px-3 py-1 rounded-full bg-pink-50 text-pink-main text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5" /> AI Matching Active
-              </span>
             </div>
 
             {/* Matrix Table */}

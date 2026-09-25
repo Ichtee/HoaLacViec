@@ -6,7 +6,7 @@ import {
   Phone, MessageCircle, Flag
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
-import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport } from '@/services';
+import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport, updateUserProfile } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JobCard, MatchScoreBar } from '@/components/JobCard.jsx';
 import { VerifiedBadge, Badge } from '@/components/Badge.jsx';
@@ -20,12 +20,12 @@ import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDist
 export default function JobDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated, isStudent, profileId, user } = useAuth();
+  const { isAuthenticated, isStudent, profileId, user, updateUser } = useAuth();
 
   const [saved, setSaved] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
-  const [candidateName, setCandidateName] = useState('');
-  const [candidatePhone, setCandidatePhone] = useState('');
+  const [candidateName, setCandidateName] = useState(user?.name || '');
+  const [candidatePhone, setCandidatePhone] = useState(user?.phone || '');
   const [candidateShift, setCandidateShift] = useState('Ca Sáng (7h - 12h)');
   const [applyNote, setApplyNote] = useState('');
   const [applying, setApplying] = useState(false);
@@ -68,10 +68,8 @@ export default function JobDetailPage() {
   }
 
   useEffect(() => {
-    if (user) {
-      if (!candidateName && user.name) setCandidateName(user.name);
-      if (!candidatePhone && user.phone) setCandidatePhone(user.phone);
-    }
+    if (user?.name && !candidateName) setCandidateName(user.name);
+    if (user?.phone && !candidatePhone) setCandidatePhone(user.phone);
   }, [user]);
 
   const { data: job, loading, error } = useAsync(() => getJob(id), [id]);
@@ -85,16 +83,27 @@ export default function JobDetailPage() {
       getAvailability(profileId),
       getStudentProfile(profileId),
     ]).then(([avail, profile]) => {
-      const result = computeMatchScore(job, avail, profile.location);
+      const result = computeMatchScore(job, avail, profile?.location);
       setMatchResult(result);
+      const phoneFromProfile = user?.phone || profile?.phone || profile?.contactPhone;
+      if (phoneFromProfile && !candidatePhone) {
+        setCandidatePhone(phoneFromProfile);
+      }
     }).catch(() => {});
-  }, [job, isAuthenticated, profileId]);
+  }, [job, isAuthenticated, profileId, user]);
 
   async function handleSave() {
     if (!isAuthenticated) { navigate('/login'); return; }
     const targetId = job._id || job.id;
     const result = await toggleSaveJob(profileId, targetId);
     setSaved(result.saved);
+  }
+
+  function handleOpenApply() {
+    if (!isAuthenticated) { navigate(`/login?redirect=/jobs/${id}`); return; }
+    if (user?.name && !candidateName) setCandidateName(user.name);
+    if (user?.phone && !candidatePhone) setCandidatePhone(user.phone);
+    setApplyOpen(true);
   }
 
   async function handleApply(e) {
@@ -114,6 +123,10 @@ export default function JobDetailPage() {
         name: candidateName,
         phone: candidatePhone,
       });
+      if (candidatePhone && !user?.phone) {
+        updateUserProfile({ phone: candidatePhone.trim() }).catch(() => {});
+        if (updateUser) updateUser({ ...user, phone: candidatePhone.trim() });
+      }
       setApplySuccess(true);
       setApplyOpen(false);
     } catch (err) {
@@ -193,7 +206,7 @@ export default function JobDetailPage() {
                   <Button
                     variant="primary"
                     size="lg"
-                    onClick={() => isAuthenticated ? setApplyOpen(true) : navigate(`/login?redirect=/jobs/${id}`)}
+                    onClick={handleOpenApply}
                     leftIcon={<Send className="w-4 h-4" />}
                     className="flex-1"
                   >
