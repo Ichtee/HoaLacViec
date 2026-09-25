@@ -111,11 +111,6 @@ export default function LocationPicker({
       attribution: '&copy; Google Maps',
     });
 
-    tileLayer.on('tileerror', () => {
-      // Fallback to CARTO CDN if Google Maps tile encounters network error
-      tileLayer.setUrl('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png');
-    });
-
     tileLayer.addTo(map);
     mapInstanceRef.current = map;
 

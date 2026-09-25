@@ -9,33 +9,21 @@ import { SALARY_UNIT_LABELS } from '@/constants';
 // Default center of map: Hoa Lac Area
 export const DEFAULT_HOALAC_CENTER = [21.0128, 105.5255];
 
-// Map Layer Configurations using Google Maps, CARTO, and open tiles
+// Google Maps Layer Configurations (100% Google Maps)
 const MAP_LAYERS = {
   google_streets: {
-    name: 'Google Maps',
+    name: 'Bản đồ',
     url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
     maxZoom: 20,
     attribution: '&copy; Google Maps',
   },
-  carto_voyager: {
-    name: 'Bản đồ CARTO',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    subdomains: ['a', 'b', 'c', 'd'],
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-  },
-  osm_standard: {
-    name: 'Bản đồ OSM',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
-  },
-  esri_satellite: {
-    name: 'Vệ tinh (Esri)',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    maxZoom: 19,
-    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+  google_satellite: {
+    name: 'Vệ tinh',
+    url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    maxZoom: 20,
+    attribution: '&copy; Google Maps',
   },
 };
 
