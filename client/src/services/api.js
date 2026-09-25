@@ -3,8 +3,9 @@
  * Base URL is /api (proxied to http://localhost:5000 by Vite)
  */
 
-const API_BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL.replace(/\/$/, '')}/api`
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_BASE = rawApiUrl
+  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`)
   : '/api';
 
 function getAuthHeaders() {
