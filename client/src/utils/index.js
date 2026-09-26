@@ -94,10 +94,11 @@ export function isValidCoordinate(lat, lng) {
  */
 export function hasConfirmedCoordinates(entity) {
   if (!entity || typeof entity !== 'object') return false;
-  const lat = entity.location?.lat ?? entity.lat;
-  const lng = entity.location?.lng ?? entity.lng;
+  const lat = entity.location?.lat ?? entity.lat ?? entity.geoPoint?.coordinates?.[1];
+  const lng = entity.location?.lng ?? entity.lng ?? entity.geoPoint?.coordinates?.[0];
+  const isConfirmed = entity.locationStatus === 'confirmed' || entity.locationStatus === 'verified';
   return (
-    entity.locationStatus === 'confirmed' &&
+    isConfirmed &&
     isValidCoordinate(lat, lng)
   );
 }
@@ -113,11 +114,11 @@ export function hasConfirmedCoordinates(entity) {
 export function getGoogleMapsDestination(entity) {
   if (!entity || typeof entity !== 'object') return null;
 
-  const lat = entity.location?.lat ?? entity.lat;
-  const lng = entity.location?.lng ?? entity.lng;
+  const lat = entity.location?.lat ?? entity.lat ?? entity.geoPoint?.coordinates?.[1];
+  const lng = entity.location?.lng ?? entity.lng ?? entity.geoPoint?.coordinates?.[0];
 
   const confirmed =
-    entity.locationStatus === 'confirmed' &&
+    (entity.locationStatus === 'confirmed' || entity.locationStatus === 'verified') &&
     isValidCoordinate(lat, lng);
 
   // 1. Confirmed coordinates priority: return `${lat},${lng}`

@@ -145,3 +145,10 @@
 .animate-fade-in { animation: fadeIn 0.25s ease both; }
 .animate-slide-up { animation: slideUp 0.3s ease both; }
 .animate-scale-in { animation: scaleIn 0.2s ease both; }
+
+/* Custom Leaflet Map Markers */
+.custom-job-marker,
+.custom-user-marker {
+  background: transparent !important;
+  border: none !important;
+}

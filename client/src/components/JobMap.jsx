@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, ExternalLink, Compass, Crosshair, AlertCircle } from 'lucide-react';
-import { formatVND, isValidCoordinate, hasConfirmedCoordinates, getGoogleMapsDestination } from '@/utils';
+import { MapPin, ExternalLink, Compass, Crosshair, AlertCircle, Target, Navigation } from 'lucide-react';
+import {
+  formatVND,
+  isValidCoordinate,
+  hasConfirmedCoordinates,
+  getGoogleMapsDestination,
+  haversineDistance,
+} from '@/utils';
 import { SALARY_UNIT_LABELS } from '@/constants';
 
 // Default center of map: Hoa Lac Area
@@ -81,26 +87,41 @@ export function JobMap({
   const tileLayerRef = useRef(null);
   const markersMapRef = useRef(new Map());
   const userMarkerRef = useRef(null);
-  const resizeTimeoutRef = useRef(null);
+  const jobsBoundsRef = useRef(null);
+  const hasInitialFitRef = useRef(false);
 
   const [activeJob, setActiveJob] = useState(singleJob || null);
   const [currentLayerKey, setCurrentLayerKey] = useState('google_streets');
   const [tileError, setTileError] = useState(false);
+  const [confirmedCount, setConfirmedCount] = useState(0);
 
   // Initialize Map and cleanup on unmount
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Center selection: singleJob > valid userLocation > DEFAULT_HOALAC_CENTER
+    // Center selection: singleJob > valid userLocation near Hoa Lac > DEFAULT_HOALAC_CENTER
     let initialCenter = DEFAULT_HOALAC_CENTER;
     let initialZoom = 13;
 
-    if (singleJob && isValidCoordinate(singleJob.location?.lat, singleJob.location?.lng)) {
-      initialCenter = [Number(singleJob.location.lat), Number(singleJob.location.lng)];
-      initialZoom = 16;
+    if (singleJob) {
+      const sjLat = singleJob.location?.lat ?? singleJob.lat ?? singleJob.geoPoint?.coordinates?.[1];
+      const sjLng = singleJob.location?.lng ?? singleJob.lng ?? singleJob.geoPoint?.coordinates?.[0];
+      if (isValidCoordinate(sjLat, sjLng)) {
+        initialCenter = [Number(sjLat), Number(sjLng)];
+        initialZoom = 16;
+      }
     } else if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
-      initialCenter = [Number(userLocation.lat), Number(userLocation.lng)];
-      initialZoom = 14;
+      const distToHoaLacM = haversineDistance(
+        userLocation.lat,
+        userLocation.lng,
+        DEFAULT_HOALAC_CENTER[0],
+        DEFAULT_HOALAC_CENTER[1]
+      );
+      // Only start centered on user GPS if within 15km of Hoa Lac, otherwise start on Hoa Lac
+      if (distToHoaLacM !== null && distToHoaLacM <= 15000) {
+        initialCenter = [Number(userLocation.lat), Number(userLocation.lng)];
+        initialZoom = 14;
+      }
     }
 
     const map = L.map(mapContainerRef.current, {
@@ -117,10 +138,10 @@ export function JobMap({
       if (tileLayerRef.current) {
         map.removeLayer(tileLayerRef.current);
       }
-      const cfg = MAP_LAYERS[layerKey] || MAP_LAYERS.osm_standard;
+      const cfg = MAP_LAYERS[layerKey] || MAP_LAYERS.google_streets;
       const layer = L.tileLayer(cfg.url, {
-        subdomains: cfg.subdomains || 'abc',
-        maxZoom: cfg.maxZoom || 19,
+        subdomains: cfg.subdomains || ['mt0', 'mt1', 'mt2', 'mt3'],
+        maxZoom: cfg.maxZoom || 20,
         attribution: cfg.attribution,
       });
 
@@ -138,13 +159,24 @@ export function JobMap({
 
     attachTileLayer(currentLayerKey);
 
-    resizeTimeoutRef.current = setTimeout(() => {
+    // Initial resize trigger
+    const initialResizeTimer = setTimeout(() => {
       map.invalidateSize();
     }, 150);
 
+    // Continuous ResizeObserver to keep Leaflet aligned across tabs, modals, and container changes
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
     return () => {
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
+      clearTimeout(initialResizeTimer);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
       }
       markersMapRef.current.forEach((marker) => marker.remove());
       markersMapRef.current.clear();
@@ -169,8 +201,8 @@ export function JobMap({
 
     const cfg = MAP_LAYERS[layerKey];
     const newLayer = L.tileLayer(cfg.url, {
-      subdomains: cfg.subdomains || 'abc',
-      maxZoom: cfg.maxZoom || 19,
+      subdomains: cfg.subdomains || ['mt0', 'mt1', 'mt2', 'mt3'],
+      maxZoom: cfg.maxZoom || 20,
       attribution: cfg.attribution,
     });
 
@@ -182,7 +214,7 @@ export function JobMap({
     setCurrentLayerKey(layerKey);
   }
 
-  // Update User Location Marker (Fly to location when newly acquired)
+  // Update User Location Marker
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -211,7 +243,7 @@ export function JobMap({
     }
   }, [userLocation]);
 
-  // Efficient Marker Diffing: Update existing, add new, remove stale
+  // Efficient Marker Diffing & Auto-Fit Bounds
   const jobsToRender = useMemo(() => {
     return singleJob ? [singleJob] : jobs;
   }, [singleJob, jobs]);
@@ -222,23 +254,26 @@ export function JobMap({
 
     const currentMarkersMap = markersMapRef.current;
     const nextJobIds = new Set();
+    const bounds = L.latLngBounds([]);
+    let validCount = 0;
 
     jobsToRender.forEach((job) => {
       const id = String(job._id || job.id);
-      const lat = job.location?.lat;
-      const lng = job.location?.lng;
+      const lat = job.location?.lat ?? job.lat ?? job.geoPoint?.coordinates?.[1];
+      const lng = job.location?.lng ?? job.lng ?? job.geoPoint?.coordinates?.[0];
 
       // Requirement 5: Only create markers for confirmed locations with valid coordinates
-      // Do NOT create markers for unconfirmed or legacy_unverified jobs
       if (!hasConfirmedCoordinates(job)) {
         return;
       }
 
-      nextJobIds.add(id);
       const nLat = Number(lat);
       const nLng = Number(lng);
-      const isSelected = id === String(selectedJobId);
+      bounds.extend([nLat, nLng]);
+      validCount++;
+      nextJobIds.add(id);
 
+      const isSelected = id === String(selectedJobId);
       const existingMarker = currentMarkersMap.get(id);
 
       if (existingMarker) {
@@ -274,9 +309,98 @@ export function JobMap({
         currentMarkersMap.delete(id);
       }
     }
-  }, [jobsToRender, selectedJobId, onSelectJob]);
+
+    setConfirmedCount(validCount);
+    jobsBoundsRef.current = bounds.isValid() ? bounds : null;
+
+    // Automatic Smart Viewport Fitting
+    if (bounds.isValid()) {
+      if (singleJob) {
+        const sjLat = singleJob.location?.lat ?? singleJob.lat ?? singleJob.geoPoint?.coordinates?.[1];
+        const sjLng = singleJob.location?.lng ?? singleJob.lng ?? singleJob.geoPoint?.coordinates?.[0];
+        if (isValidCoordinate(sjLat, sjLng)) {
+          map.setView([Number(sjLat), Number(sjLng)], 16);
+        }
+      } else if (!hasInitialFitRef.current && validCount > 0) {
+        // First load with jobs: Fit bounds smartly
+        hasInitialFitRef.current = true;
+
+        let shouldIncludeUser = false;
+        if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
+          const distToCenterM = haversineDistance(
+            userLocation.lat,
+            userLocation.lng,
+            DEFAULT_HOALAC_CENTER[0],
+            DEFAULT_HOALAC_CENTER[1]
+          );
+          if (distToCenterM !== null && distToCenterM <= 15000) {
+            shouldIncludeUser = true;
+          }
+        }
+
+        if (shouldIncludeUser) {
+          const fitBounds = L.latLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
+          fitBounds.extend([Number(userLocation.lat), Number(userLocation.lng)]);
+          map.fitBounds(fitBounds, { padding: [40, 40], maxZoom: 15 });
+        } else {
+          // If user is far (>15km) or no GPS, fit tightly on Hoa Lac jobs so markers are in full view!
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+        }
+      }
+    }
+  }, [jobsToRender, selectedJobId, onSelectJob, singleJob, userLocation]);
+
+  // Pan to selected job when selectedJobId changes
+  useEffect(() => {
+    if (!selectedJobId || !mapInstanceRef.current) return;
+    const selectedJob = jobsToRender.find((j) => String(j._id || j.id) === String(selectedJobId));
+    if (selectedJob) {
+      const lat = selectedJob.location?.lat ?? selectedJob.lat ?? selectedJob.geoPoint?.coordinates?.[1];
+      const lng = selectedJob.location?.lng ?? selectedJob.lng ?? selectedJob.geoPoint?.coordinates?.[0];
+      if (isValidCoordinate(lat, lng)) {
+        mapInstanceRef.current.flyTo([Number(lat), Number(lng)], 16, { animate: true });
+        setActiveJob(selectedJob);
+      }
+    }
+  }, [selectedJobId, jobsToRender]);
 
   const hasRealUserLocation = isValidCoordinate(userLocation?.lat, userLocation?.lng);
+
+  // Compute user distance to Hoa Lac for helpful UI context
+  const userDistToHoaLacKm = useMemo(() => {
+    if (!hasRealUserLocation) return null;
+    const distM = haversineDistance(
+      userLocation.lat,
+      userLocation.lng,
+      DEFAULT_HOALAC_CENTER[0],
+      DEFAULT_HOALAC_CENTER[1]
+    );
+    return distM !== null ? Math.round((distM / 1000) * 10) / 10 : null;
+  }, [hasRealUserLocation, userLocation]);
+
+  const fitAllJobs = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (jobsBoundsRef.current && jobsBoundsRef.current.isValid()) {
+      map.fitBounds(jobsBoundsRef.current, { padding: [50, 50], maxZoom: 15 });
+    } else {
+      map.flyTo(DEFAULT_HOALAC_CENTER, 14, { animate: true });
+    }
+  }, []);
+
+  const flyToUserLocation = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (map && hasRealUserLocation) {
+      map.flyTo([Number(userLocation.lat), Number(userLocation.lng)], 15, { animate: true });
+    }
+  }, [hasRealUserLocation, userLocation]);
+
+  const flyToHoaLacCenter = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (map) {
+      map.flyTo(DEFAULT_HOALAC_CENTER, 14, { animate: true });
+    }
+  }, []);
 
   return (
     <div className="relative rounded-3xl overflow-hidden border-2 border-green-200 shadow-card bg-cream">
@@ -327,37 +451,74 @@ export function JobMap({
       </div>
 
       {/* Floating Map Legend Top-Left */}
-      <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-green-100 shadow-md text-xs space-y-1 max-w-[280px]">
+      <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-green-100 shadow-md text-xs space-y-1.5 max-w-[300px]">
         <div className="flex items-center gap-2">
-          <span className={`w-3 h-3 rounded-full inline-block shadow-sm ${hasRealUserLocation ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
+          <span className={`w-2.5 h-2.5 rounded-full inline-block shadow-sm ${hasRealUserLocation ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
           <span className="font-bold text-text-main truncate text-[11px]">
             {hasRealUserLocation
               ? userLocation?.label || 'Vị trí GPS của bạn'
               : 'Tâm bản đồ Hòa Lạc (chưa có GPS)'}
           </span>
         </div>
+
         <div className="flex items-center gap-2 text-[11px]">
-          <span className="w-3 h-3 rounded-full bg-emerald-700 inline-block shadow-sm"></span>
-          <span className="text-text-muted">Điểm việc làm ({jobsToRender.filter(j => isValidCoordinate(j.location?.lat, j.location?.lng)).length} địa điểm đã ghim)</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-700 inline-block shadow-sm"></span>
+          <span className="text-text-muted font-medium">
+            {confirmedCount > 0
+              ? `${confirmedCount} việc làm đã ghim trên bản đồ`
+              : 'Chưa có điểm việc làm nào phù hợp bộ lọc'}
+          </span>
         </div>
+
+        {userDistToHoaLacKm !== null && userDistToHoaLacKm > 15 && (
+          <div className="pt-1 border-t border-gray-100 text-[10px] text-amber-700 flex items-start gap-1">
+            <span>ℹ️</span>
+            <span>Bạn đang cách Hòa Lạc ~{userDistToHoaLacKm}km. Bản đồ đang hiển thị cụm việc làm Hòa Lạc.</span>
+          </div>
+        )}
       </div>
 
-      {/* Recenter Button Bottom-Right */}
-      {hasRealUserLocation && (
-        <button
-          type="button"
-          onClick={() => {
-            if (mapInstanceRef.current && hasRealUserLocation) {
-              mapInstanceRef.current.flyTo([Number(userLocation.lat), Number(userLocation.lng)], 15, { animate: true });
-            }
-          }}
-          className="absolute bottom-4 right-4 z-10 p-3 bg-white hover:bg-green-50 text-green-dark rounded-2xl border border-green-100 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all"
-          title="Quay về vị trí của bạn"
-        >
-          <Compass className="w-4 h-4 text-blue-600" />
-          <span className="hidden sm:inline">Vị trí của tôi</span>
-        </button>
-      )}
+      {/* Floating Action Buttons Bottom-Right: Fit Bounds & Recenter */}
+      <div className="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-2">
+        {/* Fit All Jobs Button */}
+        {confirmedCount > 0 && !singleJob && (
+          <button
+            type="button"
+            onClick={fitAllJobs}
+            className="px-3.5 py-2 bg-white/95 backdrop-blur-md hover:bg-green-50 text-green-dark rounded-2xl border border-green-200 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+            title="Thu phóng để xem tất cả việc làm trên bản đồ"
+          >
+            <Target className="w-4 h-4 text-green-main" />
+            <span>Xem tất cả việc làm ({confirmedCount})</span>
+          </button>
+        )}
+
+        <div className="flex items-center gap-2">
+          {/* Back to Hoa Lac Center */}
+          <button
+            type="button"
+            onClick={flyToHoaLacCenter}
+            className="px-3 py-2 bg-white/95 backdrop-blur-md hover:bg-green-50 text-text-main rounded-2xl border border-green-200 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+            title="Về trung tâm khu Công nghệ cao Hòa Lạc"
+          >
+            <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="hidden sm:inline">Về Hòa Lạc</span>
+          </button>
+
+          {/* User Location Button */}
+          {hasRealUserLocation && (
+            <button
+              type="button"
+              onClick={flyToUserLocation}
+              className="px-3 py-2 bg-white/95 backdrop-blur-md hover:bg-blue-50 text-blue-700 rounded-2xl border border-blue-200 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+              title="Quay về vị trí GPS của bạn"
+            >
+              <Compass className="w-4 h-4 text-blue-600" />
+              <span className="hidden sm:inline">Vị trí của tôi</span>
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Selected Job Card Preview Popup at bottom */}
       {activeJob && !singleJob && (
@@ -401,9 +562,9 @@ export function JobMap({
                   target="_blank"
                   rel="noreferrer"
                   className="p-2 rounded-xl border border-green-200 text-text-muted hover:text-green-dark hover:bg-green-50 text-xs transition-colors flex items-center gap-1"
-                  title="Chỉ đường trên Google Maps đến vị trí này"
+                  title={isConfirmed ? "Chỉ đường trên Google Maps đến tọa độ chính xác" : "Tìm địa chỉ trên Google Maps"}
                 >
-                  <ExternalLink className="w-4 h-4 text-blue-600" />
+                  <Navigation className="w-4 h-4 text-blue-600" />
                 </a>
               );
             })()}

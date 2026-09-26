@@ -70,16 +70,20 @@ export async function runLocationMigration(options = {}) {
       if (
         !job.locationStatus ||
         job.locationStatus === LOCATION_STATUSES.UNCONFIRMED ||
-        job.locationStatus === 'draft'
+        job.locationStatus === 'draft' ||
+        job.locationStatus === LOCATION_STATUSES.LEGACY_UNVERIFIED
       ) {
-        const nextStatus = isOldDefaultCoord(nLat, nLng)
+        const hasDetailedAddress = typeof job.address === 'string' && job.address.trim().length > 10;
+        const nextStatus = (isOldDefaultCoord(nLat, nLng) && !hasDetailedAddress)
           ? LOCATION_STATUSES.LEGACY_UNVERIFIED
           : LOCATION_STATUSES.CONFIRMED;
-        job.locationStatus = nextStatus;
-        if (nextStatus === LOCATION_STATUSES.LEGACY_UNVERIFIED) {
-          stats.jobs.legacyUnverified++;
+        if (job.locationStatus !== nextStatus) {
+          job.locationStatus = nextStatus;
+          if (nextStatus === LOCATION_STATUSES.LEGACY_UNVERIFIED) {
+            stats.jobs.legacyUnverified++;
+          }
+          changed = true;
         }
-        changed = true;
       }
 
       const hasExactGeoPoint =
