@@ -244,32 +244,21 @@ export function JobMap({
       const existing = currentMarkersMap.get(id);
 
       if (existing) {
-        const curPos = existing.marker.getLngLat();
-        if (Math.abs(curPos.lat - nLat) > 0.00001 || Math.abs(curPos.lng - nLng) > 0.00001) {
-          existing.marker.setLngLat([nLng, nLat]);
-        }
-        // Update selection style
-        const newEl = createJobMarkerElement(job, isSelected);
-        existing.marker.getElement().replaceWith(newEl);
-        newEl.addEventListener('click', () => {
-          setActiveJob(job);
-          onSelectJob?.(job);
-          map.flyTo({ center: [nLng, nLat], zoom: 16 });
-        });
-      } else {
-        const el = createJobMarkerElement(job, isSelected);
-        el.addEventListener('click', () => {
-          setActiveJob(job);
-          onSelectJob?.(job);
-          map.flyTo({ center: [nLng, nLat], zoom: 16 });
-        });
-
-        const marker = new vietmapgl.Marker({ element: el })
-          .setLngLat([nLng, nLat])
-          .addTo(map);
-
-        currentMarkersMap.set(id, { marker, job });
+        existing.marker.remove();
       }
+
+      const el = createJobMarkerElement(job, isSelected);
+      el.addEventListener('click', () => {
+        setActiveJob(job);
+        onSelectJob?.(job);
+        map.flyTo({ center: [nLng, nLat], zoom: 16 });
+      });
+
+      const marker = new vietmapgl.Marker({ element: el })
+        .setLngLat([nLng, nLat])
+        .addTo(map);
+
+      currentMarkersMap.set(id, { marker, job });
     });
 
     // Remove markers that are no longer in jobsToRender
