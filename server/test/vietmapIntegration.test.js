@@ -358,5 +358,91 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
     assert.equal(invalidReverseBatch.success, false);
     assert.equal(invalidReverseBatch.code, 'INVALID_POINTS');
   });
+
+  // 9. Phase 11: Error Code Mapping, Bounded Cache TTL/Eviction, and Upstream Fault Handling
+  await t.test('9. Phase 11: Resilience, Cache TTL/Eviction, Missing Key and Upstream Faults', async () => {
+    // 9.1 Missing API key returns VIETMAP_NOT_CONFIGURED
+    const originalKey = process.env.VIETMAP_SERVICE_API_KEY;
+    delete process.env.VIETMAP_SERVICE_API_KEY;
+    try {
+      const missingKeyRes = await vietmapAutocomplete('Hòa Lạc');
+      assert.equal(missingKeyRes.success, false);
+      assert.equal(missingKeyRes.code, 'VIETMAP_NOT_CONFIGURED');
+    } finally {
+      process.env.VIETMAP_SERVICE_API_KEY = originalKey;
+    }
+
+    // 9.2 Bounded TTL Cache Eviction (LRU/maxSize behavior)
+    // Clear and test custom bounded cache behavior
+    autocompleteCache.clear();
+    const originalMaxSize = autocompleteCache.maxSize;
+    autocompleteCache.maxSize = 2; // Temporarily restrict to 2 items
+
+    autocompleteCache.set('k1', 'val1');
+    autocompleteCache.set('k2', 'val2');
+    assert.equal(autocompleteCache.get('k1'), 'val1');
+    assert.equal(autocompleteCache.get('k2'), 'val2');
+
+    // Adding 3rd item should evict oldest (k1)
+    autocompleteCache.set('k3', 'val3');
+    assert.equal(autocompleteCache.get('k1'), null);
+    assert.equal(autocompleteCache.get('k2'), 'val2');
+    assert.equal(autocompleteCache.get('k3'), 'val3');
+    autocompleteCache.maxSize = originalMaxSize;
+
+    // 9.3 Cache TTL expiration
+    autocompleteCache.set('expire_key', 'expire_val', -100); // Expired immediately
+    assert.equal(autocompleteCache.get('expire_key'), null);
+
+    // 9.4 Mock Upstream 401 handling via fetch override
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => ({
+        status: 401,
+        ok: false,
+        json: async () => ({ code: 'UNAUTHORIZED' }),
+      });
+
+      const res401 = await vietmapPlace('mock_ref_for_401');
+      assert.equal(res401.success, false);
+      assert.equal(res401.code, 'VIETMAP_UNAUTHORIZED');
+
+      // 9.5 Mock Upstream 423 / Quota handling
+      globalThis.fetch = async () => ({
+        status: 423,
+        ok: false,
+        json: async () => ({ code: 'RESOURCE_LOCKED' }),
+      });
+
+      const res423 = await vietmapPlace('mock_ref_for_423');
+      assert.equal(res423.success, false);
+      assert.equal(res423.code, 'VIETMAP_QUOTA_EXCEEDED');
+
+      // 9.6 Mock Upstream Timeout (AbortError)
+      globalThis.fetch = async () => {
+        const err = new Error('The operation was aborted');
+        err.name = 'AbortError';
+        throw err;
+      };
+
+      const resTimeout = await vietmapPlace('mock_ref_for_timeout');
+      assert.equal(resTimeout.success, false);
+      assert.equal(resTimeout.code, 'VIETMAP_TIMEOUT');
+
+      // 9.7 Mock ZERO_RESULTS
+      globalThis.fetch = async () => ({
+        status: 200,
+        ok: true,
+        json: async () => ({ code: 'ZERO_RESULTS' }),
+      });
+
+      const resZero = await vietmapPlace('mock_ref_zero');
+      assert.equal(resZero.success, false);
+      assert.equal(resZero.code, 'VIETMAP_NO_RESULTS');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
+
 
