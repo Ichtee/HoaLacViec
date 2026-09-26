@@ -34,6 +34,7 @@ const MAP_LAYERS = {
 };
 
 function createJobMarkerIcon(job, isSelected = false) {
+  const isConfirmed = hasConfirmedCoordinates(job);
   return L.divIcon({
     className: 'custom-job-marker',
     html: `
@@ -43,11 +44,13 @@ function createJobMarkerIcon(job, isSelected = false) {
         <div class="flex items-center justify-center w-7 h-7 rounded-full shadow-lg border-2 ${
           isSelected
             ? 'bg-pink-600 text-white border-white ring-4 ring-pink-300'
-            : 'bg-emerald-700 text-white border-white hover:bg-emerald-800'
+            : isConfirmed
+            ? 'bg-emerald-700 text-white border-white hover:bg-emerald-800'
+            : 'bg-amber-600 text-white border-white hover:bg-amber-700'
         } text-xs">
-          <span>💼</span>
+          <span>${isConfirmed ? '💼' : '📍'}</span>
         </div>
-        <div class="w-2 h-2 ${isSelected ? 'bg-pink-600' : 'bg-emerald-700'} rotate-45 mx-auto -mt-1 shadow-sm"></div>
+        <div class="w-2 h-2 ${isSelected ? 'bg-pink-600' : isConfirmed ? 'bg-emerald-700' : 'bg-amber-600'} rotate-45 mx-auto -mt-1 shadow-sm"></div>
       </div>
     `,
     iconSize: [28, 32],
@@ -262,8 +265,13 @@ export function JobMap({
       const lat = job.location?.lat ?? job.lat ?? job.geoPoint?.coordinates?.[1];
       const lng = job.location?.lng ?? job.lng ?? job.geoPoint?.coordinates?.[0];
 
-      // Requirement 5: Only create markers for confirmed locations with valid coordinates
-      if (!hasConfirmedCoordinates(job)) {
+      // Must have valid geographic coordinates
+      if (!isValidCoordinate(lat, lng)) {
+        return;
+      }
+
+      // Only skip jobs explicitly marked as unconfirmed (no pin selected)
+      if (job.locationStatus === 'unconfirmed') {
         return;
       }
 
@@ -314,38 +322,46 @@ export function JobMap({
     jobsBoundsRef.current = bounds.isValid() ? bounds : null;
 
     // Automatic Smart Viewport Fitting
-    if (bounds.isValid()) {
+    if (bounds.isValid() && validCount > 0) {
       if (singleJob) {
         const sjLat = singleJob.location?.lat ?? singleJob.lat ?? singleJob.geoPoint?.coordinates?.[1];
         const sjLng = singleJob.location?.lng ?? singleJob.lng ?? singleJob.geoPoint?.coordinates?.[0];
         if (isValidCoordinate(sjLat, sjLng)) {
           map.setView([Number(sjLat), Number(sjLng)], 16);
         }
-      } else if (!hasInitialFitRef.current && validCount > 0) {
-        // First load with jobs: Fit bounds smartly
+      } else if (!hasInitialFitRef.current) {
         hasInitialFitRef.current = true;
 
-        let shouldIncludeUser = false;
-        if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
-          const distToCenterM = haversineDistance(
-            userLocation.lat,
-            userLocation.lng,
-            DEFAULT_HOALAC_CENTER[0],
-            DEFAULT_HOALAC_CENTER[1]
-          );
-          if (distToCenterM !== null && distToCenterM <= 15000) {
-            shouldIncludeUser = true;
-          }
-        }
+        const performFit = () => {
+          if (!mapInstanceRef.current || !bounds.isValid()) return;
+          mapInstanceRef.current.invalidateSize();
 
-        if (shouldIncludeUser) {
-          const fitBounds = L.latLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
-          fitBounds.extend([Number(userLocation.lat), Number(userLocation.lng)]);
-          map.fitBounds(fitBounds, { padding: [40, 40], maxZoom: 15 });
-        } else {
-          // If user is far (>15km) or no GPS, fit tightly on Hoa Lac jobs so markers are in full view!
-          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-        }
+          let shouldIncludeUser = false;
+          if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
+            const distToCenterM = haversineDistance(
+              userLocation.lat,
+              userLocation.lng,
+              DEFAULT_HOALAC_CENTER[0],
+              DEFAULT_HOALAC_CENTER[1]
+            );
+            if (distToCenterM !== null && distToCenterM <= 15000) {
+              shouldIncludeUser = true;
+            }
+          }
+
+          if (shouldIncludeUser) {
+            const fitBounds = L.latLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
+            fitBounds.extend([Number(userLocation.lat), Number(userLocation.lng)]);
+            mapInstanceRef.current.fitBounds(fitBounds, { padding: [40, 40], maxZoom: 15 });
+          } else {
+            // Fit tightly on Hoa Lac jobs so all markers are centered and in full view!
+            mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+          }
+        };
+
+        // Immediate fit + delayed layout safety retry
+        performFit();
+        setTimeout(performFit, 200);
       }
     }
   }, [jobsToRender, selectedJobId, onSelectJob, singleJob, userLocation]);

@@ -96,11 +96,24 @@ export function hasConfirmedCoordinates(entity) {
   if (!entity || typeof entity !== 'object') return false;
   const lat = entity.location?.lat ?? entity.lat ?? entity.geoPoint?.coordinates?.[1];
   const lng = entity.location?.lng ?? entity.lng ?? entity.geoPoint?.coordinates?.[0];
-  const isConfirmed = entity.locationStatus === 'confirmed' || entity.locationStatus === 'verified';
-  return (
-    isConfirmed &&
-    isValidCoordinate(lat, lng)
-  );
+  if (!isValidCoordinate(lat, lng)) return false;
+
+  // Explicitly unconfirmed or legacy unverified without confirmation
+  if (entity.locationStatus === 'unconfirmed' || entity.locationStatus === 'legacy_unverified') {
+    return false;
+  }
+
+  // Explicitly confirmed or verified
+  if (entity.locationStatus === 'confirmed' || entity.locationStatus === 'verified') {
+    return true;
+  }
+
+  // Legacy or unmigrated production records with valid coordinates in Hoa Lac
+  if (entity.locationStatus === undefined || entity.locationStatus === null) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
