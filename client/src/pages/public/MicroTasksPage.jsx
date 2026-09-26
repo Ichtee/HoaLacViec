@@ -32,12 +32,12 @@ const TASK_CATEGORIES = [
 ];
 
 const TASK_TABS = [
-  { id: 'open', label: 'Đang mở nhận việc' },
-  { id: 'my_posted', label: 'Việc tôi đăng' },
-  { id: 'my_accepted', label: 'Việc tôi nhận' },
-  { id: 'awaiting_approval', label: 'Chờ nghiệm thu' },
-  { id: 'completed', label: 'Đã hoàn thành' },
-  { id: 'disputed', label: 'Tranh chấp' },
+  { id: 'open', label: 'Chợ việc vặt', icon: ShoppingBag },
+  { id: 'my_posted', label: 'Việc tôi nhờ', icon: null },
+  { id: 'my_accepted', label: 'Việc tôi nhận', icon: null },
+  { id: 'awaiting_approval', label: 'Chờ nghiệm thu', icon: null },
+  { id: 'completed', label: 'Đã hoàn thành', icon: null },
+  { id: 'disputed', label: 'Cần hỗ trợ / Khiếu nại', icon: AlertTriangle },
 ];
 
 export default function MicroTasksPage() {
@@ -434,55 +434,83 @@ export default function MicroTasksPage() {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-gray-100 pb-2">
+      {/* Tab Navigation - Modern Segmented Control */}
+      <div className="bg-gray-100/90 p-1.5 rounded-2xl flex items-center gap-1 overflow-x-auto scrollbar-none border border-gray-200/60 max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {TASK_TABS.map((tab) => {
           const isActive = currentTab === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
                 isActive
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'bg-white text-text-muted hover:bg-orange-50 hover:text-orange-600 border border-gray-100'
+                  ? 'bg-white text-gray-900 shadow-sm font-bold'
+                  : 'text-gray-500 hover:text-gray-900 hover:bg-white/60'
               }`}
             >
+              {tab.icon && (
+                <tab.icon
+                  className={`w-3.5 h-3.5 ${
+                    isActive
+                      ? tab.id === 'disputed'
+                        ? 'text-red-500'
+                        : 'text-orange-500'
+                      : 'text-gray-400'
+                  }`}
+                />
+              )}
               {tab.label}
             </button>
           );
         })}
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Categories */}
-        <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1">
-          {TASK_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setCategory(cat.id)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                category === cat.id
-                  ? 'bg-orange-500 text-white shadow-sm'
-                  : 'bg-white text-text-muted hover:bg-orange-50 hover:text-orange-600 border border-gray-100'
-              }`}
-            >
-              {cat.icon && <cat.icon className="w-3.5 h-3.5" />}
-              {cat.label}
-            </button>
-          ))}
+      {/* When in Disputed Tab: Explanatory Context Banner */}
+      {currentTab === 'disputed' && (
+        <div className="bg-red-50/70 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-red-950 text-xs sm:text-sm animate-fade-in">
+          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold text-red-900">Mục giải quyết khiếu nại & hỗ trợ sự cố:</p>
+            <p className="text-xs text-red-800 leading-relaxed">
+              Đây là nơi theo dõi các công việc bạn tham gia (đăng việc hoặc nhận việc) đang phát sinh khiếu nại (bùng tiền, thiếu đồ, không liên lạc được).
+              Ban quản trị sẽ liên hệ hai bên, kiểm tra bằng chứng và đưa ra quyết định xử lý công bằng.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Category Filter & Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+        {/* Categories Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 sm:pb-0 flex-nowrap sm:flex-wrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {TASK_CATEGORIES.map((cat) => {
+            const isCatActive = category === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setCategory(cat.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  isCatActive
+                    ? 'bg-gray-900 text-white shadow-sm'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-gray-200/80'
+                }`}
+              >
+                {cat.icon && <cat.icon className="w-3.5 h-3.5" />}
+                {cat.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
+        {/* Search Input */}
+        <div className="relative shrink-0 w-full sm:w-72">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm theo khu vực, tên việc..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-white border border-gray-100 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+            className="w-full pl-9 pr-4 py-2 rounded-full bg-white border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all shadow-2xs"
           />
         </div>
       </div>
