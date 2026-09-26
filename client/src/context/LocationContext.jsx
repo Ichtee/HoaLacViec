@@ -159,13 +159,20 @@ export function LocationProvider({ children }) {
   }, []);
 
   const value = {
+    // Canonical contract names (Requirement 8)
+    permissionStatus: permissionState,
+    locationStatus: status,
+    coords,
+    accuracy: coords?.accuracy || null,
+    error,
+    requestLocation,
+    clearLocation,
+
+    // Aliases and state helpers for backwards compatibility
     status,
     setStatus,
-    coords,
     setCoords,
-    accuracy: coords?.accuracy || null,
     timestamp: coords?.timestamp || null,
-    error,
     setError,
     errorCode,
     setErrorCode,
@@ -175,8 +182,6 @@ export function LocationProvider({ children }) {
     bannerDismissed,
     setBannerDismissed,
     dismissBanner,
-    requestLocation,
-    clearLocation,
   };
 
   return (
