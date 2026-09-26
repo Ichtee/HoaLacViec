@@ -5,6 +5,7 @@ import {
   vietmapSearch,
   vietmapPlace,
   vietmapReverse,
+  vietmapMatrix,
   vietmapRoute,
 } from '../services/vietmapService.js';
 import { isValidCoordinate } from '../utils/coordinateHelper.js';
@@ -31,6 +32,8 @@ router.use(mapSearchLimiter);
 
 // Convenience auth guard: authenticate then require active account
 const authGuard = [authenticate, requireActiveUser];
+const MATRIX_DESTINATIONS_PER_BATCH = 24;
+const MATRIX_MAX_DESTINATIONS = 100;
 
 /**
  * GET /api/maps/autocomplete
@@ -267,6 +270,72 @@ router.get('/reverse', authGuard, async (req, res, next) => {
         provinceName: place.addressComponents?.provinceName || '',
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/maps/matrix
+ * Body: { origin: { lat, lng }, destinations: [{ id, lat, lng }], vehicle }
+ * Auth is required because Matrix is billed per origin/destination pair.
+ */
+router.post('/matrix', authGuard, async (req, res, next) => {
+  try {
+    const { origin, destinations, vehicle = 'motorcycle' } = req.body || {};
+    if (!isValidCoordinate(origin?.lat, origin?.lng)) {
+      return res.status(400).json({ success: false, error: 'Điểm xuất phát không hợp lệ', code: 'INVALID_ORIGIN' });
+    }
+    if (!Array.isArray(destinations) || destinations.length === 0 || destinations.length > MATRIX_MAX_DESTINATIONS) {
+      return res.status(400).json({
+        success: false,
+        error: `Danh sách điểm đến phải có từ 1 đến ${MATRIX_MAX_DESTINATIONS} điểm`,
+        code: 'INVALID_DESTINATIONS',
+      });
+    }
+    if (!['motorcycle', 'car'].includes(vehicle)) {
+      return res.status(400).json({ success: false, error: "vehicle phải là 'motorcycle' hoặc 'car'", code: 'INVALID_VEHICLE' });
+    }
+
+    const normalizedDestinations = destinations.map((destination, index) => ({
+      id: String(destination?.id ?? index),
+      lat: destination?.lat,
+      lng: destination?.lng,
+    }));
+    if (normalizedDestinations.some((destination) => !isValidCoordinate(destination.lat, destination.lng))) {
+      return res.status(400).json({ success: false, error: 'Có điểm đến mang tọa độ không hợp lệ', code: 'INVALID_COORDINATES' });
+    }
+
+    const entries = [];
+    for (let offset = 0; offset < normalizedDestinations.length; offset += MATRIX_DESTINATIONS_PER_BATCH) {
+      const batch = normalizedDestinations.slice(offset, offset + MATRIX_DESTINATIONS_PER_BATCH);
+      const result = await vietmapMatrix({
+        origins: [{ lat: Number(origin.lat), lng: Number(origin.lng) }],
+        destinations: batch.map(({ lat, lng }) => ({ lat: Number(lat), lng: Number(lng) })),
+        vehicle,
+      });
+
+      if (!result.success) {
+        const statusCode = result.code === 'VIETMAP_UNAUTHORIZED' ? 401
+          : result.code === 'VIETMAP_QUOTA_EXCEEDED' ? 429
+          : result.code === 'VIETMAP_TIMEOUT' ? 504
+          : result.code === 'VIETMAP_MAX_POINTS_EXCEEDED' ? 400
+          : 503;
+        return res.status(statusCode).json(result);
+      }
+
+      const distanceRow = result.distances?.[0] || [];
+      const durationRow = result.durations?.[0] || [];
+      batch.forEach((destination, index) => {
+        entries.push({
+          id: destination.id,
+          distanceMeters: Number.isFinite(distanceRow[index]) ? distanceRow[index] : null,
+          durationSeconds: Number.isFinite(durationRow[index]) ? durationRow[index] : null,
+        });
+      });
+    }
+
+    return res.json({ success: true, provider: 'vietmap', vehicle, entries });
   } catch (err) {
     next(err);
   }

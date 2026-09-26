@@ -614,4 +614,15 @@ export async function apiVietmapRoute({ origin, destination, points, vehicle = '
   });
 }
 
+/**
+ * Matrix v4: one origin -> many destinations.
+ * Returns { success, provider, vehicle, entries: [{ id, distanceMeters, durationSeconds }] }.
+ */
+export async function apiVietmapMatrix({ origin, destinations, vehicle = 'motorcycle' } = {}, signal) {
+  return request('/maps/matrix', {
+    method: 'POST',
+    body: JSON.stringify({ origin, destinations, vehicle }),
+    signal,
+  });
+}
 

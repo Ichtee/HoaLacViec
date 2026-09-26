@@ -7,7 +7,7 @@ import { JobMap } from '@/components/JobMap.jsx';
 import { EmptyState, LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { Select } from '@/components/Form.jsx';
 import { useAsync, useDebounce, useGeolocation } from '@/hooks';
-import { getJobs, toggleSaveJob, isSavedJob, getSavedJobs } from '@/services';
+import { getJobs, toggleSaveJob, isSavedJob, getSavedJobs, apiVietmapMatrix } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JOB_TYPES, JOB_TYPE_LABELS, AREAS } from '@/constants';
 import { haversineDistance, isValidCoordinate } from '@/utils';
@@ -30,6 +30,8 @@ export default function JobListPage() {
   const [savedJobIds, setSavedJobIds] = useState(new Set());
   const [minSalary, setMinSalary] = useState(''); // in VND/hour
   const [selectedJobId, setSelectedJobId] = useState(null);
+  const [matrixDistances, setMatrixDistances] = useState({});
+  const [matrixStatus, setMatrixStatus] = useState('idle');
 
   useEffect(() => {
     setSearch(params.get('search') || '');
@@ -103,6 +105,57 @@ export default function JobListPage() {
     return jobData?.items || jobData?.jobs || [];
   }, [jobData]);
 
+  const matrixDestinations = useMemo(() => (allJobs || [])
+    .filter((job) => isValidCoordinate(job.location?.lat, job.location?.lng))
+    .map((job) => ({
+      id: String(job._id || job.id),
+      lat: Number(job.location.lat),
+      lng: Number(job.location.lng),
+    })), [allJobs]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !userLocation || matrixDestinations.length === 0) {
+      setMatrixDistances({});
+      setMatrixStatus('idle');
+      return undefined;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    setMatrixDistances({});
+    setMatrixStatus('loading');
+
+    apiVietmapMatrix({
+      origin: { lat: userLocation.lat, lng: userLocation.lng },
+      destinations: matrixDestinations,
+      vehicle: 'motorcycle',
+    }, controller.signal)
+      .then((result) => {
+        if (!active) return;
+        const nextDistances = {};
+        (result?.entries || []).forEach((entry) => {
+          if (Number.isFinite(entry.distanceMeters)) {
+            nextDistances[String(entry.id)] = {
+              distanceMeters: entry.distanceMeters,
+              durationSeconds: Number.isFinite(entry.durationSeconds) ? entry.durationSeconds : null,
+            };
+          }
+        });
+        setMatrixDistances(nextDistances);
+        setMatrixStatus('success');
+      })
+      .catch(() => {
+        if (!active) return;
+        setMatrixDistances({});
+        setMatrixStatus('error');
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [isAuthenticated, userLocation, matrixDestinations]);
+
   // Load saved job ids
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -111,11 +164,13 @@ export default function JobListPage() {
     }).catch(() => {});
   }, [isAuthenticated]);
 
-  // Compute real client-side distance without leaking user coordinates to the server
+  // Prefer Vietmap Matrix road distance. Haversine remains a resilient fallback.
   const jobsWithDistance = useMemo(() => {
     return (allJobs || []).map((job) => {
       let distanceMeters = null;
       let distanceKm = null;
+      let distanceSource = null;
+      let durationSeconds = null;
       if (userLocation && isValidCoordinate(job.location?.lat, job.location?.lng)) {
         distanceMeters = haversineDistance(
           userLocation.lat,
@@ -123,6 +178,13 @@ export default function JobListPage() {
           job.location.lat,
           job.location.lng
         );
+        distanceSource = 'haversine';
+        const matrixEntry = matrixDistances[String(job._id || job.id)];
+        if (Number.isFinite(matrixEntry?.distanceMeters)) {
+          distanceMeters = matrixEntry.distanceMeters;
+          durationSeconds = matrixEntry.durationSeconds;
+          distanceSource = 'vietmap_matrix';
+        }
         if (distanceMeters !== null) {
           distanceKm = Math.round((distanceMeters / 1000) * 10) / 10;
         }
@@ -131,9 +193,11 @@ export default function JobListPage() {
         ...job,
         distanceMeters,
         distanceKm,
+        distanceSource,
+        durationSeconds,
       };
     });
-  }, [allJobs, userLocation]);
+  }, [allJobs, userLocation, matrixDistances]);
 
   // Filter jobs by minimum salary & featuredOnly
   const filtered = jobsWithDistance.filter((j) => {
@@ -424,7 +488,15 @@ export default function JobListPage() {
       {/* Results Header */}
       <div className="flex items-center justify-between pt-2">
         <h3 className="font-bold text-sm text-text-main flex items-center gap-2">
-          <span>Danh sách công việc {userLocation ? `(Đã tính khoảng cách thực tế từ vị trí của bạn)` : ''}</span>
+          <span>
+            Danh sách công việc {userLocation && matrixStatus === 'success'
+              ? '(quãng đường xe máy từ vị trí của bạn)'
+              : userLocation && matrixStatus === 'loading'
+                ? '(đang tính quãng đường xe máy...)'
+                : userLocation
+                  ? '(tạm tính theo đường chim bay)'
+                  : ''}
+          </span>
           {loading && <Loader2 className="w-4 h-4 text-green-main animate-spin" />}
         </h3>
       </div>

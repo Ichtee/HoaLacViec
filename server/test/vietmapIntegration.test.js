@@ -14,6 +14,7 @@ import {
   autocompleteCache,
   placeCache,
   reverseCache,
+  matrixCache,
   routeCache,
   normalizeVietmapAddressComponents,
   vietmapAutocomplete,
@@ -21,6 +22,7 @@ import {
   vietmapPlace,
   vietmapReverse,
   vietmapReverseBatch,
+  vietmapMatrix,
   vietmapRoute,
   vietmapRouteTolls,
   vietmapMatchTolls,
@@ -35,6 +37,7 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
   autocompleteCache.clear();
   placeCache.clear();
   reverseCache.clear();
+  matrixCache.clear();
   routeCache.clear();
 
   // 1. Coordinate Conversion Contract
@@ -233,6 +236,52 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
     assert.equal(fetchedRoute.route.distanceKm, 4.2);
     assert.equal(fetchedRoute.route.durationMin, 8);
     assert.equal(fetchedRoute.route.points.length, 2);
+  });
+
+  await t.test('5.1 Matrix v4: sends lat,lng points and maps one origin to many destinations', async () => {
+    const originalFetch = globalThis.fetch;
+    let requestedUrl = null;
+    try {
+      globalThis.fetch = async (url) => {
+        requestedUrl = new URL(url);
+        return {
+          status: 200,
+          ok: true,
+          json: async () => ({
+            code: 'OK',
+            messages: null,
+            distances: [[1766.3, 1374.3]],
+            durations: [[230, 201]],
+          }),
+        };
+      };
+
+      matrixCache.clear();
+      const result = await vietmapMatrix({
+        origins: [{ lat: 10.768897, lng: 106.678505 }],
+        destinations: [
+          { lat: 10.7627936, lng: 106.6750729 },
+          { lat: 10.7616745, lng: 106.6792425 },
+        ],
+        vehicle: 'motorcycle',
+      });
+
+      assert.equal(result.success, true);
+      assert.deepEqual(result.distances, [[1766.3, 1374.3]]);
+      assert.deepEqual(result.durations, [[230, 201]]);
+      assert.deepEqual(requestedUrl.searchParams.getAll('point'), [
+        '10.768897,106.678505',
+        '10.762794,106.675073',
+        '10.761674,106.679243',
+      ]);
+      assert.equal(requestedUrl.searchParams.get('sources'), '0');
+      assert.equal(requestedUrl.searchParams.get('destinations'), '1;2');
+      assert.equal(requestedUrl.searchParams.get('annotation'), 'distance');
+      assert.equal(requestedUrl.searchParams.get('vehicle'), 'motorcycle');
+    } finally {
+      globalThis.fetch = originalFetch;
+      matrixCache.clear();
+    }
   });
 
   // 6. Security & Key Protection
@@ -444,5 +493,3 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
     }
   });
 });
-
-

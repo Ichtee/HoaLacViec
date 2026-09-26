@@ -166,5 +166,6 @@ export {
   apiVietmapAutocomplete,
   apiVietmapPlace,
   apiVietmapReverse,
+  apiVietmapMatrix,
   apiVietmapRoute,
 } from './api.js';

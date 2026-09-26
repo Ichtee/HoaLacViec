@@ -51,7 +51,12 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
                   </span>
                 )}
                 {job.distanceMeters !== null && job.distanceMeters !== undefined && (
-                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold flex items-center gap-0.5" title="Khoảng cách tính theo đường chim bay từ vị trí GPS của bạn">
+                  <span
+                    className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold flex items-center gap-0.5"
+                    title={job.distanceSource === 'vietmap_matrix'
+                      ? 'Quãng đường xe máy do Vietmap Matrix v4 tính'
+                      : 'Khoảng cách đường chim bay tạm tính từ vị trí GPS của bạn'}
+                  >
                     📍 Cách {job.distanceMeters < 1000 ? `${Math.round(job.distanceMeters)}m` : `${(job.distanceMeters / 1000).toFixed(1)}km`}
                   </span>
                 )}

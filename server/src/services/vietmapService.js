@@ -5,6 +5,7 @@
  * - Search v4 (full address forward geocoding, display_type=6)
  * - Place v4 (refid lookup for exact coordinates & address components)
  * - Reverse v4 (lat, lng lookup with display_type=6)
+ * - Matrix v4 (many origin/destination road distances)
  * - Route v4 (point=lat,lng, vehicle=car|motorcycle, points_encoded=false)
  *
  * Security & Reliability:
@@ -71,6 +72,7 @@ class TimedCache {
 export const autocompleteCache = new TimedCache(5 * 60 * 1000); // 5 minutes
 export const placeCache = new TimedCache(60 * 60 * 1000); // 1 hour (deterministic)
 export const reverseCache = new TimedCache(30 * 60 * 1000); // 30 minutes
+export const matrixCache = new TimedCache(10 * 60 * 1000); // 10 minutes
 export const routeCache = new TimedCache(15 * 60 * 1000); // 15 minutes
 
 export function getVietmapServiceApiKey() {
@@ -508,6 +510,98 @@ export async function vietmapReverse({ lat, lng, displayType = 6 }) {
 }
 
 /**
+ * Matrix v4: returns road distances for every origin -> destination pair.
+ * Vietmap expects every point in "lat,lng" order and zero-based source/destination indices.
+ * This function intentionally handles one bounded upstream request; callers can chunk larger
+ * destination lists to stay compatible with the point limit of their Vietmap plan.
+ *
+ * @param {Object} options
+ * @param {Array<{lat: number, lng: number}>} options.origins
+ * @param {Array<{lat: number, lng: number}>} options.destinations
+ * @param {string} [options.vehicle='motorcycle']
+ * @returns {Promise<{success: boolean, distances?: Array<Array<number|null>>, durations?: Array<Array<number|null>>, error?: string}>}
+ */
+export async function vietmapMatrix({ origins = [], destinations = [], vehicle = 'motorcycle' } = {}) {
+  if (!Array.isArray(origins) || origins.length === 0 || !Array.isArray(destinations) || destinations.length === 0) {
+    return { success: false, error: 'Matrix cần ít nhất một điểm đi và một điểm đến', code: 'INVALID_POINTS' };
+  }
+
+  const sourcePoints = origins.map((point) => toRouteCoordinate(point));
+  const destinationPoints = destinations.map((point) => toRouteCoordinate(point));
+  if (sourcePoints.some((point) => !point) || destinationPoints.some((point) => !point)) {
+    return { success: false, error: 'Tọa độ Matrix không hợp lệ', code: 'VIETMAP_INVALID_RESPONSE' };
+  }
+
+  const validVehicle = ['motorcycle', 'car', 'truck', 'container'].includes(vehicle) ? vehicle : 'motorcycle';
+  const apiKey = getVietmapServiceApiKey();
+  if (!apiKey) return notConfiguredError();
+
+  const allPoints = [...sourcePoints, ...destinationPoints];
+  const sourceIndices = sourcePoints.map((_, index) => index).join(';');
+  const destinationIndices = destinationPoints
+    .map((_, index) => sourcePoints.length + index)
+    .join(';');
+  const cacheKey = `${sourcePoints.join('|')}=>${destinationPoints.join('|')}|${validVehicle}`;
+  const cached = matrixCache.get(cacheKey);
+  if (cached) return { success: true, ...cached, fromCache: true };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const url = new URL('https://maps.vietmap.vn/api/matrix/v4');
+    url.searchParams.set('apikey', apiKey);
+    allPoints.forEach((point) => url.searchParams.append('point', point));
+    url.searchParams.set('vehicle', validVehicle);
+    url.searchParams.set('sources', sourceIndices);
+    url.searchParams.set('destinations', destinationIndices);
+    url.searchParams.set('annotation', 'distance');
+
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
+    }
+    if (response.status === 423) {
+      return { success: false, error: 'Vietmap Matrix đã vượt hạn mức hoặc đang bị khóa (423)', code: 'VIETMAP_QUOTA_EXCEEDED' };
+    }
+    if (!response.ok) {
+      return { success: false, error: `Máy chủ Vietmap Matrix trả về HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
+    }
+
+    const data = await response.json();
+    if (data?.code === 'OVER_DAILY_LIMIT') {
+      return { success: false, error: 'Đã vượt hạn mức Vietmap trong ngày', code: 'VIETMAP_QUOTA_EXCEEDED' };
+    }
+    if (data?.code !== 'OK' || !Array.isArray(data.distances)) {
+      return {
+        success: false,
+        error: Array.isArray(data?.messages) ? data.messages.join(', ') : (data?.messages || 'Phản hồi Vietmap Matrix không hợp lệ'),
+        code: data?.code === 'MAX_POINTS_EXCEED' ? 'VIETMAP_MAX_POINTS_EXCEEDED' : 'VIETMAP_INVALID_RESPONSE',
+      };
+    }
+
+    const normalized = {
+      distances: data.distances,
+      durations: Array.isArray(data.durations) ? data.durations : [],
+      vehicle: validVehicle,
+    };
+    matrixCache.set(cacheKey, normalized);
+    return { success: true, ...normalized };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Matrix (timeout 10s)', code: 'VIETMAP_TIMEOUT' };
+    }
+    return { success: false, error: `Lỗi kết nối Vietmap Matrix: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
+  }
+}
+
+/**
  * Route v4: Calculates road route between waypoints.
  * Supported profiles: motorcycle, car, truck, container.
  * Supports optional toll & congestion annotations.
@@ -855,7 +949,6 @@ export async function vietmapReverseBatch(points = []) {
     return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Reverse Batch: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
-
 
 
 

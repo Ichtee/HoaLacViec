@@ -7,7 +7,7 @@
 ## 🌟 Tính Năng Nổi Bật
 
 - **Bản Đồ Việc Làm Trực Quan (Vietmap GL JS):** Định vị chính xác cửa hàng, quán cà phê, tiệm ăn quanh Hòa Lạc; hỗ trợ dẫn đường 1-click qua Google Maps.
-- **Tìm Kiếm Địa Điểm & Định Vị Thông Minh (Vietmap v4):** Hỗ trợ tra cứu địa điểm, tự động phân giải tọa độ chính xác qua Vietmap Autocomplete & Place v4, ước tính lộ trình xe máy qua Vietmap Route v4.
+- **Tìm Kiếm Địa Điểm & Định Vị Thông Minh (Vietmap v4):** Hỗ trợ tra cứu địa điểm, tự động phân giải tọa độ chính xác qua Vietmap Autocomplete & Place v4, ước tính lộ trình xe máy qua Vietmap Route v4 và tính khoảng cách hàng loạt qua Matrix v4.
 - **Liên Hệ Nhanh 2 Chiều (Phone & Zalo):** Sinh viên và nhà tuyển dụng có thể gọi điện trực tiếp (`tel:...`) hoặc nhắn tin Zalo (`zalo.me/...`) ngay trên thẻ hồ sơ và trang chi tiết việc làm.
 - **Khớp Lịch Học & Ca Làm Tự Động:** Tính toán tỷ lệ trùng khớp (% matching) giữa thời gian rảnh của sinh viên và ca tuyển của quán, cảnh báo xung đột lịch học.
 - **Quản Lý Ca Làm & Điểm Danh GPS:** Hỗ trợ sinh viên check-in / check-out ca làm việc và chủ quán phê duyệt chấm công theo thời gian thực.
@@ -91,7 +91,7 @@ Client sẽ hoạt động tại `http://localhost:5173`.
 | `PORT` | Cổng dịch vụ Express | `5000` |
 | `MONGO_URI` | Chuỗi kết nối MongoDB | `mongodb://127.0.0.1:27017/hoalacviec` |
 | `JWT_SECRET` | Khóa bí mật ký mã JWT | **Bắt buộc** |
-| `VIETMAP_SERVICE_API_KEY` | API Key Vietmap Services (Autocomplete, Place, Reverse, Route) — chỉ dùng backend | Cần thiết |
+| `VIETMAP_SERVICE_API_KEY` | API Key Vietmap Services (Autocomplete, Place, Reverse, Route, Matrix) — chỉ dùng backend | Cần thiết |
 | `VIETMAP_API_BASE_URL` | Base URL Vietmap API | `https://maps.vietmap.vn` |
 | `ENABLE_VIETMAP` | Bật tích hợp Vietmap (`true`/`false`) | `false` |
 | `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID | Tùy chọn |
@@ -111,12 +111,12 @@ Client sẽ hoạt động tại `http://localhost:5173`.
 Vietmap cấp **2 loại key riêng biệt**. Không dùng chung một key cho cả hai.
 
 ### Services Key (`VIETMAP_SERVICE_API_KEY`) — **Backend only**
-Dùng cho Autocomplete, Search, Place, Reverse, Route v4.
+Dùng cho Autocomplete, Search, Place, Reverse, Route v4 và Matrix v4.
 
 **Bắt buộc trong production:**
 - Vào [Vietmap Console](https://maps.vietmap.vn/console-v2/) → chọn project → key management
 - **Giới hạn IP server** (whitelist IP của backend/cloud, không mở public)
-- **Chỉ bật API đang sử dụng** (Autocomplete, Place, Reverse, Route — tắt Matrix, TSP, VRP)
+- **Chỉ bật API đang sử dụng** (Autocomplete, Place, Reverse, Route, Matrix — tắt TSP, VRP)
 - **Đặt quota hàng ngày** để tránh overbilling khi bị tấn công
 - **Dev và production** dùng key/project riêng
 - **Không commit key vào git**, không log key, không log outbound URL
@@ -163,4 +163,3 @@ Cả frontend và backend đều sử dụng chung một Google Web Client ID (C
 
 ## 📝 Bản Quyền & Giấy Phép
 Dự án phát triển phục vụ sinh viên và cộng đồng kinh doanh tại Hòa Lạc.
-
