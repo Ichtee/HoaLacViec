@@ -100,7 +100,8 @@ Client sẽ hoạt động tại `http://localhost:5173`.
 | :--- | :--- | :--- |
 | `VITE_DATA_MODE` | Chế độ dữ liệu (`api` hoặc `mock`) | `api` |
 | `VITE_APP_NAME` | Tên thương hiệu hiển thị | `Hoa Lạc Việc` |
-| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps JavaScript API Key | Tùy chọn |
+| `VITE_VIETMAP_TILE_API_KEY` | Vietmap MapTile API Key (render bản đồ vector tile client) | Cần thiết nếu dùng bản đồ Vietmap |
+| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps JavaScript API Key (tùy chọn) | Tùy chọn |
 | `VITE_GOOGLE_CLIENT_ID` | Google OAuth Web Client ID cho nút Đăng nhập Google | Tùy chọn |
 
 ---

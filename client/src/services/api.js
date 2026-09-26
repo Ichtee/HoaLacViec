@@ -556,11 +556,46 @@ export async function apiVietmapReverse(lat, lng, signal) {
   return request(`/maps/reverse?${params.toString()}`, { signal });
 }
 
-export async function apiVietmapRoute({ origin, destination, points, vehicle = 'motorcycle' }, signal) {
+export async function apiVietmapRoute(options = {}, signal) {
+  const {
+    origin,
+    destination,
+    points,
+    vehicle = 'motorcycle',
+    capacity,
+    avoid,
+    annotations,
+  } = options;
+
   return request('/maps/route', {
     method: 'POST',
-    body: JSON.stringify({ origin, destination, points, vehicle }),
+    body: JSON.stringify({
+      origin,
+      destination,
+      points,
+      vehicle,
+      capacity,
+      avoid,
+      annotations,
+    }),
     signal,
   });
 }
+
+export async function apiVietmapRouteTolls({ points, vehicle = 1 }, signal) {
+  return request('/maps/route-tolls', {
+    method: 'POST',
+    body: JSON.stringify({ points, vehicle }),
+    signal,
+  });
+}
+
+export async function apiVietmapMatchTolls({ points, path, vehicle = 1 }, signal) {
+  return request('/maps/match-tolls', {
+    method: 'POST',
+    body: JSON.stringify({ points, path, vehicle }),
+    signal,
+  });
+}
+
 

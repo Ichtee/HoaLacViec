@@ -5,6 +5,8 @@ import {
   vietmapPlace,
   vietmapReverse,
   vietmapRoute,
+  vietmapRouteTolls,
+  vietmapMatchTolls,
 } from '../services/vietmapService.js';
 import { isValidCoordinate } from '../utils/coordinateHelper.js';
 
@@ -120,11 +122,19 @@ router.get('/reverse', async (req, res, next) => {
 
 /**
  * POST /api/maps/route
- * Body: { origin, destination, vehicle, points }
+ * Body: { origin, destination, points, vehicle, capacity, avoid, annotations }
  */
 router.post('/route', async (req, res, next) => {
   try {
-    const { origin, destination, points, vehicle = 'motorcycle' } = req.body;
+    const {
+      origin,
+      destination,
+      points,
+      vehicle = 'motorcycle',
+      capacity,
+      avoid,
+      annotations,
+    } = req.body;
 
     let routePoints = [];
 
@@ -143,10 +153,72 @@ router.post('/route', async (req, res, next) => {
     const result = await vietmapRoute({
       points: routePoints,
       vehicle: typeof vehicle === 'string' ? vehicle : 'motorcycle',
+      capacity,
+      avoid,
+      annotations,
     });
 
     if (!result.success) {
       const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/maps/route-tolls
+ * Body: { points: [[lng, lat], [lng, lat]], vehicle: 1..5 }
+ */
+router.post('/route-tolls', async (req, res, next) => {
+  try {
+    const { points, vehicle = 1 } = req.body;
+
+    if (!Array.isArray(points) || points.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cần mảng points với ít nhất 2 điểm dạng [[lng, lat], [lng, lat]]',
+        code: 'INVALID_POINTS',
+      });
+    }
+
+    const result = await vietmapRouteTolls({ points, vehicle });
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/maps/match-tolls
+ * Body: { points: [[lng, lat], ...], vehicle: 1..5 }
+ */
+router.post('/match-tolls', async (req, res, next) => {
+  try {
+    const { points, path, vehicle = 1 } = req.body;
+    const trail = Array.isArray(points) ? points : path;
+
+    if (!Array.isArray(trail) || trail.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cần mảng GPS trail với ít nhất 2 điểm dạng [[lng, lat], ...]',
+        code: 'INVALID_POINTS',
+      });
+    }
+
+    const result = await vietmapMatchTolls({ points: trail, vehicle });
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : 400;
       return res.status(statusCode).json(result);
     }
 

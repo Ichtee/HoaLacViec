@@ -397,13 +397,27 @@ export async function vietmapReverse({ lat, lng, displayType = 5 }) {
 
 /**
  * Route v4: Calculates road route between waypoints.
+ * Supported profiles: motorcycle, car, truck, container.
+ * Supports optional toll & congestion annotations.
  * @param {Object} options
  * @param {Array<string|{lat: number, lng: number}>} options.points - Minimum 2 points
- * @param {string} [options.vehicle='motorcycle'] - 'motorcycle' | 'car'
+ * @param {string} [options.vehicle='motorcycle'] - 'motorcycle' | 'car' | 'truck' | 'container'
+ * @param {number} [options.capacity] - Vehicle weight in kg (required when vehicle=truck)
+ * @param {string} [options.avoid] - Road type to avoid, e.g. 'ferry'
+ * @param {string} [options.annotations] - Comma-separated: 'toll', 'congestion', or 'toll,congestion'
  * @returns {Promise<{ success: boolean, route?: Object, error?: string }>}
  */
 export async function vietmapRoute(options = {}) {
-  let { points, origin, destination, vehicle = 'motorcycle' } = options;
+  let {
+    points,
+    origin,
+    destination,
+    vehicle = 'motorcycle',
+    capacity,
+    avoid,
+    annotations,
+  } = options;
+
   if (!Array.isArray(points) || points.length === 0) {
     if (origin && destination) {
       points = [origin, destination];
@@ -424,7 +438,7 @@ export async function vietmapRoute(options = {}) {
     return { success: false, error: 'Tọa độ các điểm trên tuyến đường không hợp lệ', code: 'INVALID_COORDINATES' };
   }
 
-  const validVehicle = ['motorcycle', 'car', 'truck'].includes(vehicle) ? vehicle : 'motorcycle';
+  const validVehicle = ['motorcycle', 'car', 'truck', 'container'].includes(vehicle) ? vehicle : 'motorcycle';
 
   const apiKey = getVietmapServiceApiKey();
   if (!apiKey) {
@@ -435,7 +449,7 @@ export async function vietmapRoute(options = {}) {
     };
   }
 
-  const cacheKey = `${validPoints.join('->')}|${validVehicle}`;
+  const cacheKey = `${validPoints.join('->')}|${validVehicle}${annotations ? `|${annotations}` : ''}`;
   const cached = routeCache.get(cacheKey);
   if (cached) {
     return { success: true, route: cached, fromCache: true };
@@ -448,8 +462,18 @@ export async function vietmapRoute(options = {}) {
     const url = new URL('https://maps.vietmap.vn/api/route/v4');
     url.searchParams.set('apikey', apiKey);
     validPoints.forEach((pt) => url.searchParams.append('point', pt));
-    url.searchParams.set('points_encoded', 'false'); // Coordinates as [lat, lng] array
+    url.searchParams.set('points_encoded', 'false'); // Coordinates as GeoJSON / array
     url.searchParams.set('vehicle', validVehicle);
+
+    if (validVehicle === 'truck' && capacity) {
+      url.searchParams.set('capacity', String(capacity));
+    }
+    if (avoid) {
+      url.searchParams.set('avoid', String(avoid));
+    }
+    if (annotations) {
+      url.searchParams.set('annotations', String(annotations));
+    }
 
     const response = await fetch(url.toString(), {
       signal: controller.signal,
@@ -479,10 +503,16 @@ export async function vietmapRoute(options = {}) {
 
     const bestPath = data.paths[0];
 
-    // Doc note: When points_encoded=false, points is an array of [lat, lng]
-    const leafletPoints = Array.isArray(bestPath.points) ? bestPath.points : [];
-    // GeoJSON standard is [lng, lat]
-    const geoJsonCoordinates = leafletPoints.map((pt) => [pt[1], pt[0]]);
+    // Handle both GeoJSON LineString object and [lon, lat] coordinate array
+    let geoJsonCoordinates = [];
+    if (bestPath.points && typeof bestPath.points === 'object' && Array.isArray(bestPath.points.coordinates)) {
+      geoJsonCoordinates = bestPath.points.coordinates;
+    } else if (Array.isArray(bestPath.points)) {
+      geoJsonCoordinates = bestPath.points;
+    }
+
+    // Leaflet format uses [latitude, longitude]
+    const leafletPoints = geoJsonCoordinates.map((pt) => [pt[1], pt[0]]);
 
     const normalizedRoute = {
       distance: bestPath.distance, // meters
@@ -491,9 +521,12 @@ export async function vietmapRoute(options = {}) {
       durationMinutes: Math.round(bestPath.time / 60000),
       bbox: bestPath.bbox || null,
       points: leafletPoints, // Leaflet format: [[lat, lng], ...]
-      geoJsonCoordinates, // GeoJSON format: [[lng, lat], ...]
+      geoJsonCoordinates, // Vietmap GL / GeoJSON format: [[lng, lat], ...]
       instructions: bestPath.instructions || [],
       vehicle: validVehicle,
+      tollCost: typeof bestPath.toll_cost === 'number' ? bestPath.toll_cost : null,
+      tolls: Array.isArray(bestPath.tolls) ? bestPath.tolls : [],
+      congestion: Array.isArray(bestPath.congestion) ? bestPath.congestion : [],
     };
 
     routeCache.set(cacheKey, normalizedRoute);
@@ -506,3 +539,139 @@ export async function vietmapRoute(options = {}) {
     return { success: false, error: `Lỗi kết nối Vietmap Route: ${err.message}`, code: 'NETWORK_ERROR' };
   }
 }
+
+/**
+ * Route-tolls: Pre-trip BOT toll calculation by vehicle class (1-5).
+ * Coordinates body order is [[lng, lat], [lng, lat]].
+ * @param {Object} options
+ * @param {Array<[number, number]>} options.points - Minimum 2 [lng, lat] waypoints
+ * @param {number} [options.vehicle=1] - Vehicle class 1 to 5
+ * @returns {Promise<{ success: boolean, totalToll?: number, tolls?: Array, path?: Array, error?: string }>}
+ */
+export async function vietmapRouteTolls({ points = [], vehicle = 1 }) {
+  if (!Array.isArray(points) || points.length < 2) {
+    return { success: false, error: 'Cần ít nhất 2 điểm [[lng, lat], ...] để tính phí BOT', code: 'INVALID_POINTS' };
+  }
+  const apiKey = getVietmapServiceApiKey();
+  if (!apiKey) {
+    return { success: false, error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.', code: 'VIETMAP_KEY_MISSING' };
+  }
+
+  const validVehicle = [1, 2, 3, 4, 5].includes(Number(vehicle)) ? Number(vehicle) : 1;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const url = new URL('https://maps.vietmap.vn/api/route-tolls');
+    url.searchParams.set('api-version', '1.1');
+    url.searchParams.set('apikey', apiKey);
+    url.searchParams.set('vehicle', String(validVehicle));
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(points),
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+    }
+    if (!response.ok) {
+      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+    }
+
+    const data = await response.json();
+    const tolls = Array.isArray(data?.tolls) ? data.tolls : [];
+    const totalToll = tolls.reduce((acc, t) => acc + (Number(t.amount || t.price) || 0), 0);
+
+    return {
+      success: true,
+      path: Array.isArray(data?.path) ? data.path : [],
+      tolls,
+      totalToll,
+      vehicle: validVehicle,
+    };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Route-tolls (timeout 10s)', code: 'TIMEOUT' };
+    }
+    return { success: false, error: `Lỗi kết nối Vietmap Route-tolls: ${err.message}`, code: 'NETWORK_ERROR' };
+  }
+}
+
+/**
+ * Match-tolls: Post-trip GPS trail snapping and toll booth reconciliation.
+ * Body is [[lng, lat], ...] from GPS logger/tracker.
+ * @param {Object} options
+ * @param {Array<[number, number]>} [options.path] - GPS trail points [[lng, lat], ...]
+ * @param {Array<[number, number]>} [options.points] - Alias for path
+ * @param {number} [options.vehicle=1] - Vehicle class 1 to 5
+ * @returns {Promise<{ success: boolean, distanceKm?: number, totalToll?: number, tolls?: Array, path?: Array, error?: string }>}
+ */
+export async function vietmapMatchTolls({ path = [], points, vehicle = 1 }) {
+  const trail = Array.isArray(path) && path.length >= 2 ? path : (Array.isArray(points) ? points : []);
+  if (trail.length < 2) {
+    return { success: false, error: 'Cần ít nhất 2 tọa độ GPS trail [[lng, lat], ...] để đối soát BOT', code: 'INVALID_POINTS' };
+  }
+  const apiKey = getVietmapServiceApiKey();
+  if (!apiKey) {
+    return { success: false, error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.', code: 'VIETMAP_KEY_MISSING' };
+  }
+
+  const validVehicle = [1, 2, 3, 4, 5].includes(Number(vehicle)) ? Number(vehicle) : 1;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const url = new URL('https://maps.vietmap.vn/api/match-tolls');
+    url.searchParams.set('api-version', '1.1');
+    url.searchParams.set('apikey', apiKey);
+    url.searchParams.set('vehicle', String(validVehicle));
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(trail),
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+    }
+    if (!response.ok) {
+      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+    }
+
+    const data = await response.json();
+    const tolls = Array.isArray(data?.tolls) ? data.tolls : [];
+    const totalToll = tolls.reduce((acc, t) => acc + (Number(t.price || t.amount) || 0), 0);
+
+    return {
+      success: true,
+      distanceKm: typeof data?.distance === 'number' ? Number(data.distance.toFixed(3)) : null,
+      path: Array.isArray(data?.path) ? data.path : [],
+      tolls,
+      totalToll,
+      vehicle: validVehicle,
+    };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Match-tolls (timeout 10s)', code: 'TIMEOUT' };
+    }
+    return { success: false, error: `Lỗi kết nối Vietmap Match-tolls: ${err.message}`, code: 'NETWORK_ERROR' };
+  }
+}
+

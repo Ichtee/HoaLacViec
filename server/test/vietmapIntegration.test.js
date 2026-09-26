@@ -20,6 +20,8 @@ import {
   vietmapPlace,
   vietmapReverse,
   vietmapRoute,
+  vietmapRouteTolls,
+  vietmapMatchTolls,
 } from '../src/services/vietmapService.js';
 import { normalizeLocationInput, toLocationDTO } from '../src/utils/locationContract.js';
 
@@ -291,4 +293,58 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
     // locationConfirmedAt must be null until confirmed
     assert.equal(normalizedCandidate.locationConfirmedAt, null);
   });
+
+  // 8. VietMap Routing & Tolls Integration (Route v4, Route-tolls, Match-tolls)
+  await t.test('8. VietMap Routing & Tolls: Route v4 GeoJSON parsing, toll annotations, and tolls APIs', async () => {
+    // 8.1 Route v4 cache and annotations
+    const tollRouteResult = {
+      provider: 'vietmap',
+      vehicle: 'car',
+      distanceMeters: 12000,
+      distanceKm: 12.0,
+      durationMs: 900000,
+      durationMin: 15,
+      tollCost: 35000,
+      tolls: [
+        { id: 101, name: 'Trạm Thu Phí Hòa Lạc', address: 'Đại lộ Thăng Long', type: 'exit', price: 35000 },
+      ],
+      points: [
+        [21.0128, 105.5255],
+        [21.0250, 105.5500],
+      ],
+      geoJsonCoordinates: [
+        [105.5255, 21.0128],
+        [105.5500, 21.0250],
+      ],
+      bbox: [105.5255, 21.0128, 105.55, 21.025],
+    };
+
+    const tollKey = '21.0128,105.5255->21.025,105.55|car|toll';
+    routeCache.set(tollKey, tollRouteResult);
+
+    const fetchedTollRoute = await vietmapRoute({
+      origin: { lat: 21.0128, lng: 105.5255 },
+      destination: { lat: 21.025, lng: 105.55 },
+      vehicle: 'car',
+      annotations: 'toll',
+    });
+
+    assert.equal(fetchedTollRoute.success, true);
+    assert.equal(fetchedTollRoute.route.tollCost, 35000);
+    assert.equal(fetchedTollRoute.route.tolls.length, 1);
+    assert.equal(fetchedTollRoute.route.tolls[0].name, 'Trạm Thu Phí Hòa Lạc');
+    assert.equal(fetchedTollRoute.route.geoJsonCoordinates[0][0], 105.5255); // longitude first
+    assert.equal(fetchedTollRoute.route.geoJsonCoordinates[0][1], 21.0128); // latitude second
+
+    // 8.2 Route-tolls parameter validation
+    const invalidRouteTolls = await vietmapRouteTolls({ points: [] });
+    assert.equal(invalidRouteTolls.success, false);
+    assert.equal(invalidRouteTolls.code, 'INVALID_POINTS');
+
+    // 8.3 Match-tolls parameter validation
+    const invalidMatchTolls = await vietmapMatchTolls({ path: [] });
+    assert.equal(invalidMatchTolls.success, false);
+    assert.equal(invalidMatchTolls.code, 'INVALID_POINTS');
+  });
 });
+
