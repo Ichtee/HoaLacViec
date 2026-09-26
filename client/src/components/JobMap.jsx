@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Compass, Crosshair, Target, Navigation } from 'lucide-react';
+import { MapPin, Compass, Crosshair, Target, Navigation, AlertCircle } from 'lucide-react';
 import {
   formatVND,
   isValidCoordinate,
@@ -10,6 +10,7 @@ import {
 } from '@/utils';
 import {
   vietmapgl,
+  VIETMAP_API_KEY,
   VIETMAP_STYLES,
   DEFAULT_HOALAC_CENTER_GL,
 } from '@/utils/vietmapGLHelper.js';
@@ -91,6 +92,7 @@ export function JobMap({
   const [activeJob, setActiveJob] = useState(singleJob || null);
   const [currentLayerKey, setCurrentLayerKey] = useState('vietmap_streets');
   const [confirmedCount, setConfirmedCount] = useState(0);
+  const [tileLoadError, setTileLoadError] = useState(false);
 
   // Initialize Native Vietmap GL Map
   useEffect(() => {
@@ -126,6 +128,14 @@ export function JobMap({
       center: initialCenter,
       zoom: initialZoom,
       attributionControl: true,
+    });
+
+    map.on('error', (e) => {
+      const status = e?.error?.status || e?.status;
+      const msg = e?.error?.message || e?.message || '';
+      if (status === 401 || status === 403 || msg.includes('401') || msg.includes('403')) {
+        setTileLoadError(true);
+      }
     });
 
     map.addControl(new vietmapgl.NavigationControl(), 'top-right');
@@ -375,6 +385,21 @@ export function JobMap({
     <div className="relative rounded-3xl overflow-hidden border-2 border-green-200 shadow-card bg-cream">
       {/* Vietmap GL Map Canvas Container */}
       <div ref={mapContainerRef} style={{ height }} className="w-full z-0" />
+
+      {/* Fallback banner if missing tile key or 401/403 error */}
+      {(!VIETMAP_API_KEY || tileLoadError) && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-50/95 backdrop-blur-sm p-6 text-center">
+          <AlertCircle className="w-10 h-10 text-amber-500 mb-2" />
+          <h4 className="font-bold text-sm text-gray-800">
+            {!VIETMAP_API_KEY ? 'Chưa cấu hình Vietmap Tile Key' : 'Không thể tải bản đồ Vietmap'}
+          </h4>
+          <p className="text-xs text-gray-600 mt-1.5 max-w-sm leading-relaxed">
+            {!VIETMAP_API_KEY
+              ? 'Vui lòng điền VITE_VIETMAP_TILE_API_KEY vào tệp client/.env và khởi động lại Vite dev server.'
+              : 'Lỗi xác thực Tile Key (401/403). Vui lòng kiểm tra VITE_VIETMAP_TILE_API_KEY trong client/.env và khởi động lại dev server.'}
+          </p>
+        </div>
+      )}
 
       {/* Floating Controls Top-Right: Layer Switcher & GPS Request Button */}
       <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">

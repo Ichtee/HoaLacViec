@@ -18,6 +18,7 @@ import {
 } from '@/services';
 import {
   vietmapgl,
+  VIETMAP_API_KEY,
   VIETMAP_STYLES,
   DEFAULT_HOALAC_CENTER_GL,
 } from '@/utils/vietmapGLHelper.js';
@@ -57,6 +58,7 @@ export default function LocationPicker({
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
   const [accuracyWarning, setAccuracyWarning] = useState('');
+  const [tileLoadError, setTileLoadError] = useState(false);
 
   // Use centralized useGeolocation hook
   const { requestLocation } = useGeolocation();
@@ -276,6 +278,14 @@ export default function LocationPicker({
       center: initialCoords,
       zoom: isValidCoordinate(value?.lat, value?.lng) ? 15 : 13,
       attributionControl: true,
+    });
+
+    map.on('error', (e) => {
+      const status = e?.error?.status || e?.status;
+      const msg = e?.error?.message || e?.message || '';
+      if (status === 401 || status === 403 || msg.includes('401') || msg.includes('403')) {
+        setTileLoadError(true);
+      }
     });
 
     map.addControl(new vietmapgl.NavigationControl(), 'top-right');
@@ -586,6 +596,21 @@ export default function LocationPicker({
           style={{ width: '100%', height: '320px' }}
           className="relative z-0"
         />
+
+        {/* Fallback banner if missing tile key or 401/403 error */}
+        {(!VIETMAP_API_KEY || tileLoadError) && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-50/95 backdrop-blur-sm p-4 text-center">
+            <AlertCircle className="w-8 h-8 text-amber-500 mb-1.5" />
+            <p className="font-semibold text-xs text-gray-800">
+              {!VIETMAP_API_KEY ? 'Chưa cấu hình Vietmap Tile Key' : 'Không thể tải bản đồ Vietmap'}
+            </p>
+            <p className="text-[11px] text-gray-600 mt-1 max-w-xs leading-relaxed">
+              {!VIETMAP_API_KEY
+                ? 'Vui lòng điền VITE_VIETMAP_TILE_API_KEY vào tệp client/.env và khởi động lại Vite dev server.'
+                : 'Lỗi xác thực Tile Key (401/403). Vui lòng kiểm tra VITE_VIETMAP_TILE_API_KEY trong client/.env và khởi động lại dev server.'}
+            </p>
+          </div>
+        )}
 
         {/* Floating Vietmap Attribution & Guide Badge */}
         <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
