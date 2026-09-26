@@ -18,8 +18,10 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: SERPAPI_API_KEY
+      - key: VIETMAP_SERVICE_API_KEY
         sync: false
+      - key: ENABLE_VIETMAP
+        value: "true"
       - key: GOOGLE_CLIENT_ID
         sync: false
 

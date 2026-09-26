@@ -11,9 +11,15 @@ import {
   Loader2,
   Navigation,
   Check,
+  X,
 } from 'lucide-react';
 import { isValidCoordinate } from '@/utils';
-import { geocodeAddress } from '@/services';
+import {
+  apiVietmapAutocomplete,
+  apiVietmapPlace,
+  apiVietmapReverse,
+} from '@/services';
+import { createVietmapTileLayer } from '@/utils/vietmapTileLayer.js';
 import { useGeolocation } from '@/hooks/useGeolocation.js';
 
 const DEFAULT_MAP_CENTER = [21.0128, 105.5255]; // Hoa Lac center for view only
@@ -43,6 +49,7 @@ export default function LocationPicker({
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
+  const searchAbortRef = useRef(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -53,8 +60,8 @@ export default function LocationPicker({
   const [manualLng, setManualLng] = useState('');
   const [accuracyWarning, setAccuracyWarning] = useState('');
 
-  // Use centralized useGeolocation hook (Requirement Phase 6 item 1)
-  const { requestLocation, status: gpsStatus, coords: gpsCoords } = useGeolocation();
+  // Use centralized useGeolocation hook
+  const { requestLocation } = useGeolocation();
   const [gpsLoading, setGpsLoading] = useState(false);
 
   // Staged location holds current active coordinates on the map
@@ -65,7 +72,10 @@ export default function LocationPicker({
           lng: Number(value.lng),
           source: value.locationSource || 'map_pin',
           status: value.locationStatus || 'unconfirmed',
-          displayName: '',
+          displayName: value.formattedAddress || '',
+          provider: value.geocodingProvider || null,
+          refId: value.providerPlaceId || null,
+          addressComponents: value.addressComponents || null,
         }
       : null
   );
@@ -78,11 +88,15 @@ export default function LocationPicker({
         lng: Number(value.lng),
         source: value.locationSource || 'map_pin',
         status: value.locationStatus || 'unconfirmed',
+        displayName: value.formattedAddress || '',
+        provider: value.geocodingProvider || null,
+        refId: value.providerPlaceId || null,
+        addressComponents: value.addressComponents || null,
       });
     } else if (value?.lat === null && value?.lng === null) {
       setStagedLocation(null);
     }
-  }, [value?.lat, value?.lng, value?.locationSource, value?.locationStatus]);
+  }, [value?.lat, value?.lng, value?.locationSource, value?.locationStatus, value?.formattedAddress, value?.geocodingProvider, value?.providerPlaceId, value?.addressComponents]);
 
   const hasConfirmedLocation = Boolean(
     value?.lat !== null &&
@@ -93,31 +107,64 @@ export default function LocationPicker({
     value?.locationStatus === 'confirmed'
   );
 
-  // Stage location with pending_confirmation (Phase 3 item 2)
-  const stageLocation = useCallback((lat, lng, source, displayName = '') => {
-    if (!isValidCoordinate(lat, lng)) {
-      setSearchError('Tọa độ không hợp lệ. Vĩ độ phải từ -90 đến 90, kinh độ từ -180 đến 180.');
-      return;
-    }
-    setSearchError('');
-    const newCoords = {
-      lat: Number(Number(lat).toFixed(6)),
-      lng: Number(Number(lng).toFixed(6)),
-      source,
-      status: 'pending_confirmation',
-      displayName,
-    };
-    setStagedLocation(newCoords);
-    onChange?.({
-      lat: newCoords.lat,
-      lng: newCoords.lng,
-      locationStatus: 'pending_confirmation',
-      locationSource: source,
-      formattedAddress: displayName || undefined,
-    });
-  }, [onChange]);
+  // Stage location with pending_confirmation (Never auto-confirm)
+  const stageLocation = useCallback(
+    (lat, lng, source, displayName = '', provider = 'vietmap', refId = null, addressComponents = null) => {
+      if (!isValidCoordinate(lat, lng)) {
+        setSearchError('Tọa độ không hợp lệ. Vĩ độ phải từ -90 đến 90, kinh độ từ -180 đến 180.');
+        return;
+      }
+      setSearchError('');
+      const newCoords = {
+        lat: Number(Number(lat).toFixed(6)),
+        lng: Number(Number(lng).toFixed(6)),
+        source,
+        provider,
+        refId,
+        status: 'pending_confirmation',
+        displayName,
+        addressComponents,
+      };
+      setStagedLocation(newCoords);
+      onChange?.({
+        lat: newCoords.lat,
+        lng: newCoords.lng,
+        locationStatus: 'pending_confirmation',
+        locationSource: source,
+        geocodingProvider: provider,
+        providerPlaceId: refId,
+        formattedAddress: displayName || undefined,
+        addressComponents: addressComponents || undefined,
+      });
+    },
+    [onChange]
+  );
 
-  // Explicit confirmation button action (Phase 3 item 2)
+  // Reverse geocoding helper on map click, pin drag, or GPS
+  const handleReverseLookup = useCallback(
+    async (lat, lng, source) => {
+      stageLocation(lat, lng, source);
+      try {
+        const res = await apiVietmapReverse(lat, lng);
+        if (res?.place) {
+          stageLocation(
+            lat,
+            lng,
+            source,
+            res.place.formattedAddress || res.place.displayName,
+            'vietmap',
+            res.place.refId,
+            res.place.addressComponents
+          );
+        }
+      } catch (err) {
+        console.warn('[VietmapReverse] Lookup failed:', err.message);
+      }
+    },
+    [stageLocation]
+  );
+
+  // Explicit confirmation button action
   const handleConfirmLocation = useCallback(() => {
     const target = stagedLocation || (isValidCoordinate(value?.lat, value?.lng) ? value : null);
     if (!target || !isValidCoordinate(target.lat, target.lng)) {
@@ -130,7 +177,10 @@ export default function LocationPicker({
       lng: Number(Number(target.lng).toFixed(6)),
       locationStatus: 'confirmed',
       locationSource: target.source || target.locationSource || 'map_pin',
-      formattedAddress: target.displayName || undefined,
+      geocodingProvider: target.provider || target.geocodingProvider || 'vietmap',
+      providerPlaceId: target.refId || target.providerPlaceId || null,
+      formattedAddress: target.displayName || target.formattedAddress || undefined,
+      addressComponents: target.addressComponents || undefined,
     });
   }, [stagedLocation, value, onChange]);
 
@@ -143,15 +193,66 @@ export default function LocationPicker({
     setSearchError('');
     setAccuracyWarning('');
     setCandidates([]);
+    setSearchQuery('');
     onChange?.({
       lat: null,
       lng: null,
       locationStatus: 'unconfirmed',
       locationSource: null,
+      geocodingProvider: null,
+      providerPlaceId: null,
+      formattedAddress: '',
     });
   }, [onChange]);
 
-  // Initialize Leaflet Map with valid OpenStreetMap tiles (Phase 1 item 3)
+  // Debounced Autocomplete Search (300ms, minLength=2, AbortController)
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setCandidates([]);
+      return;
+    }
+
+    if (searchAbortRef.current) {
+      searchAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+
+    const timer = setTimeout(async () => {
+      try {
+        setSearching(true);
+        setSearchError('');
+
+        let focus = undefined;
+        if (mapInstanceRef.current) {
+          const center = mapInstanceRef.current.getCenter();
+          focus = `${center.lat.toFixed(6)},${center.lng.toFixed(6)}`;
+        }
+
+        const res = await apiVietmapAutocomplete(query, focus, controller.signal);
+        if (res?.suggestions) {
+          setCandidates(res.suggestions.slice(0, 10));
+          if (res.suggestions.length === 0) {
+            setSearchError('Không tìm thấy địa điểm phù hợp trên Vietmap.');
+          }
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          setSearchError(err.message || 'Lỗi tra cứu gợi ý địa chỉ');
+        }
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  // Initialize Leaflet Map with Vietmap Tiles
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
@@ -165,24 +266,20 @@ export default function LocationPicker({
       zoom: initialZoom,
       zoomControl: true,
       attributionControl: true,
+      maxBounds: [[180, -Infinity], [-180, Infinity]],
+      minZoom: 1,
     });
 
-    // Google Maps Tile Layer (Fast, reliable and not blocked by Vietnamese ISPs)
-    const tileLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      maxZoom: 20,
-      attribution: '&copy; Google Maps',
-    });
-
+    const tileLayer = createVietmapTileLayer();
     tileLayer.addTo(map);
     mapInstanceRef.current = map;
 
-    // Click map to place/move pin
+    // Click map to place/move pin and reverse-geocode address
     map.on('click', (e) => {
       const { lat, lng } = e.latlng;
       setAccuracyWarning('');
       setCandidates([]);
-      stageLocation(lat, lng, 'map_pin');
+      handleReverseLookup(lat, lng, 'map_pin');
     });
 
     const timer = setTimeout(() => {
@@ -197,7 +294,7 @@ export default function LocationPicker({
         markerRef.current = null;
       }
     };
-  }, [stageLocation]);
+  }, [handleReverseLookup, value?.lat, value?.lng]);
 
   // Sync marker with stagedLocation or value
   useEffect(() => {
@@ -218,7 +315,7 @@ export default function LocationPicker({
         marker.on('dragend', (e) => {
           const newPos = e.target.getLatLng();
           setAccuracyWarning('');
-          stageLocation(newPos.lat, newPos.lng, 'map_pin');
+          handleReverseLookup(newPos.lat, newPos.lng, 'map_pin');
         });
 
         marker.bindPopup(`
@@ -238,14 +335,14 @@ export default function LocationPicker({
         markerRef.current = null;
       }
     }
-  }, [stagedLocation, value?.lat, value?.lng, stageLocation]);
+  }, [stagedLocation, value?.lat, value?.lng, handleReverseLookup]);
 
-  // Handle Backend Nominatim Geocoding Search: displays 3-5 candidates (Phase 1 item 6)
+  // Handle manual submit search button
   async function handleSearch(e) {
     if (e) e.preventDefault();
     const query = searchQuery.trim() || addressHint.trim();
-    if (!query) {
-      setSearchError('Vui lòng nhập tên địa chỉ hoặc tên quán để tìm kiếm.');
+    if (query.length < 2) {
+      setSearchError('Vui lòng nhập ít nhất 2 ký tự để tìm kiếm.');
       return;
     }
 
@@ -254,15 +351,17 @@ export default function LocationPicker({
       setSearchError('');
       setCandidates([]);
 
-      const res = await geocodeAddress(query);
-      const list = res?.candidates || res?.results || [];
+      let focus = undefined;
+      if (mapInstanceRef.current) {
+        const center = mapInstanceRef.current.getCenter();
+        focus = `${center.lat.toFixed(6)},${center.lng.toFixed(6)}`;
+      }
 
-      if (Array.isArray(list) && list.length > 0) {
-        setCandidates(list.slice(0, 5));
-      } else if (res?.lat !== undefined && res?.lng !== undefined && isValidCoordinate(res.lat, res.lng)) {
-        setCandidates([{ lat: res.lat, lng: res.lng, displayName: res.displayName || query }]);
+      const res = await apiVietmapAutocomplete(query, focus);
+      if (res?.suggestions && res.suggestions.length > 0) {
+        setCandidates(res.suggestions.slice(0, 10));
       } else {
-        setSearchError('Không tìm thấy địa điểm trên bản đồ. Bạn có thể click trực tiếp lên bản đồ để ghim vị trí quán.');
+        setSearchError('Không tìm thấy địa điểm trên bản đồ Vietmap. Bạn có thể click trực tiếp lên bản đồ để ghim vị trí quán.');
       }
     } catch (err) {
       setSearchError(err?.message || 'Không thể tìm kiếm địa chỉ lúc này. Vui lòng click chọn trực tiếp trên bản đồ.');
@@ -271,17 +370,40 @@ export default function LocationPicker({
     }
   }
 
-  // Handle choosing a specific geocoded candidate (Phase 1 item 6)
-  function handleSelectCandidate(cand) {
+  // Handle selecting a candidate: Calls Place API, stages with pending_confirmation (Never auto-confirms)
+  async function handleSelectCandidate(cand) {
     setAccuracyWarning('');
-    stageLocation(cand.lat, cand.lng, 'geocoded', cand.displayName);
     setCandidates([]);
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([cand.lat, cand.lng], 16, { duration: 1.2 });
+    setSearchError('');
+    setSearching(true);
+
+    try {
+      const res = await apiVietmapPlace(cand.refId);
+      if (res?.place && isValidCoordinate(res.place.lat, res.place.lng)) {
+        const p = res.place;
+        stageLocation(
+          p.lat,
+          p.lng,
+          'geocoded',
+          p.formattedAddress || p.displayName,
+          'vietmap',
+          p.refId,
+          p.addressComponents
+        );
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([p.lat, p.lng], 16, { duration: 1.2 });
+        }
+      } else {
+        setSearchError('Không thể lấy tọa độ chi tiết cho địa điểm này.');
+      }
+    } catch (err) {
+      setSearchError(err.message || 'Lỗi khi lấy chi tiết địa điểm từ Vietmap.');
+    } finally {
+      setSearching(false);
     }
   }
 
-  // Handle Get Device GPS via centralized useGeolocation (Phase 3 item 4 & Phase 6 item 1)
+  // Handle Get Device GPS via centralized useGeolocation
   async function handleGetDeviceGps() {
     setGpsLoading(true);
     setSearchError('');
@@ -291,11 +413,10 @@ export default function LocationPicker({
     try {
       const res = await requestLocation({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
       if (res && isValidCoordinate(res.lat, res.lng)) {
-        // Phase 3 item 4: if accuracy > 100m, warn clearly, do not auto confirm
         if (res.accuracy && res.accuracy > 100) {
           setAccuracyWarning(`Độ sai số GPS của thiết bị khá lớn (±${Math.round(res.accuracy)}m > 100m). Vui lòng kéo pin trên bản đồ đến vị trí chính xác của quán trước khi bấm xác nhận.`);
         }
-        stageLocation(res.lat, res.lng, 'device');
+        await handleReverseLookup(res.lat, res.lng, 'device');
         if (mapInstanceRef.current) {
           mapInstanceRef.current.flyTo([res.lat, res.lng], 17, { duration: 1 });
         }
@@ -309,7 +430,7 @@ export default function LocationPicker({
     }
   }
 
-  // Handle Manual Coordinates Apply (Phase 3 item 3: manual coordinates require user to view pin & confirm)
+  // Handle Manual Coordinates Apply
   function handleApplyManualCoords(e) {
     if (e) e.preventDefault();
     const lat = parseFloat(manualLat);
@@ -322,7 +443,7 @@ export default function LocationPicker({
 
     setAccuracyWarning('');
     setCandidates([]);
-    stageLocation(lat, lng, 'manual_coordinates');
+    handleReverseLookup(lat, lng, 'manual_coordinates');
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 1 });
     }
@@ -331,7 +452,6 @@ export default function LocationPicker({
 
   const isConfirmed = value?.locationStatus === 'confirmed';
   const isPending = stagedLocation?.status === 'pending_confirmation' || value?.locationStatus === 'pending_confirmation';
-  const isUnconfirmed = !isConfirmed && !isPending;
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -344,9 +464,22 @@ export default function LocationPicker({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={addressHint ? `Tìm: ${addressHint}` : 'Tìm kiếm địa chỉ, tên đường, thôn, xã...'}
-              className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main font-medium"
+              placeholder={addressHint ? `Tìm: ${addressHint}` : 'Tìm kiếm theo Vietmap (VD: 197 Trần Phú, Tân Xã...)'}
+              className="w-full pl-8 pr-8 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main font-medium"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setCandidates([]);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
+                title="Xóa tìm kiếm"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <button
             type="submit"
@@ -393,12 +526,12 @@ export default function LocationPicker({
         </div>
       </div>
 
-      {/* Geocoding Candidate List (Phase 1 item 6: Never auto-select result 0, show 3-5 candidates) */}
+      {/* Vietmap Suggestions List (5–10 items, click calls Place API) */}
       {candidates.length > 0 && (
         <div className="p-2.5 rounded-2xl bg-white border border-pink-200 shadow-md space-y-1.5 animate-fade-in">
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-bold text-gray-700">
-              Chọn địa điểm phù hợp nhất ({candidates.length} kết quả tìm được):
+              Gợi ý địa chỉ từ Vietmap ({candidates.length} kết quả):
             </span>
             <button
               type="button"
@@ -408,20 +541,29 @@ export default function LocationPicker({
               Đóng
             </button>
           </div>
-          <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+          <div className="divide-y divide-gray-100 max-h-56 overflow-y-auto">
             {candidates.map((cand, idx) => (
               <button
-                key={idx}
+                key={cand.refId || idx}
                 type="button"
                 onClick={() => handleSelectCandidate(cand)}
-                className="w-full text-left p-2 rounded-xl hover:bg-pink-50 text-xs transition-colors flex items-start gap-2"
+                className="w-full text-left p-2.5 rounded-xl hover:bg-pink-50 text-xs transition-colors flex items-start gap-2.5"
               >
                 <MapPin className="w-3.5 h-3.5 text-pink-600 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 line-clamp-1">{cand.displayName}</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">
-                    {cand.lat.toFixed(5)}, {cand.lng.toFixed(5)}
+                  <p className="font-semibold text-gray-800 line-clamp-1">
+                    {cand.display || cand.name}
                   </p>
+                  {cand.address && (
+                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
+                      {cand.address}
+                    </p>
+                  )}
+                  {cand.distance != null && (
+                    <span className="inline-block mt-1 text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">
+                      Cách ~{(cand.distance).toFixed(1)} km
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
@@ -506,18 +648,18 @@ export default function LocationPicker({
         </div>
       </div>
 
-      {/* Confirmation & Status Bar (Phase 3 items 1, 2) */}
+      {/* Confirmation & Status Bar */}
       <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
           {isConfirmed ? (
             <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Đã xác nhận vị trí trên bản đồ ({value.lat.toFixed(5)}, {value.lng.toFixed(5)})</span>
+              <span>Đã xác nhận vị trí trên Vietmap ({value.lat.toFixed(5)}, {value.lng.toFixed(5)})</span>
             </div>
           ) : isPending ? (
             <div className="flex items-center gap-1.5 text-amber-700 font-bold">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Đang chọn tọa độ ({stagedLocation.lat.toFixed(5)}, {stagedLocation.lng.toFixed(5)}) — Cần xác nhận lại</span>
+              <span>Đang chọn tọa độ ({stagedLocation.lat.toFixed(5)}, {stagedLocation.lng.toFixed(5)}) — Cần bấm "Xác nhận vị trí này"</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 text-gray-600 font-medium">
@@ -532,7 +674,7 @@ export default function LocationPicker({
           <button
             type="button"
             onClick={handleConfirmLocation}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0 cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Xác nhận vị trí này</span>

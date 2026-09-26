@@ -62,6 +62,16 @@ export {
   normalizeAddressComponents,
 } from './locationContract.js';
 
+export {
+  extractLatLng,
+  toRouteCoordinate,
+  toLeafletCoordinate,
+  toGeoJsonCoordinate,
+  toGeoJsonPoint,
+  fromGeoJsonCoordinate,
+  fromLeafletCoordinate,
+} from './coordinateHelper.js';
+
 /** Validate coordinates strictly */
 export function isValidCoordinate(lat, lng) {
   if (lat === null || lat === undefined || lng === null || lng === undefined) {

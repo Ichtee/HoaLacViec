@@ -6,8 +6,8 @@
 
 ## 🌟 Tính Năng Nổi Bật
 
-- **Bản Đồ Việc Làm Trực Quan (Leaflet & Google Maps):** Định vị chính xác cửa hàng, quán cà phê, tiệm ăn quanh Hòa Lạc; hỗ trợ dẫn đường 1-click qua Google Maps.
-- **Tìm Kiếm Địa Điểm Thông Minh (SerpApi & Open-API VN):** Hỗ trợ nhà tuyển dụng chọn Tỉnh / Huyện / Xã theo chuẩn hành chính Việt Nam và tra cứu tọa độ cửa hàng tự động.
+- **Bản Đồ Việc Làm Trực Quan (Leaflet & Vietmap Tile):** Định vị chính xác cửa hàng, quán cà phê, tiệm ăn quanh Hòa Lạc; hỗ trợ dẫn đường 1-click qua Google Maps.
+- **Tìm Kiếm Địa Điểm & Định Vị Thông Minh (Vietmap v4):** Hỗ trợ tra cứu địa điểm, tự động phân giải tọa độ chính xác qua Vietmap Autocomplete & Place v4, ước tính lộ trình xe máy qua Vietmap Route v4.
 - **Liên Hệ Nhanh 2 Chiều (Phone & Zalo):** Sinh viên và nhà tuyển dụng có thể gọi điện trực tiếp (`tel:...`) hoặc nhắn tin Zalo (`zalo.me/...`) ngay trên thẻ hồ sơ và trang chi tiết việc làm.
 - **Khớp Lịch Học & Ca Làm Tự Động:** Tính toán tỷ lệ trùng khớp (% matching) giữa thời gian rảnh của sinh viên và ca tuyển của quán, cảnh báo xung đột lịch học.
 - **Quản Lý Ca Làm & Điểm Danh GPS:** Hỗ trợ sinh viên check-in / check-out ca làm việc và chủ quán phê duyệt chấm công theo thời gian thực.
@@ -23,7 +23,7 @@
 │   │   ├── components/     # UI Components (JobCard, JobMap, Modal, Badge,...)
 │   │   ├── layouts/        # Layouts cho Student, Employer, Public
 │   │   ├── pages/          # Trang màn hình chức năng (Public, Student, Employer, Admin)
-│   │   ├── services/       # Tầng giao tiếp API Backend & Google Maps / SerpApi
+│   │   ├── services/       # Tầng giao tiếp API Backend & Vietmap v4
 │   │   └── hooks/          # Custom React Hooks (useAuth, useAsync,...)
 │   ├── .env.example        # Mẫu biến môi trường Client
 │   └── package.json
@@ -33,7 +33,7 @@
 │   │   ├── config/         # Kết nối cơ sở dữ liệu MongoDB
 │   │   ├── models/         # Mongoose Schemas (User, Job, Application, Shift,...)
 │   │   ├── routes/         # Express API Routes
-│   │   ├── services/       # Dịch vụ tích hợp bên thứ ba (SerpApi Cache, Geocoding)
+│   │   ├── services/       # Dịch vụ tích hợp bên thứ ba (Vietmap Service, Geocoding)
 │   │   └── seed/           # Dữ liệu khởi tạo chuẩn cho khu vực Hòa Lạc
 │   ├── .env.example        # Mẫu biến môi trường Server
 │   └── package.json
@@ -91,7 +91,8 @@ Client sẽ hoạt động tại `http://localhost:5173`.
 | `PORT` | Cổng dịch vụ Express | `5000` |
 | `MONGO_URI` | Chuỗi kết nối MongoDB | `mongodb://127.0.0.1:27017/hoalacviec` |
 | `JWT_SECRET` | Khóa bí mật ký mã JWT | Tùy chọn bảo mật |
-| `SERPAPI_API_KEY` | API Key SerpApi tra cứu vị trí Google Maps | Tùy chọn |
+| `VIETMAP_SERVICE_API_KEY` | API Key Vietmap Services (Autocomplete, Place, Reverse, Route) | Cần thiết nếu bật Vietmap |
+| `ENABLE_VIETMAP` | Bật tích hợp Vietmap (`true`/`false`) | `false` |
 | `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID cho backend xác thực token | Tùy chọn |
 
 ### Client (`client/.env`)

@@ -41,6 +41,13 @@ const jobSchema = new mongoose.Schema({
     enum: ['device', 'places', 'map_pin', 'manual_coordinates', 'geocoded', null],
     default: null,
   },
+  geocodingProvider: {
+    type: String,
+    enum: ['vietmap', 'nominatim', 'serpapi', 'manual', null],
+    default: null,
+  },
+  providerPlaceId: { type: String, default: null },
+  formattedAddress: { type: String, default: '' },
   locationConfirmedAt: { type: Date, default: null },
   addressComponents: {
     addressLine: { type: String, default: '' },

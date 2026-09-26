@@ -18,12 +18,19 @@ import reviewRoutes from './routes/reviewRoutes.js';
 import savedJobRoutes from './routes/savedJobRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
+import mapRoutes from './routes/mapRoutes.js';
 
 dotenv.config();
 
 // Fail fast if JWT_SECRET is missing in production or development
 if (!process.env.JWT_SECRET) {
   console.error('[FATAL] JWT_SECRET is not configured! Halting server startup.');
+  process.exit(1);
+}
+
+// Fail-fast in production if Vietmap is explicitly enabled but service key is missing
+if (process.env.NODE_ENV === 'production' && process.env.ENABLE_VIETMAP === 'true' && !process.env.VIETMAP_SERVICE_API_KEY) {
+  console.error('[FATAL] VIETMAP_SERVICE_API_KEY is missing while ENABLE_VIETMAP is true! Halting server startup.');
   process.exit(1);
 }
 
@@ -112,6 +119,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/saved-jobs', savedJobRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/maps', mapRoutes);
 
 // GET /api/universities (Lấy danh sách các trường đại học tại Việt Nam từ Hipolabs)
 let cachedUniversities = null;

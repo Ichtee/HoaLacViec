@@ -7,7 +7,7 @@ import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Application } from '../models/Application.js';
 import { Shift } from '../models/Shift.js';
 import { resolveGoogleMapInput } from '../utils/parseMapLink.js';
-import { searchGoogleMapsPlaces } from '../services/serpApi.js';
+import { vietmapAutocomplete } from '../services/vietmapService.js';
 import { authenticate, authorize, optionalAuthenticate } from '../middlewares/auth.js';
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
@@ -805,15 +805,16 @@ router.post('/resolve-map-link', async (req, res, next) => {
   }
 });
 
-// POST /api/jobs/search-places (via SerpApi Google Maps)
+// POST /api/jobs/search-places (forwarded to Vietmap Autocomplete v4)
 router.post('/search-places', async (req, res, next) => {
   try {
     const { query, center } = req.body;
     if (!query || !query.trim()) {
       return res.status(400).json({ success: false, error: 'Vui lòng nhập từ khóa tìm kiếm' });
     }
-    const places = await searchGoogleMapsPlaces(query, center);
-    res.json({ success: true, places });
+    const focus = center && typeof center.lat === 'number' ? `${center.lat},${center.lng}` : undefined;
+    const result = await vietmapAutocomplete(query, focus);
+    res.json({ success: true, places: result.suggestions || [] });
   } catch (err) {
     next(err);
   }

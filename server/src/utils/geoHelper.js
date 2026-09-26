@@ -1,7 +1,22 @@
-/**
- * Authoritative Geolocation & Distance Calculation Helpers
- * Used across the backend for validation, Haversine distance, and attendance verification.
- */
+import {
+  extractLatLng,
+  toRouteCoordinate,
+  toLeafletCoordinate,
+  toGeoJsonCoordinate,
+  toGeoJsonPoint,
+  fromGeoJsonCoordinate,
+  fromLeafletCoordinate,
+} from './coordinateHelper.js';
+
+export {
+  extractLatLng,
+  toRouteCoordinate,
+  toLeafletCoordinate,
+  toGeoJsonCoordinate,
+  toGeoJsonPoint,
+  fromGeoJsonCoordinate,
+  fromLeafletCoordinate,
+};
 
 export const REASON_CODES = {
   VERIFIED: 'VERIFIED',

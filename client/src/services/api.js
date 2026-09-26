@@ -535,3 +535,32 @@ export async function apiResolveReport(id, resolutionData) {
   });
 }
 
+// ─── VIETMAP MAP SERVICES ──────────────────────────────────────────
+export async function apiVietmapAutocomplete(text, focus, signal) {
+  const params = new URLSearchParams();
+  if (text) params.set('text', text);
+  if (focus) params.set('focus', focus);
+  return request(`/maps/autocomplete?${params.toString()}`, { signal });
+}
+
+export async function apiVietmapPlace(refId, signal) {
+  const params = new URLSearchParams();
+  if (refId) params.set('refid', refId);
+  return request(`/maps/place?${params.toString()}`, { signal });
+}
+
+export async function apiVietmapReverse(lat, lng, signal) {
+  const params = new URLSearchParams();
+  params.set('lat', String(lat));
+  params.set('lng', String(lng));
+  return request(`/maps/reverse?${params.toString()}`, { signal });
+}
+
+export async function apiVietmapRoute({ origin, destination, points, vehicle = 'motorcycle' }, signal) {
+  return request('/maps/route', {
+    method: 'POST',
+    body: JSON.stringify({ origin, destination, points, vehicle }),
+    signal,
+  });
+}
+

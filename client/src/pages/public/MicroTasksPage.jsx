@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ShoppingBag, Utensils, Bike, Truck, Package, Printer, Plus, CheckCircle,
   Clock, MapPin, User, Search,
   AlertTriangle, ShieldAlert, Star, ExternalLink, Send,
-  Filter, ChevronDown, X
+  Filter, ChevronDown, X, Loader2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
@@ -17,6 +17,9 @@ import {
   cancelTask,
   createReview,
   updateUserProfile,
+  apiVietmapAutocomplete,
+  apiVietmapPlace,
+  apiVietmapRoute,
 } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
@@ -41,6 +44,131 @@ const TASK_TABS = [
   { id: 'disputed', label: 'Cần hỗ trợ / Khiếu nại', icon: AlertTriangle },
 ];
 
+function VietmapAddressAutocomplete({
+  label,
+  value,
+  placeholder,
+  required = false,
+  isConfirmed = false,
+  onChange,
+  onSelect,
+}) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleInputChange = (text) => {
+    onChange(text);
+    if (!text || text.trim().length < 2) {
+      setSuggestions([]);
+      setOpen(false);
+      return;
+    }
+    setLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiVietmapAutocomplete(text.trim(), '21.0128,105.5255', controller.signal);
+        if (res?.suggestions) {
+          setSuggestions(res.suggestions.slice(0, 8));
+          setOpen(res.suggestions.length > 0);
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.warn('[VietmapSuggest]', err.message);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  };
+
+  const handleSelect = async (item) => {
+    setOpen(false);
+    setSuggestions([]);
+    try {
+      setLoading(true);
+      const place = await apiVietmapPlace(item.refId);
+      if (place && typeof place.lat === 'number' && typeof place.lng === 'number') {
+        onSelect({
+          address: place.formattedAddress || item.title,
+          lat: place.lat,
+          lng: place.lng,
+          refId: place.refId,
+        });
+      } else {
+        onChange(item.title);
+      }
+    } catch (err) {
+      console.warn('[VietmapPlace]', err.message);
+      onChange(item.title);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div className="flex items-center justify-between mb-1">
+        <label className="block text-xs font-bold text-text-main">{label}</label>
+        {isConfirmed && (
+          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+            <CheckCircle className="w-3 h-3" /> Tọa độ Vietmap
+          </span>
+        )}
+      </div>
+      <div className="relative">
+        <input
+          type="text"
+          required={required}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={() => {
+            if (suggestions.length > 0) setOpen(true);
+          }}
+          className="w-full px-3 py-2 pr-8 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+        />
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+          {loading ? <Loader2 className="w-4 h-4 animate-spin text-orange-500" /> : <MapPin className="w-4 h-4" />}
+        </div>
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-xs">
+          {suggestions.map((item, idx) => (
+            <button
+              key={item.refId || idx}
+              type="button"
+              onClick={() => handleSelect(item)}
+              className="w-full text-left px-3 py-2 hover:bg-orange-50 transition-colors flex flex-col gap-0.5 border-b border-gray-50 last:border-b-0"
+            >
+              <span className="font-semibold text-text-main line-clamp-1">{item.title}</span>
+              {item.address && <span className="text-[11px] text-text-muted line-clamp-1">{item.address}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MicroTasksPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,13 +191,43 @@ export default function MicroTasksPage() {
     itemBudget: 0,
     paymentMethod: 'cash',
     location: '',
+    locationCoordinates: null,
+    locationRefId: null,
+    locationStatus: 'unconfirmed',
     pickupAddress: '',
+    pickup: null,
     destinationAddress: '',
+    destination: null,
+    route: null,
     deadlineDate: '',
     description: '',
     phone: user?.phone || '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [calculatingRoute, setCalculatingRoute] = useState(false);
+
+  // Helper to calculate Vietmap Route when pickup & destination are selected
+  async function updateEstimatedRoute(pPoint, dPoint) {
+    if (!pPoint || !dPoint || typeof pPoint.lat !== 'number' || typeof dPoint.lat !== 'number') return;
+    try {
+      setCalculatingRoute(true);
+      const res = await apiVietmapRoute({
+        origin: { lat: pPoint.lat, lng: pPoint.lng },
+        destination: { lat: dPoint.lat, lng: dPoint.lng },
+        vehicle: 'motorcycle',
+      });
+      if (res?.route) {
+        setFormData((prev) => ({
+          ...prev,
+          route: res.route,
+        }));
+      }
+    } catch (err) {
+      console.warn('[RouteCalc]', err.message);
+    } finally {
+      setCalculatingRoute(false);
+    }
+  }
 
   // Modal accept
   const [acceptModalTask, setAcceptModalTask] = useState(null);
@@ -665,6 +823,11 @@ export default function MicroTasksPage() {
                           <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
                           <span className="truncate">Đến: {task.destinationAddress}</span>
                         </div>
+                        {task.route?.distanceKm != null && (
+                          <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-flex items-center gap-1 my-1 border border-emerald-200/50">
+                            🛵 Lộ trình: {task.route.distanceKm} km (~{task.route.durationMinutes} phút)
+                          </div>
+                        )}
                         {directionsUrl && (
                           <a
                             href={directionsUrl}
@@ -959,40 +1122,126 @@ export default function MicroTasksPage() {
           </div>
 
           {['xe_om', 'chuyen_do'].includes(formData.category) ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-orange-50/50 rounded-2xl border border-orange-100">
-              <div>
-                <label className="block text-xs font-bold text-text-main mb-1">Điểm đón / xuất phát *</label>
-                <input
-                  type="text"
+            <div className="space-y-3 p-3 bg-orange-50/50 rounded-2xl border border-orange-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <VietmapAddressAutocomplete
+                  label="Điểm đón / xuất phát *"
                   required
                   value={formData.pickupAddress}
                   placeholder="VD: Cổng 1 ĐH FPT, KTX Dom E..."
-                  onChange={(e) => setFormData({ ...formData, pickupAddress: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  isConfirmed={Boolean(formData.pickup?.lat)}
+                  onChange={(val) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      pickupAddress: val,
+                      pickup: null,
+                      route: null,
+                    }));
+                  }}
+                  onSelect={(place) => {
+                    setFormData((prev) => {
+                      const nextPickup = {
+                        address: place.address,
+                        lat: place.lat,
+                        lng: place.lng,
+                        refId: place.refId,
+                        status: 'confirmed',
+                      };
+                      if (prev.destination?.lat) {
+                        updateEstimatedRoute(nextPickup, prev.destination);
+                      }
+                      return {
+                        ...prev,
+                        pickupAddress: place.address,
+                        pickup: nextPickup,
+                      };
+                    });
+                  }}
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-text-main mb-1">Điểm đến *</label>
-                <input
-                  type="text"
+
+                <VietmapAddressAutocomplete
+                  label="Điểm đến *"
                   required
                   value={formData.destinationAddress}
                   placeholder="VD: Chợ Tân Xã, KTX ĐHQG..."
-                  onChange={(e) => setFormData({ ...formData, destinationAddress: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  isConfirmed={Boolean(formData.destination?.lat)}
+                  onChange={(val) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      destinationAddress: val,
+                      destination: null,
+                      route: null,
+                    }));
+                  }}
+                  onSelect={(place) => {
+                    setFormData((prev) => {
+                      const nextDest = {
+                        address: place.address,
+                        lat: place.lat,
+                        lng: place.lng,
+                        refId: place.refId,
+                        status: 'confirmed',
+                      };
+                      if (prev.pickup?.lat) {
+                        updateEstimatedRoute(prev.pickup, nextDest);
+                      }
+                      return {
+                        ...prev,
+                        destinationAddress: place.address,
+                        destination: nextDest,
+                      };
+                    });
+                  }}
                 />
               </div>
+
+              {calculatingRoute && (
+                <div className="flex items-center gap-1.5 text-xs text-orange-600 bg-orange-100/60 px-3 py-2 rounded-xl">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-500" />
+                  <span>Đang tính lộ trình xe máy và cự ly qua Vietmap Route v4...</span>
+                </div>
+              )}
+
+              {formData.route && (
+                <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
+                  <div className="flex items-center gap-2 text-emerald-800">
+                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>
+                      Lộ trình Vietmap: <strong>{formData.route.distanceKm} km</strong> (~<strong>{formData.route.durationMin} phút</strong> di chuyển xe máy)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                    motorcycle
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div>
-              <label className="block text-xs font-bold text-text-main mb-1">Địa điểm thực hiện / giao nhận *</label>
-              <input
-                type="text"
+              <VietmapAddressAutocomplete
+                label="Địa điểm thực hiện / giao nhận *"
                 required
                 value={formData.location}
                 placeholder="VD: KTX Dom A ĐH FPT, Thôn 3 Thạch Hòa..."
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                isConfirmed={Boolean(formData.locationCoordinates?.lat)}
+                onChange={(val) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    location: val,
+                    locationCoordinates: null,
+                    locationRefId: null,
+                    locationStatus: 'unconfirmed',
+                  }));
+                }}
+                onSelect={(place) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    location: place.address,
+                    locationCoordinates: { lat: place.lat, lng: place.lng },
+                    locationRefId: place.refId,
+                    locationStatus: 'confirmed',
+                  }));
+                }}
               />
             </div>
           )}

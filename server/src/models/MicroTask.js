@@ -17,9 +17,55 @@ const microTaskSchema = new mongoose.Schema(
       enum: ['cash', 'banking'],
       default: 'cash',
     },
-    location: { type: String, required: true, trim: true }, // Địa điểm chính
-    pickupAddress: { type: String, default: '', trim: true }, // Điểm xuất phát (xe_om / chuyen_do)
-    destinationAddress: { type: String, default: '', trim: true }, // Điểm đến (xe_om / chuyen_do)
+    location: { type: String, required: true, trim: true }, // Địa điểm chính (text display)
+    locationAddress: { type: String, default: '', trim: true },
+    locationCoordinates: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
+    locationStatus: {
+      type: String,
+      enum: ['unconfirmed', 'pending_confirmation', 'confirmed'],
+      default: 'unconfirmed',
+    },
+    locationRefId: { type: String, default: null },
+    geoPoint: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], default: undefined },
+    },
+    pickupAddress: { type: String, default: '', trim: true }, // Điểm xuất phát (text)
+    destinationAddress: { type: String, default: '', trim: true }, // Điểm đến (text)
+    pickup: {
+      address: { type: String, default: '', trim: true },
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      refId: { type: String, default: null },
+      status: {
+        type: String,
+        enum: ['unconfirmed', 'pending_confirmation', 'confirmed'],
+        default: 'unconfirmed',
+      },
+    },
+    destination: {
+      address: { type: String, default: '', trim: true },
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      refId: { type: String, default: null },
+      status: {
+        type: String,
+        enum: ['unconfirmed', 'pending_confirmation', 'confirmed'],
+        default: 'unconfirmed',
+      },
+    },
+    route: {
+      distance: { type: Number, default: null },
+      distanceKm: { type: Number, default: null },
+      timeMs: { type: Number, default: null },
+      durationMinutes: { type: Number, default: null },
+      points: { type: [[Number]], default: [] }, // [[lat, lng]]
+      geoJsonCoordinates: { type: [[Number]], default: [] }, // [[lng, lat]]
+      vehicle: { type: String, default: 'motorcycle' },
+    },
     deadline: { type: String, default: 'Hôm nay' }, // Text display representation
     deadlineDate: { type: Date, required: true }, // Nguồn sự thật thời hạn hoàn thành
     requesterId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -52,10 +98,26 @@ const microTaskSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+microTaskSchema.pre('save', function (next) {
+  const lat = this.locationCoordinates?.lat ?? this.pickup?.lat;
+  const lng = this.locationCoordinates?.lng ?? this.pickup?.lng;
+
+  if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
+    this.geoPoint = {
+      type: 'Point',
+      coordinates: [lng, lat],
+    };
+  } else {
+    this.geoPoint = undefined;
+  }
+  next();
+});
+
 microTaskSchema.index({ status: 1, isDeleted: 1 });
 microTaskSchema.index({ requesterId: 1 });
 microTaskSchema.index({ assigneeId: 1 });
 microTaskSchema.index({ deadlineDate: 1 });
 microTaskSchema.index({ createdAt: -1 });
+microTaskSchema.index({ geoPoint: '2dsphere' }, { sparse: true });
 
 export const MicroTask = mongoose.model('MicroTask', microTaskSchema);

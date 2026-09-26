@@ -155,11 +155,26 @@ export function normalizeLocationInput(locationInput = {}, previousDocument = nu
       }
     : null;
 
+  const geocodingProvider = locationInput.geocodingProvider !== undefined
+    ? locationInput.geocodingProvider
+    : previousDocument?.geocodingProvider || (source === 'geocoded' ? 'vietmap' : null);
+
+  const providerPlaceId = locationInput.providerPlaceId !== undefined
+    ? locationInput.providerPlaceId
+    : previousDocument?.providerPlaceId || null;
+
+  const formattedAddress = typeof locationInput.formattedAddress === 'string'
+    ? locationInput.formattedAddress.trim()
+    : previousDocument?.formattedAddress || '';
+
   return {
     location: { lat, lng },
     geoPoint,
     locationStatus: status,
     locationSource: source,
+    geocodingProvider,
+    providerPlaceId,
+    formattedAddress,
     locationConfirmedAt: confirmedAt,
     addressComponents,
     provinceCode: addressComponents.provinceCode || null,
@@ -178,12 +193,14 @@ export function toLocationDTO(entity) {
   const lng = entity.location?.lng ?? entity.geoPoint?.coordinates?.[0] ?? null;
 
   return {
-    formattedAddress: entity.address || '',
+    formattedAddress: entity.formattedAddress || entity.address || '',
     addressComponents: normalizeAddressComponents(entity.addressComponents),
     location: isValidCoordinate(lat, lng) ? { lat, lng } : null,
     geoPoint: entity.geoPoint || (isValidCoordinate(lat, lng) ? { type: 'Point', coordinates: [lng, lat] } : null),
     locationStatus: entity.locationStatus || LOCATION_STATUSES.UNCONFIRMED,
     locationSource: entity.locationSource || null,
+    geocodingProvider: entity.geocodingProvider || null,
+    providerPlaceId: entity.providerPlaceId || null,
     locationConfirmedAt: entity.locationConfirmedAt || null,
   };
 }

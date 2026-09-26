@@ -161,3 +161,10 @@ export async function isSavedJob(jobId) {
 }
 
 export const dataMode = 'api';
+
+export {
+  apiVietmapAutocomplete,
+  apiVietmapPlace,
+  apiVietmapReverse,
+  apiVietmapRoute,
+} from './api.js';

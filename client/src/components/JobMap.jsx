@@ -10,26 +10,21 @@ import {
   getGoogleMapsDirectionsUrl,
   haversineDistance,
 } from '@/utils';
+import { createVietmapTileLayer, VIETMAP_ATTRIBUTION } from '@/utils/vietmapTileLayer.js';
 import { SALARY_UNIT_LABELS } from '@/constants';
 
 // Default center of map: Hoa Lac Area
 export const DEFAULT_HOALAC_CENTER = [21.0128, 105.5255];
 
-// Google Maps Layer Configurations (100% Google Maps, fast and reliable in Vietnam)
+// Vietmap Layer Configurations
 const MAP_LAYERS = {
-  google_streets: {
-    name: 'Bản đồ',
-    url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    maxZoom: 20,
-    attribution: '&copy; Google Maps',
+  vietmap_streets: {
+    name: 'Vietmap',
+    attribution: VIETMAP_ATTRIBUTION,
   },
-  google_satellite: {
+  vietmap_satellite: {
     name: 'Vệ tinh',
-    url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    maxZoom: 20,
-    attribution: '&copy; Google Maps',
+    attribution: VIETMAP_ATTRIBUTION,
   },
 };
 
@@ -94,7 +89,7 @@ export function JobMap({
   const hasInitialFitRef = useRef(false);
 
   const [activeJob, setActiveJob] = useState(singleJob || null);
-  const [currentLayerKey, setCurrentLayerKey] = useState('google_streets');
+  const [currentLayerKey, setCurrentLayerKey] = useState('vietmap_streets');
   const [tileError, setTileError] = useState(false);
   const [confirmedCount, setConfirmedCount] = useState(0);
 
@@ -132,21 +127,29 @@ export function JobMap({
       zoom: initialZoom,
       zoomControl: true,
       maxZoom: 19,
+      maxBounds: [[180, -Infinity], [-180, Infinity]],
+      minZoom: 1,
     });
 
     mapInstanceRef.current = map;
 
-    // Attach Tile Layer with error fallback
+    // Attach Vietmap Tile Layer with error fallback
     function attachTileLayer(layerKey) {
       if (tileLayerRef.current) {
         map.removeLayer(tileLayerRef.current);
       }
-      const cfg = MAP_LAYERS[layerKey] || MAP_LAYERS.google_streets;
-      const layer = L.tileLayer(cfg.url, {
-        subdomains: cfg.subdomains || ['mt0', 'mt1', 'mt2', 'mt3'],
-        maxZoom: cfg.maxZoom || 20,
-        attribution: cfg.attribution,
-      });
+
+      const tileApiKey = (import.meta.env.VITE_VIETMAP_TILE_API_KEY || '').trim();
+      let layer;
+
+      if (layerKey === 'vietmap_satellite' && tileApiKey) {
+        layer = L.tileLayer(`https://maps.vietmap.vn/hm/{z}/{x}/{y}@2x.png?apikey=${tileApiKey}`, {
+          maxZoom: 19,
+          attribution: VIETMAP_ATTRIBUTION,
+        });
+      } else {
+        layer = createVietmapTileLayer();
+      }
 
       layer.on('tileerror', () => {
         setTileError(true);

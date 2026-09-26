@@ -24,6 +24,12 @@ export const VALID_LOCATION_SOURCES = [
   null,
 ];
 
+export const GEOCODING_PROVIDERS = {
+  VIETMAP: 'vietmap',
+  NOMINATIM: 'nominatim',
+  MANUAL: 'manual',
+};
+
 export const VALID_LOCATION_STATUSES = [
   'unconfirmed',
   'pending_confirmation',

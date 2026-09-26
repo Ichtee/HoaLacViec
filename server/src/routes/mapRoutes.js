@@ -1,0 +1,159 @@
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import {
+  vietmapAutocomplete,
+  vietmapPlace,
+  vietmapReverse,
+  vietmapRoute,
+} from '../services/vietmapService.js';
+import { isValidCoordinate } from '../utils/coordinateHelper.js';
+
+const router = express.Router();
+
+// Dedicated rate limiter for map search endpoints to protect Vietmap quota
+const mapSearchLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 120, // 120 requests per 5 minutes per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Quá nhiều yêu cầu tìm kiếm bản đồ. Vui lòng thử lại sau vài phút.',
+    code: 'RATE_LIMIT_EXCEEDED',
+  },
+});
+
+router.use(mapSearchLimiter);
+
+/**
+ * GET /api/maps/autocomplete
+ * Query params: text, focus (lat,lng)
+ */
+router.get('/autocomplete', async (req, res, next) => {
+  try {
+    const { text, focus } = req.query;
+
+    if (!text || typeof text !== 'string' || text.trim().length < 2) {
+      return res.json({
+        success: true,
+        suggestions: [],
+        message: 'Vui lòng nhập ít nhất 2 ký tự để gợi ý địa chỉ',
+      });
+    }
+
+    const result = await vietmapAutocomplete({
+      text: text.trim(),
+      focus: typeof focus === 'string' ? focus.trim() : undefined,
+    });
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'RESOURCE_LOCKED' ? 423 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/maps/place
+ * Query params: refid
+ */
+router.get('/place', async (req, res, next) => {
+  try {
+    const refId = req.query.refid || req.query.refId;
+
+    if (!refId || typeof refId !== 'string' || !refId.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tham số refid là bắt buộc',
+        code: 'INVALID_REFID',
+      });
+    }
+
+    const result = await vietmapPlace({ refId: refId.trim() });
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/maps/reverse
+ * Query params: lat, lng
+ */
+router.get('/reverse', async (req, res, next) => {
+  try {
+    const { lat, lng } = req.query;
+
+    if (!isValidCoordinate(lat, lng)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tọa độ không hợp lệ (vĩ độ [-90, 90], kinh độ [-180, 180])',
+        code: 'INVALID_COORDINATES',
+      });
+    }
+
+    const result = await vietmapReverse({
+      lat: Number(lat),
+      lng: Number(lng),
+    });
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/maps/route
+ * Body: { origin, destination, vehicle, points }
+ */
+router.post('/route', async (req, res, next) => {
+  try {
+    const { origin, destination, points, vehicle = 'motorcycle' } = req.body;
+
+    let routePoints = [];
+
+    if (Array.isArray(points) && points.length >= 2) {
+      routePoints = points;
+    } else if (origin && destination) {
+      routePoints = [origin, destination];
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Cần cung cấp điểm đón (origin) và điểm đến (destination) hoặc mảng points',
+        code: 'INVALID_POINTS',
+      });
+    }
+
+    const result = await vietmapRoute({
+      points: routePoints,
+      vehicle: typeof vehicle === 'string' ? vehicle : 'motorcycle',
+    });
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
