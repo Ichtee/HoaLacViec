@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { MapPin, ExternalLink, Compass, Crosshair, AlertCircle, Target, Navigation } from 'lucide-react';
+import { MapPin, Compass, Crosshair, Target, Navigation } from 'lucide-react';
 import {
   formatVND,
   isValidCoordinate,
@@ -10,69 +8,72 @@ import {
   getGoogleMapsDirectionsUrl,
   haversineDistance,
 } from '@/utils';
-import { createVietmapTileLayer, VIETMAP_ATTRIBUTION } from '@/utils/vietmapTileLayer.js';
+import {
+  vietmapgl,
+  VIETMAP_STYLES,
+  DEFAULT_HOALAC_CENTER_GL,
+} from '@/utils/vietmapGLHelper.js';
 import { SALARY_UNIT_LABELS } from '@/constants';
 
-// Default center of map: Hoa Lac Area
+// Default center of map: Hoa Lac Area [lat, lng]
 export const DEFAULT_HOALAC_CENTER = [21.0128, 105.5255];
 
-// Vietmap Layer Configurations
+// Vietmap Style Configurations
 const MAP_LAYERS = {
   vietmap_streets: {
-    name: 'Vietmap',
-    attribution: VIETMAP_ATTRIBUTION,
+    name: 'Đường phố',
+    style: VIETMAP_STYLES.STREETS,
   },
-  vietmap_satellite: {
-    name: 'Vệ tinh',
-    attribution: VIETMAP_ATTRIBUTION,
+  vietmap_dark: {
+    name: 'Bản đồ tối',
+    style: VIETMAP_STYLES.DARK,
+  },
+  vietmap_light: {
+    name: 'Bản đồ sáng',
+    style: VIETMAP_STYLES.LIGHT,
   },
 };
 
-function createJobMarkerIcon(job, isSelected = false) {
+function createJobMarkerElement(job, isSelected = false) {
   const isConfirmed = hasConfirmedCoordinates(job);
-  return L.divIcon({
-    className: 'custom-job-marker',
-    html: `
-      <div class="relative group cursor-pointer transform transition-all duration-200 ${
-        isSelected ? 'scale-125 z-50' : 'hover:scale-110 z-20'
-      }">
-        <div class="flex items-center justify-center w-7 h-7 rounded-full shadow-lg border-2 ${
-          isSelected
-            ? 'bg-pink-600 text-white border-white ring-4 ring-pink-300'
-            : isConfirmed
-            ? 'bg-emerald-700 text-white border-white hover:bg-emerald-800'
-            : 'bg-amber-600 text-white border-white hover:bg-amber-700'
-        } text-xs">
-          <span>${isConfirmed ? '💼' : '📍'}</span>
-        </div>
-        <div class="w-2 h-2 ${isSelected ? 'bg-pink-600' : isConfirmed ? 'bg-emerald-700' : 'bg-amber-600'} rotate-45 mx-auto -mt-1 shadow-sm"></div>
+  const el = document.createElement('div');
+  el.className = 'vietmap-job-marker';
+  el.style.cursor = 'pointer';
+  el.innerHTML = `
+    <div style="position: relative; transition: transform 0.2s; transform: ${
+      isSelected ? 'scale(1.25)' : 'scale(1)'
+    };">
+      <div style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 2px solid white; background: ${
+        isSelected ? '#db2777' : isConfirmed ? '#047857' : '#d97706'
+      }; color: white; font-size: 13px;">
+        <span>${isConfirmed ? '💼' : '📍'}</span>
       </div>
-    `,
-    iconSize: [28, 32],
-    iconAnchor: [14, 32],
-  });
+      <div style="width: 8px; height: 8px; transform: rotate(45deg); margin: -4px auto 0; background: ${
+        isSelected ? '#db2777' : isConfirmed ? '#047857' : '#d97706'
+      }; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+    </div>
+  `;
+  return el;
 }
 
-function createUserMarkerIcon(label = 'Vị trí GPS của bạn') {
-  return L.divIcon({
-    className: 'custom-user-marker',
-    html: `
-      <div class="relative flex items-center justify-center cursor-pointer z-40">
-        <span class="animate-ping absolute inline-flex h-10 w-10 rounded-full bg-blue-500 opacity-60"></span>
-        <div class="relative inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-600 border-2 border-white shadow-xl text-white text-xs font-bold">
-          📍
-        </div>
+function createUserMarkerElement(label = 'Vị trí GPS của bạn') {
+  const el = document.createElement('div');
+  el.className = 'vietmap-user-marker';
+  el.title = label;
+  el.innerHTML = `
+    <div style="position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+      <span style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(59, 130, 246, 0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+      <div style="position: relative; width: 28px; height: 28px; border-radius: 50%; background: #2563eb; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); color: white; display: flex; align-items: center; justify-content: center; font-size: 13px;">
+        📍
       </div>
-    `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-  });
+    </div>
+  `;
+  return el;
 }
 
 export function JobMap({
   jobs = [],
   userLocation = null,
-  onUserLocationChange = null,
   onRequestGps = null,
   isLocating = false,
   selectedJobId = null,
@@ -82,7 +83,6 @@ export function JobMap({
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const tileLayerRef = useRef(null);
   const markersMapRef = useRef(new Map());
   const userMarkerRef = useRef(null);
   const jobsBoundsRef = useRef(null);
@@ -90,22 +90,21 @@ export function JobMap({
 
   const [activeJob, setActiveJob] = useState(singleJob || null);
   const [currentLayerKey, setCurrentLayerKey] = useState('vietmap_streets');
-  const [tileError, setTileError] = useState(false);
   const [confirmedCount, setConfirmedCount] = useState(0);
 
-  // Initialize Map and cleanup on unmount
+  // Initialize Native Vietmap GL Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Center selection: singleJob > valid userLocation near Hoa Lac > DEFAULT_HOALAC_CENTER
-    let initialCenter = DEFAULT_HOALAC_CENTER;
+    // Center selection in Vietmap GL format: [lng, lat]
+    let initialCenter = DEFAULT_HOALAC_CENTER_GL;
     let initialZoom = 13;
 
     if (singleJob) {
       const sjLat = singleJob.location?.lat ?? singleJob.lat ?? singleJob.geoPoint?.coordinates?.[1];
       const sjLng = singleJob.location?.lng ?? singleJob.lng ?? singleJob.geoPoint?.coordinates?.[0];
       if (isValidCoordinate(sjLat, sjLng)) {
-        initialCenter = [Number(sjLat), Number(sjLng)];
+        initialCenter = [Number(sjLng), Number(sjLat)];
         initialZoom = 16;
       }
     } else if (userLocation && isValidCoordinate(userLocation.lat, userLocation.lng)) {
@@ -115,72 +114,43 @@ export function JobMap({
         DEFAULT_HOALAC_CENTER[0],
         DEFAULT_HOALAC_CENTER[1]
       );
-      // Only start centered on user GPS if within 15km of Hoa Lac, otherwise start on Hoa Lac
       if (distToHoaLacM !== null && distToHoaLacM <= 15000) {
-        initialCenter = [Number(userLocation.lat), Number(userLocation.lng)];
+        initialCenter = [Number(userLocation.lng), Number(userLocation.lat)];
         initialZoom = 14;
       }
     }
 
-    const map = L.map(mapContainerRef.current, {
+    const map = new vietmapgl.Map({
+      container: mapContainerRef.current,
+      style: MAP_LAYERS[currentLayerKey]?.style || VIETMAP_STYLES.STREETS,
       center: initialCenter,
       zoom: initialZoom,
-      zoomControl: true,
-      maxZoom: 19,
-      maxBounds: [[180, -Infinity], [-180, Infinity]],
-      minZoom: 1,
+      attributionControl: true,
     });
 
+    map.addControl(new vietmapgl.NavigationControl(), 'top-right');
     mapInstanceRef.current = map;
 
-    // Attach Vietmap Tile Layer with error fallback
-    function attachTileLayer(layerKey) {
-      if (tileLayerRef.current) {
-        map.removeLayer(tileLayerRef.current);
+    // Close preview card when clicking on empty map area
+    map.on('click', (e) => {
+      // If clicking directly on map canvas
+      if (e.originalEvent?.target === map.getCanvas()) {
+        if (!singleJob) {
+          setActiveJob(null);
+        }
       }
+    });
 
-      const tileApiKey = (import.meta.env.VITE_VIETMAP_TILE_API_KEY || '').trim();
-      let layer;
-
-      if (layerKey === 'vietmap_satellite' && tileApiKey) {
-        layer = L.tileLayer(`https://maps.vietmap.vn/hm/{z}/{x}/{y}@2x.png?apikey=${tileApiKey}`, {
-          maxZoom: 19,
-          attribution: VIETMAP_ATTRIBUTION,
-        });
-      } else {
-        layer = createVietmapTileLayer();
-      }
-
-      layer.on('tileerror', () => {
-        setTileError(true);
-      });
-
-      layer.on('tileload', () => {
-        setTileError(false);
-      });
-
-      layer.addTo(map);
-      tileLayerRef.current = layer;
-    }
-
-    attachTileLayer(currentLayerKey);
-
-    // Initial resize trigger
-    const initialResizeTimer = setTimeout(() => {
-      map.invalidateSize();
-    }, 150);
-
-    // Continuous ResizeObserver to keep Leaflet aligned across tabs, modals, and container changes
+    // Continuous ResizeObserver to keep Vietmap GL canvas responsive
     let resizeObserver = null;
     if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
       resizeObserver = new ResizeObserver(() => {
-        map.invalidateSize();
+        map.resize();
       });
       resizeObserver.observe(mapContainerRef.current);
     }
 
     return () => {
-      clearTimeout(initialResizeTimer);
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
@@ -192,56 +162,34 @@ export function JobMap({
       }
       map.remove();
       mapInstanceRef.current = null;
-      tileLayerRef.current = null;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Switch Layer
+  // Switch Vietmap Style Layer
   function switchLayer(layerKey) {
     const map = mapInstanceRef.current;
     if (!map || !MAP_LAYERS[layerKey] || layerKey === currentLayerKey) return;
-
-    if (tileLayerRef.current) {
-      map.removeLayer(tileLayerRef.current);
-    }
-
-    const cfg = MAP_LAYERS[layerKey];
-    const newLayer = L.tileLayer(cfg.url, {
-      subdomains: cfg.subdomains || ['mt0', 'mt1', 'mt2', 'mt3'],
-      maxZoom: cfg.maxZoom || 20,
-      attribution: cfg.attribution,
-    });
-
-    newLayer.on('tileerror', () => setTileError(true));
-    newLayer.on('tileload', () => setTileError(false));
-
-    newLayer.addTo(map);
-    tileLayerRef.current = newLayer;
+    map.setStyle(MAP_LAYERS[layerKey].style);
     setCurrentLayerKey(layerKey);
   }
 
-  // Update User Location Marker
+  // Update User Location GPS Marker
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
-      const latLng = [Number(userLocation.lat), Number(userLocation.lng)];
+      const lngLat = [Number(userLocation.lng), Number(userLocation.lat)];
       if (!userMarkerRef.current) {
-        const marker = L.marker(latLng, {
-          icon: createUserMarkerIcon(userLocation.label || 'Vị trí GPS của bạn'),
-          zIndexOffset: 1000,
-        }).addTo(map);
-
-        marker.bindTooltip(userLocation.label || 'Vị trí GPS của bạn', {
-          permanent: false,
-          direction: 'top',
-          className: 'bg-blue-900 text-white px-2 py-1 rounded-lg text-xs font-semibold shadow-md',
-        });
+        const marker = new vietmapgl.Marker({
+          element: createUserMarkerElement(userLocation.label || 'Vị trí GPS của bạn'),
+        })
+          .setLngLat(lngLat)
+          .addTo(map);
 
         userMarkerRef.current = marker;
       } else {
-        userMarkerRef.current.setLatLng(latLng);
+        userMarkerRef.current.setLngLat(lngLat);
       }
     } else if (userMarkerRef.current) {
       userMarkerRef.current.remove();
@@ -260,7 +208,7 @@ export function JobMap({
 
     const currentMarkersMap = markersMapRef.current;
     const nextJobIds = new Set();
-    const bounds = L.latLngBounds([]);
+    const bounds = new vietmapgl.LngLatBounds();
     let validCount = 0;
 
     jobsToRender.forEach((job) => {
@@ -268,76 +216,77 @@ export function JobMap({
       const lat = job.location?.lat ?? job.lat ?? job.geoPoint?.coordinates?.[1];
       const lng = job.location?.lng ?? job.lng ?? job.geoPoint?.coordinates?.[0];
 
-      // Must have valid geographic coordinates
       if (!isValidCoordinate(lat, lng)) {
         return;
       }
 
-      // Only skip jobs explicitly marked as unconfirmed (no pin selected)
       if (job.locationStatus === 'unconfirmed') {
         return;
       }
 
       const nLat = Number(lat);
       const nLng = Number(lng);
-      bounds.extend([nLat, nLng]);
+      bounds.extend([nLng, nLat]);
       validCount++;
       nextJobIds.add(id);
 
       const isSelected = id === String(selectedJobId);
-      const existingMarker = currentMarkersMap.get(id);
+      const existing = currentMarkersMap.get(id);
 
-      if (existingMarker) {
-        const curPos = existingMarker.getLatLng();
+      if (existing) {
+        const curPos = existing.marker.getLngLat();
         if (Math.abs(curPos.lat - nLat) > 0.00001 || Math.abs(curPos.lng - nLng) > 0.00001) {
-          existingMarker.setLatLng([nLat, nLng]);
+          existing.marker.setLngLat([nLng, nLat]);
         }
-        existingMarker.setIcon(createJobMarkerIcon(job, isSelected));
-      } else {
-        const marker = L.marker([nLat, nLng], {
-          icon: createJobMarkerIcon(job, isSelected),
-        }).addTo(map);
-
-        marker.bindTooltip(job.storeName || job.title, {
-          direction: 'top',
-          offset: [0, -16],
-        });
-
-        marker.on('click', () => {
+        // Update selection style
+        const newEl = createJobMarkerElement(job, isSelected);
+        existing.marker.getElement().replaceWith(newEl);
+        newEl.addEventListener('click', () => {
           setActiveJob(job);
           onSelectJob?.(job);
-          map.panTo([nLat, nLng]);
+          map.flyTo({ center: [nLng, nLat], zoom: 16 });
+        });
+      } else {
+        const el = createJobMarkerElement(job, isSelected);
+        el.addEventListener('click', () => {
+          setActiveJob(job);
+          onSelectJob?.(job);
+          map.flyTo({ center: [nLng, nLat], zoom: 16 });
         });
 
-        currentMarkersMap.set(id, marker);
+        const marker = new vietmapgl.Marker({ element: el })
+          .setLngLat([nLng, nLat])
+          .addTo(map);
+
+        currentMarkersMap.set(id, { marker, job });
       }
     });
 
     // Remove markers that are no longer in jobsToRender
-    for (const [id, marker] of currentMarkersMap.entries()) {
+    for (const [id, item] of currentMarkersMap.entries()) {
       if (!nextJobIds.has(id)) {
-        marker.remove();
+        item.marker.remove();
         currentMarkersMap.delete(id);
       }
     }
 
     setConfirmedCount(validCount);
-    jobsBoundsRef.current = bounds.isValid() ? bounds : null;
+    jobsBoundsRef.current = !bounds.isEmpty() ? bounds : null;
 
     // Automatic Smart Viewport Fitting
-    if (bounds.isValid() && validCount > 0) {
+    if (!bounds.isEmpty() && validCount > 0) {
       if (singleJob) {
         const sjLat = singleJob.location?.lat ?? singleJob.lat ?? singleJob.geoPoint?.coordinates?.[1];
         const sjLng = singleJob.location?.lng ?? singleJob.lng ?? singleJob.geoPoint?.coordinates?.[0];
         if (isValidCoordinate(sjLat, sjLng)) {
-          map.setView([Number(sjLat), Number(sjLng)], 16);
+          map.flyTo({ center: [Number(sjLng), Number(sjLat)], zoom: 16 });
         }
       } else if (!hasInitialFitRef.current) {
         hasInitialFitRef.current = true;
 
         const performFit = () => {
-          if (!mapInstanceRef.current || !bounds.isValid()) return;
-          mapInstanceRef.current.invalidateSize();
+          if (!mapInstanceRef.current || bounds.isEmpty()) return;
+          mapInstanceRef.current.resize();
 
           let shouldIncludeUser = false;
           if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
@@ -353,16 +302,17 @@ export function JobMap({
           }
 
           if (shouldIncludeUser) {
-            const fitBounds = L.latLngBounds(bounds.getSouthWest(), bounds.getNorthEast());
-            fitBounds.extend([Number(userLocation.lat), Number(userLocation.lng)]);
-            mapInstanceRef.current.fitBounds(fitBounds, { padding: [40, 40], maxZoom: 15 });
+            const fitBounds = new vietmapgl.LngLatBounds(
+              bounds.getSouthWest(),
+              bounds.getNorthEast()
+            );
+            fitBounds.extend([Number(userLocation.lng), Number(userLocation.lat)]);
+            mapInstanceRef.current.fitBounds(fitBounds, { padding: 45, maxZoom: 15 });
           } else {
-            // Fit tightly on Hoa Lac jobs so all markers are centered and in full view!
-            mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+            mapInstanceRef.current.fitBounds(bounds, { padding: 45, maxZoom: 15 });
           }
         };
 
-        // Immediate fit + delayed layout safety retry
         performFit();
         setTimeout(performFit, 200);
       }
@@ -377,7 +327,7 @@ export function JobMap({
       const lat = selectedJob.location?.lat ?? selectedJob.lat ?? selectedJob.geoPoint?.coordinates?.[1];
       const lng = selectedJob.location?.lng ?? selectedJob.lng ?? selectedJob.geoPoint?.coordinates?.[0];
       if (isValidCoordinate(lat, lng)) {
-        mapInstanceRef.current.flyTo([Number(lat), Number(lng)], 16, { animate: true });
+        mapInstanceRef.current.flyTo({ center: [Number(lng), Number(lat)], zoom: 16 });
         setActiveJob(selectedJob);
       }
     }
@@ -400,39 +350,31 @@ export function JobMap({
   const fitAllJobs = useCallback(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    if (jobsBoundsRef.current && jobsBoundsRef.current.isValid()) {
-      map.fitBounds(jobsBoundsRef.current, { padding: [50, 50], maxZoom: 15 });
+    if (jobsBoundsRef.current && !jobsBoundsRef.current.isEmpty()) {
+      map.fitBounds(jobsBoundsRef.current, { padding: 50, maxZoom: 15 });
     } else {
-      map.flyTo(DEFAULT_HOALAC_CENTER, 14, { animate: true });
+      map.flyTo({ center: DEFAULT_HOALAC_CENTER_GL, zoom: 14 });
     }
   }, []);
 
   const flyToUserLocation = useCallback(() => {
     const map = mapInstanceRef.current;
     if (map && hasRealUserLocation) {
-      map.flyTo([Number(userLocation.lat), Number(userLocation.lng)], 15, { animate: true });
+      map.flyTo({ center: [Number(userLocation.lng), Number(userLocation.lat)], zoom: 15 });
     }
   }, [hasRealUserLocation, userLocation]);
 
   const flyToHoaLacCenter = useCallback(() => {
     const map = mapInstanceRef.current;
     if (map) {
-      map.flyTo(DEFAULT_HOALAC_CENTER, 14, { animate: true });
+      map.flyTo({ center: DEFAULT_HOALAC_CENTER_GL, zoom: 14 });
     }
   }, []);
 
   return (
     <div className="relative rounded-3xl overflow-hidden border-2 border-green-200 shadow-card bg-cream">
-      {/* Map Canvas */}
+      {/* Vietmap GL Map Canvas Container */}
       <div ref={mapContainerRef} style={{ height }} className="w-full z-0" />
-
-      {/* Tile Loading Warning if offline or CDN blocked */}
-      {tileError && (
-        <div className="absolute top-16 left-4 z-20 bg-amber-50/95 border border-amber-200 text-amber-900 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 shadow-sm">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>Một số mảnh bản đồ đang tải chậm hoặc bị chặn. Hãy thử đổi lớp bản đồ.</span>
-        </div>
-      )}
 
       {/* Floating Controls Top-Right: Layer Switcher & GPS Request Button */}
       <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
@@ -484,7 +426,7 @@ export function JobMap({
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-700 inline-block shadow-sm"></span>
           <span className="text-text-muted font-medium">
             {confirmedCount > 0
-              ? `${confirmedCount} việc làm đã ghim trên bản đồ`
+              ? `${confirmedCount} việc làm đã ghim trên Vietmap`
               : 'Chưa có điểm việc làm nào phù hợp bộ lọc'}
           </span>
         </div>

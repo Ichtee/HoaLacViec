@@ -767,7 +767,7 @@ export default function EmployerJobsPage() {
                   className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main font-medium text-xs text-text-main placeholder:text-gray-400"
                 />
 
-                {/* Interactive Leaflet Location Picker with OpenStreetMap & Nominatim candidates */}
+                {/* Interactive Vietmap GL Location Picker with Vietmap Autocomplete candidates */}
                 <div className="pt-2">
                   <LocationPicker
                     value={{

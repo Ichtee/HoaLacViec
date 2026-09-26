@@ -12,10 +12,8 @@
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
     "@vietmap/vietmap-gl-js": "^7.0.0-pre.1",
-    "@vietmap/vietmap-gl-leaflet": "^0.1.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
-    "leaflet": "^1.9.4",
     "lucide-react": "^1.46.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

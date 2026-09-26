@@ -27,7 +27,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('leaflet')) return 'leaflet-vendor';
+            if (id.includes('vietmap')) return 'vietmap-vendor';
             if (id.includes('lucide-react')) return 'lucide-icons';
             if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
               return 'react-vendor';

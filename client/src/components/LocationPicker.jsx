@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import {
   MapPin,
   Search,
@@ -9,7 +7,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  Navigation,
   Check,
   X,
 } from 'lucide-react';
@@ -19,25 +16,26 @@ import {
   apiVietmapPlace,
   apiVietmapReverse,
 } from '@/services';
-import { createVietmapTileLayer } from '@/utils/vietmapTileLayer.js';
+import {
+  vietmapgl,
+  VIETMAP_STYLES,
+  DEFAULT_HOALAC_CENTER_GL,
+} from '@/utils/vietmapGLHelper.js';
 import { useGeolocation } from '@/hooks/useGeolocation.js';
 
-const DEFAULT_MAP_CENTER = [21.0128, 105.5255]; // Hoa Lac center for view only
-
-function createPinIcon() {
-  return L.divIcon({
-    className: 'custom-picker-pin',
-    html: `
-      <div class="relative cursor-grab active:cursor-grabbing transform -translate-x-1/2 -translate-y-full">
-        <div class="w-8 h-8 rounded-full bg-pink-600 text-white flex items-center justify-center shadow-lg border-2 border-white ring-4 ring-pink-200">
-          <span style="font-size: 14px;">📍</span>
-        </div>
-        <div class="w-2.5 h-2.5 bg-pink-600 rotate-45 mx-auto -mt-1.5 shadow-sm"></div>
+function createPickerPinElement() {
+  const el = document.createElement('div');
+  el.className = 'vietmap-picker-pin';
+  el.style.cursor = 'grab';
+  el.innerHTML = `
+    <div style="position: relative; transform: translate(-50%, -100%);">
+      <div style="width: 34px; height: 34px; border-radius: 50%; background: #db2777; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(219, 39, 119, 0.4); border: 2.5px solid white;">
+        <span style="font-size: 16px;">📍</span>
       </div>
-    `,
-    iconSize: [32, 40],
-    iconAnchor: [16, 40],
-  });
+      <div style="width: 10px; height: 10px; background: #db2777; transform: rotate(45deg); margin: -5px auto 0; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+    </div>
+  `;
+  return el;
 }
 
 export default function LocationPicker({
@@ -96,7 +94,16 @@ export default function LocationPicker({
     } else if (value?.lat === null && value?.lng === null) {
       setStagedLocation(null);
     }
-  }, [value?.lat, value?.lng, value?.locationSource, value?.locationStatus, value?.formattedAddress, value?.geocodingProvider, value?.providerPlaceId, value?.addressComponents]);
+  }, [
+    value?.lat,
+    value?.lng,
+    value?.locationSource,
+    value?.locationStatus,
+    value?.formattedAddress,
+    value?.geocodingProvider,
+    value?.providerPlaceId,
+    value?.addressComponents,
+  ]);
 
   const hasConfirmedLocation = Boolean(
     value?.lat !== null &&
@@ -185,7 +192,7 @@ export default function LocationPicker({
   }, [stagedLocation, value, onChange]);
 
   const handleClearLocation = useCallback(() => {
-    if (markerRef.current && mapInstanceRef.current) {
+    if (markerRef.current) {
       markerRef.current.remove();
       markerRef.current = null;
     }
@@ -239,7 +246,7 @@ export default function LocationPicker({
         }
       } catch (err) {
         if (err.name !== 'AbortError') {
-          setSearchError(err.message || 'Lỗi tra cứu gợi ý địa chỉ');
+          setSearchError('Không thể tìm kiếm lúc này. Vui lòng thử lại sau.');
         }
       } finally {
         setSearching(false);
@@ -252,51 +259,56 @@ export default function LocationPicker({
     };
   }, [searchQuery]);
 
-  // Initialize Leaflet Map with Vietmap Tiles
+  // Initialize Native Vietmap GL Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (mapInstanceRef.current) return;
 
-    const initialLat = isValidCoordinate(value?.lat, value?.lng) ? value.lat : DEFAULT_MAP_CENTER[0];
-    const initialLng = isValidCoordinate(value?.lat, value?.lng) ? value.lng : DEFAULT_MAP_CENTER[1];
-    const initialZoom = isValidCoordinate(value?.lat, value?.lng) ? 16 : 13;
+    const initialCoords = isValidCoordinate(value?.lat, value?.lng)
+      ? [Number(value.lng), Number(value.lat)] // [lng, lat] for Vietmap GL
+      : DEFAULT_HOALAC_CENTER_GL;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [initialLat, initialLng],
-      zoom: initialZoom,
-      zoomControl: true,
+    const map = new vietmapgl.Map({
+      container: mapContainerRef.current,
+      style: VIETMAP_STYLES.STREETS,
+      center: initialCoords,
+      zoom: isValidCoordinate(value?.lat, value?.lng) ? 15 : 13,
       attributionControl: true,
-      maxBounds: [[180, -Infinity], [-180, Infinity]],
-      minZoom: 1,
     });
 
-    const tileLayer = createVietmapTileLayer();
-    tileLayer.addTo(map);
+    map.addControl(new vietmapgl.NavigationControl(), 'top-right');
     mapInstanceRef.current = map;
 
     // Click map to place/move pin and reverse-geocode address
     map.on('click', (e) => {
-      const { lat, lng } = e.latlng;
+      const { lng, lat } = e.lngLat;
       setAccuracyWarning('');
       setCandidates([]);
       handleReverseLookup(lat, lng, 'map_pin');
     });
 
-    const timer = setTimeout(() => {
-      map.invalidateSize();
-    }, 250);
+    // ResizeObserver to keep Vietmap GL canvas properly sized
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        map.resize();
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
 
     return () => {
-      clearTimeout(timer);
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (markerRef.current) {
+        markerRef.current.remove();
         markerRef.current = null;
       }
+      map.remove();
+      mapInstanceRef.current = null;
     };
-  }, [handleReverseLookup, value?.lat, value?.lng]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync marker with stagedLocation or value
+  // Sync marker position with stagedLocation or value
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -304,30 +316,24 @@ export default function LocationPicker({
     const activeLoc = stagedLocation || (isValidCoordinate(value?.lat, value?.lng) ? value : null);
 
     if (activeLoc && isValidCoordinate(activeLoc.lat, activeLoc.lng)) {
-      const pos = [Number(activeLoc.lat), Number(activeLoc.lng)];
+      const lngLat = [Number(activeLoc.lng), Number(activeLoc.lat)]; // [lng, lat]
       if (!markerRef.current) {
-        const marker = L.marker(pos, {
-          icon: createPinIcon(),
+        const marker = new vietmapgl.Marker({
+          element: createPickerPinElement(),
           draggable: true,
-          title: 'Kéo thả để điều chỉnh vị trí',
-        }).addTo(map);
+        })
+          .setLngLat(lngLat)
+          .addTo(map);
 
-        marker.on('dragend', (e) => {
-          const newPos = e.target.getLatLng();
+        marker.on('dragend', () => {
+          const newPos = marker.getLngLat();
           setAccuracyWarning('');
           handleReverseLookup(newPos.lat, newPos.lng, 'map_pin');
         });
 
-        marker.bindPopup(`
-          <div style="font-size: 11px; font-weight: 600; text-align: center;">
-            📍 Vị trí ghim quán<br/>
-            <span style="color: #6b7280; font-weight: normal;">Bấm "Xác nhận vị trí này" bên dưới bản đồ</span>
-          </div>
-        `);
-
         markerRef.current = marker;
       } else {
-        markerRef.current.setLatLng(pos);
+        markerRef.current.setLngLat(lngLat);
       }
     } else {
       if (markerRef.current) {
@@ -358,114 +364,125 @@ export default function LocationPicker({
       }
 
       const res = await apiVietmapAutocomplete(query, focus);
-      if (res?.suggestions && res.suggestions.length > 0) {
+      if (res?.suggestions) {
         setCandidates(res.suggestions.slice(0, 10));
-      } else {
-        setSearchError('Không tìm thấy địa điểm trên bản đồ Vietmap. Bạn có thể click trực tiếp lên bản đồ để ghim vị trí quán.');
+        if (res.suggestions.length === 0) {
+          setSearchError('Không tìm thấy địa điểm phù hợp trên Vietmap.');
+        }
       }
     } catch (err) {
-      setSearchError(err?.message || 'Không thể tìm kiếm địa chỉ lúc này. Vui lòng click chọn trực tiếp trên bản đồ.');
+      setSearchError(err.message || 'Lỗi khi tìm kiếm trên Vietmap');
     } finally {
       setSearching(false);
     }
   }
 
-  // Handle selecting a candidate: Calls Place API, stages with pending_confirmation (Never auto-confirms)
-  async function handleSelectCandidate(cand) {
-    setAccuracyWarning('');
+  // Handle selecting candidate suggestion -> calls Place API
+  async function handleSelectCandidate(candidate) {
     setCandidates([]);
-    setSearchError('');
-    setSearching(true);
+    setSearchQuery(candidate.display || candidate.name || candidate.address || '');
 
     try {
-      const res = await apiVietmapPlace(cand.refId);
-      if (res?.place && isValidCoordinate(res.place.lat, res.place.lng)) {
-        const p = res.place;
+      setSearching(true);
+      const place = await apiVietmapPlace(candidate.refId);
+      if (place && isValidCoordinate(place.lat, place.lng)) {
+        const nLat = Number(place.lat);
+        const nLng = Number(place.lng);
+
         stageLocation(
-          p.lat,
-          p.lng,
-          'geocoded',
-          p.formattedAddress || p.displayName,
+          nLat,
+          nLng,
+          'places',
+          place.formattedAddress || place.displayName,
           'vietmap',
-          p.refId,
-          p.addressComponents
+          place.refId,
+          place.addressComponents
         );
+
         if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([p.lat, p.lng], 16, { duration: 1.2 });
+          mapInstanceRef.current.flyTo({
+            center: [nLng, nLat],
+            zoom: 16,
+            duration: 1000,
+          });
         }
       } else {
-        setSearchError('Không thể lấy tọa độ chi tiết cho địa điểm này.');
+        setSearchError('Không thể lấy tọa độ chi tiết của địa điểm này.');
       }
     } catch (err) {
-      setSearchError(err.message || 'Lỗi khi lấy chi tiết địa điểm từ Vietmap.');
+      setSearchError(err.message || 'Lỗi khi tải chi tiết địa điểm.');
     } finally {
       setSearching(false);
     }
   }
 
-  // Handle Get Device GPS via centralized useGeolocation
-  async function handleGetDeviceGps() {
+  // GPS Current Location Flow
+  async function handleCurrentLocation() {
     setGpsLoading(true);
     setSearchError('');
     setAccuracyWarning('');
-    setCandidates([]);
 
-    try {
-      const res = await requestLocation({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
-      if (res && isValidCoordinate(res.lat, res.lng)) {
-        if (res.accuracy && res.accuracy > 100) {
-          setAccuracyWarning(`Độ sai số GPS của thiết bị khá lớn (±${Math.round(res.accuracy)}m > 100m). Vui lòng kéo pin trên bản đồ đến vị trí chính xác của quán trước khi bấm xác nhận.`);
+    const res = await requestLocation({ timeoutMs: 12000, highAccuracy: true });
+    setGpsLoading(false);
+
+    if (res.success && res.location) {
+      const { lat, lng, accuracy } = res.location;
+      if (isValidCoordinate(lat, lng)) {
+        if (accuracy && accuracy > 100) {
+          setAccuracyWarning(`Độ chính xác GPS là ±${Math.round(accuracy)}m (kém). Vui lòng kéo ghim đến đúng cửa hàng.`);
         }
-        await handleReverseLookup(res.lat, res.lng, 'device');
+        stageLocation(lat, lng, 'device');
         if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([res.lat, res.lng], 17, { duration: 1 });
+          mapInstanceRef.current.flyTo({
+            center: [Number(lng), Number(lat)],
+            zoom: 16,
+            duration: 1000,
+          });
         }
+        handleReverseLookup(lat, lng, 'device');
       } else {
-        setSearchError('Không lấy được tọa độ GPS từ thiết bị. Hãy chắc chắn bạn đã cấp quyền và bật định vị.');
+        setSearchError('Tọa độ GPS nhận được không hợp lệ.');
       }
-    } catch {
-      setSearchError('Lỗi khi lấy vị trí thiết bị.');
-    } finally {
-      setGpsLoading(false);
+    } else {
+      setSearchError(res.message || 'Không thể lấy vị trí GPS từ thiết bị của bạn.');
     }
   }
 
-  // Handle Manual Coordinates Apply
-  function handleApplyManualCoords(e) {
-    if (e) e.preventDefault();
+  // Apply manual lat/lng
+  function handleApplyManual() {
+    setSearchError('');
     const lat = parseFloat(manualLat);
     const lng = parseFloat(manualLng);
-
     if (!isValidCoordinate(lat, lng)) {
-      setSearchError('Vui lòng nhập vĩ độ (-90 đến 90) và kinh độ (-180 đến 180) hợp lệ.');
+      setSearchError('Tọa độ thủ công không hợp lệ. Vui lòng nhập số thực hợp lệ.');
       return;
     }
-
-    setAccuracyWarning('');
-    setCandidates([]);
-    handleReverseLookup(lat, lng, 'manual_coordinates');
+    stageLocation(lat, lng, 'manual_coordinates');
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 1 });
+      mapInstanceRef.current.flyTo({
+        center: [lng, lat],
+        zoom: 16,
+        duration: 1000,
+      });
     }
-    setShowManualInputs(false);
+    handleReverseLookup(lat, lng, 'manual_coordinates');
   }
 
-  const isConfirmed = value?.locationStatus === 'confirmed';
-  const isPending = stagedLocation?.status === 'pending_confirmation' || value?.locationStatus === 'pending_confirmation';
+  const currentDisplayStatus = stagedLocation?.status || value?.locationStatus || 'unconfirmed';
 
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Search Bar & Actions */}
+      {/* Top Search & Actions Bar */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-1.5">
+        <form onSubmit={handleSearch} className="flex-1 flex gap-2 relative">
           <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={addressHint ? `Tìm: ${addressHint}` : 'Tìm kiếm theo Vietmap (VD: 197 Trần Phú, Tân Xã...)'}
-              className="w-full pl-8 pr-8 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main font-medium"
+              placeholder={addressHint ? `Tìm trên Vietmap (gợi ý: ${addressHint})` : 'Tìm kiếm quán, đường phố trên Vietmap...'}
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-green-200 bg-white text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all shadow-sm"
             />
             {searchQuery && (
               <button
@@ -474,8 +491,7 @@ export default function LocationPicker({
                   setSearchQuery('');
                   setCandidates([]);
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
-                title="Xóa tìm kiếm"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main p-0.5"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -484,201 +500,182 @@ export default function LocationPicker({
           <button
             type="submit"
             disabled={searching}
-            className="px-3 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs flex items-center gap-1 shrink-0 disabled:opacity-50 transition-all shadow-sm"
+            className="px-4 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50"
           >
             {searching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
             <span>Tìm</span>
           </button>
         </form>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleGetDeviceGps}
+            onClick={handleCurrentLocation}
             disabled={gpsLoading}
-            className="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs border border-blue-200 flex items-center gap-1 transition-all disabled:opacity-50"
-            title="Lấy GPS từ thiết bị nếu bạn đang có mặt tại quán"
+            className="px-3 py-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 shrink-0"
+            title="Lấy vị trí hiện tại của thiết bị"
           >
-            {gpsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crosshair className="w-3.5 h-3.5 text-blue-600" />}
-            <span>Lấy GPS tại quán</span>
+            {gpsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Crosshair className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">GPS của tôi</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowManualInputs((prev) => !prev)}
-            className="px-2.5 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold text-xs border border-gray-200 flex items-center gap-1 transition-all"
-            title="Nhập tọa độ vĩ độ / kinh độ trực tiếp"
-          >
-            <Navigation className="w-3.5 h-3.5 text-gray-500" />
-            <span>Tọa độ</span>
-          </button>
-
-          {(hasConfirmedLocation || stagedLocation) && (
+          {(stagedLocation || isValidCoordinate(value?.lat, value?.lng)) && (
             <button
               type="button"
               onClick={handleClearLocation}
-              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-all"
+              className="p-2 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-all text-xs"
               title="Xóa ghim vị trí"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Vietmap Suggestions List (5–10 items, click calls Place API) */}
+      {/* Autocomplete Suggestions Dropdown */}
       {candidates.length > 0 && (
-        <div className="p-2.5 rounded-2xl bg-white border border-pink-200 shadow-md space-y-1.5 animate-fade-in">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[11px] font-bold text-gray-700">
-              Gợi ý địa chỉ từ Vietmap ({candidates.length} kết quả):
-            </span>
+        <div className="bg-white rounded-2xl shadow-xl border border-green-100 p-2 max-h-56 overflow-y-auto space-y-1">
+          <div className="text-[11px] font-semibold text-text-muted px-2 py-1 flex items-center justify-between border-b border-gray-100 mb-1">
+            <span>Gợi ý địa điểm từ Vietmap ({candidates.length})</span>
+            <span className="text-[10px] text-orange-600">Chọn địa điểm để xem vị trí</span>
+          </div>
+          {candidates.map((candidate, idx) => (
             <button
+              key={candidate.refId || idx}
               type="button"
-              onClick={() => setCandidates([])}
-              className="text-[10px] text-gray-400 hover:text-gray-600"
+              onClick={() => handleSelectCandidate(candidate)}
+              className="w-full text-left px-2.5 py-1.5 rounded-xl hover:bg-green-50 transition-colors flex items-start gap-2 group"
             >
-              Đóng
+              <MapPin className="w-3.5 h-3.5 text-green-main shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-text-main group-hover:text-green-dark truncate">
+                  {candidate.display || candidate.name}
+                </p>
+                {candidate.address && (
+                  <p className="text-[11px] text-text-muted truncate">{candidate.address}</p>
+                )}
+              </div>
             </button>
-          </div>
-          <div className="divide-y divide-gray-100 max-h-56 overflow-y-auto">
-            {candidates.map((cand, idx) => (
-              <button
-                key={cand.refId || idx}
-                type="button"
-                onClick={() => handleSelectCandidate(cand)}
-                className="w-full text-left p-2.5 rounded-xl hover:bg-pink-50 text-xs transition-colors flex items-start gap-2.5"
-              >
-                <MapPin className="w-3.5 h-3.5 text-pink-600 shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 line-clamp-1">
-                    {cand.display || cand.name}
-                  </p>
-                  {cand.address && (
-                    <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">
-                      {cand.address}
-                    </p>
-                  )}
-                  {cand.distance != null && (
-                    <span className="inline-block mt-1 text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">
-                      Cách ~{(cand.distance).toFixed(1)} km
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
       )}
 
-      {/* Manual Coordinates Input Form */}
-      {showManualInputs && (
-        <form onSubmit={handleApplyManualCoords} className="p-3 bg-gray-50 rounded-2xl border border-gray-200 flex flex-wrap gap-2 items-center text-xs animate-fade-in">
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500 font-medium">Vĩ độ:</span>
-            <input
-              type="number"
-              step="any"
-              placeholder="VD: 21.0128"
-              value={manualLat}
-              onChange={(e) => setManualLat(e.target.value)}
-              className="w-28 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs"
-            />
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-gray-500 font-medium">Kinh độ:</span>
-            <input
-              type="number"
-              step="any"
-              placeholder="VD: 105.5255"
-              value={manualLng}
-              onChange={(e) => setManualLng(e.target.value)}
-              className="w-28 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-3 py-1 bg-gray-800 hover:bg-black text-white font-bold rounded-lg text-xs"
-          >
-            Xem trên bản đồ
-          </button>
-        </form>
-      )}
-
-      {/* Warnings & Errors */}
+      {/* Errors and Warnings */}
       {searchError && (
-        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-1.5 animate-fade-in">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+        <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
           <span>{searchError}</span>
         </div>
       )}
-
       {accuracyWarning && (
-        <div className="p-2.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-950 text-xs flex items-center gap-1.5 animate-fade-in">
-          <AlertCircle className="w-4 h-4 text-orange-600 shrink-0" />
+        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
           <span>{accuracyWarning}</span>
         </div>
       )}
 
-      {/* Map Container */}
-      <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-inner">
-        <div ref={mapContainerRef} style={{ height: '300px', width: '100%' }} />
+      {/* Vietmap GL Map Canvas Container */}
+      <div className="relative rounded-2xl overflow-hidden border border-green-100 shadow-sm bg-gray-50">
+        <div
+          ref={mapContainerRef}
+          style={{ width: '100%', height: '320px' }}
+          className="relative z-0"
+        />
 
-        {/* Floating Controls Overlay */}
-        <div className="absolute top-2 right-2 z-[400] flex flex-col gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              if (mapInstanceRef.current) {
-                mapInstanceRef.current.setView(DEFAULT_MAP_CENTER, 14);
-              }
-            }}
-            className="bg-white/95 hover:bg-white p-1.5 rounded-lg shadow border border-gray-200 text-gray-700 text-[10px] font-bold"
-            title="Đưa bản đồ về trung tâm Hòa Lạc"
-          >
-            Hòa Lạc
-          </button>
-        </div>
-
-        {/* Map Click Helper Banner */}
-        <div className="absolute bottom-2 left-2 right-2 z-[400] pointer-events-none">
-          <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-xl text-[11px] text-center pointer-events-auto">
-            💡 Click hoặc kéo thả chiếc ghim đỏ 📍 để chọn đúng vị trí quán của bạn
-          </div>
+        {/* Floating Vietmap Attribution & Guide Badge */}
+        <div className="absolute top-2.5 left-2.5 z-10 pointer-events-none">
+          <span className="px-2.5 py-1 rounded-lg bg-white/90 backdrop-blur-sm text-[11px] font-semibold text-gray-700 shadow-sm border border-gray-100 flex items-center gap-1.5">
+            <span className="text-pink-600">📍</span>
+            <span>Bản đồ Vietmap: Click hoặc kéo ghim để chọn</span>
+          </span>
         </div>
       </div>
 
-      {/* Confirmation & Status Bar */}
-      <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          {isConfirmed ? (
-            <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Đã xác nhận vị trí trên Vietmap ({value.lat.toFixed(5)}, {value.lng.toFixed(5)})</span>
-            </div>
-          ) : isPending ? (
-            <div className="flex items-center gap-1.5 text-amber-700 font-bold">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Đang chọn tọa độ ({stagedLocation.lat.toFixed(5)}, {stagedLocation.lng.toFixed(5)}) — Cần bấm "Xác nhận vị trí này"</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5 text-gray-600 font-medium">
-              <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-              <span>Chưa có vị trí bản đồ (Tin tuyển dụng sẽ chỉ hiển thị địa chỉ text)</span>
-            </div>
+      {/* Bottom Confirmation & Address Panel */}
+      <div className="p-3 bg-white rounded-2xl border border-green-100 shadow-sm space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-text-main">Trạng thái vị trí:</span>
+            {hasConfirmedLocation ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã xác nhận trên Vietmap
+              </span>
+            ) : currentDisplayStatus === 'pending_confirmation' ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 animate-pulse">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Chờ xác nhận vị trí ghim
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                Chưa ghim vị trí
+              </span>
+            )}
+          </div>
+
+          {/* Explicit Confirm Button */}
+          {stagedLocation && currentDisplayStatus !== 'confirmed' && (
+            <button
+              type="button"
+              onClick={handleConfirmLocation}
+              className="w-full sm:w-auto px-4 py-1.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <Check className="w-4 h-4" />
+              <span>Xác nhận vị trí này</span>
+            </button>
           )}
         </div>
 
-        {/* Action Button: Confirm this location */}
-        {(stagedLocation || (isValidCoordinate(value?.lat, value?.lng) && !isConfirmed)) && (
+        {/* Display Resolved Address & Coordinates */}
+        {(stagedLocation || isValidCoordinate(value?.lat, value?.lng)) && (
+          <div className="text-xs text-text-muted space-y-1 bg-gray-50/70 p-2.5 rounded-xl border border-gray-100">
+            {(stagedLocation?.displayName || value?.formattedAddress) && (
+              <p className="text-text-main font-medium flex items-start gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-pink-600 shrink-0 mt-0.5" />
+                <span className="line-clamp-2">
+                  {stagedLocation?.displayName || value?.formattedAddress}
+                </span>
+              </p>
+            )}
+            <p className="text-[11px] text-gray-500 font-mono">
+              Tọa độ: {(stagedLocation?.lat ?? value?.lat)?.toFixed(6)}, {(stagedLocation?.lng ?? value?.lng)?.toFixed(6)}
+            </p>
+          </div>
+        )}
+
+        {/* Manual Coordinates Toggle */}
+        <div className="pt-1 border-t border-gray-100 flex items-center justify-between text-xs">
           <button
             type="button"
-            onClick={handleConfirmLocation}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0 cursor-pointer"
+            onClick={() => setShowManualInputs(!showManualInputs)}
+            className="text-[11px] text-green-700 hover:text-green-900 font-semibold"
           >
-            <Check className="w-3.5 h-3.5" />
-            <span>Xác nhận vị trí này</span>
+            {showManualInputs ? 'Ẩn nhập tọa độ thủ công' : 'Nhập tọa độ thủ công (kinh độ, vĩ độ)'}
           </button>
+        </div>
+
+        {showManualInputs && (
+          <div className="pt-2 border-t border-dashed border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <input
+              type="text"
+              value={manualLat}
+              onChange={(e) => setManualLat(e.target.value)}
+              placeholder="Vĩ độ (VD: 21.0128)"
+              className="px-3 py-1.5 border border-gray-200 rounded-xl text-xs"
+            />
+            <input
+              type="text"
+              value={manualLng}
+              onChange={(e) => setManualLng(e.target.value)}
+              placeholder="Kinh độ (VD: 105.5255)"
+              className="px-3 py-1.5 border border-gray-200 rounded-xl text-xs"
+            />
+            <button
+              type="button"
+              onClick={handleApplyManual}
+              className="px-3 py-1.5 bg-gray-800 text-white rounded-xl text-xs font-semibold hover:bg-black transition-all"
+            >
+              Áp dụng
+            </button>
+          </div>
         )}
       </div>
     </div>

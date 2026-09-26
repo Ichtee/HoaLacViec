@@ -146,9 +146,10 @@
 .animate-slide-up { animation: slideUp 0.3s ease both; }
 .animate-scale-in { animation: scaleIn 0.2s ease both; }
 
-/* Custom Leaflet Map Markers */
-.custom-job-marker,
-.custom-user-marker {
+/* Custom Vietmap GL Map Markers */
+.vietmap-job-marker,
+.vietmap-user-marker,
+.vietmap-picker-pin {
   background: transparent !important;
   border: none !important;
 }

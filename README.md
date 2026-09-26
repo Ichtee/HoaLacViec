@@ -6,7 +6,7 @@
 
 ## 🌟 Tính Năng Nổi Bật
 
-- **Bản Đồ Việc Làm Trực Quan (Leaflet & Vietmap Tile):** Định vị chính xác cửa hàng, quán cà phê, tiệm ăn quanh Hòa Lạc; hỗ trợ dẫn đường 1-click qua Google Maps.
+- **Bản Đồ Việc Làm Trực Quan (Vietmap GL JS):** Định vị chính xác cửa hàng, quán cà phê, tiệm ăn quanh Hòa Lạc; hỗ trợ dẫn đường 1-click qua Google Maps.
 - **Tìm Kiếm Địa Điểm & Định Vị Thông Minh (Vietmap v4):** Hỗ trợ tra cứu địa điểm, tự động phân giải tọa độ chính xác qua Vietmap Autocomplete & Place v4, ước tính lộ trình xe máy qua Vietmap Route v4.
 - **Liên Hệ Nhanh 2 Chiều (Phone & Zalo):** Sinh viên và nhà tuyển dụng có thể gọi điện trực tiếp (`tel:...`) hoặc nhắn tin Zalo (`zalo.me/...`) ngay trên thẻ hồ sơ và trang chi tiết việc làm.
 - **Khớp Lịch Học & Ca Làm Tự Động:** Tính toán tỷ lệ trùng khớp (% matching) giữa thời gian rảnh của sinh viên và ca tuyển của quán, cảnh báo xung đột lịch học.
