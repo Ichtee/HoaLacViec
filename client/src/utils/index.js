@@ -130,12 +130,10 @@ export function getGoogleMapsDestination(entity) {
   const lat = entity.location?.lat ?? entity.lat ?? entity.geoPoint?.coordinates?.[1];
   const lng = entity.location?.lng ?? entity.lng ?? entity.geoPoint?.coordinates?.[0];
 
-  const confirmed =
-    (entity.locationStatus === 'confirmed' || entity.locationStatus === 'verified') &&
-    isValidCoordinate(lat, lng);
+  const confirmed = hasConfirmedCoordinates(entity);
 
   // 1. Confirmed coordinates priority: return `${lat},${lng}`
-  if (confirmed) {
+  if (confirmed && isValidCoordinate(lat, lng)) {
     return `${Number(lat)},${Number(lng)}`;
   }
 

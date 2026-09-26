@@ -17,7 +17,7 @@ import {
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import LocationPicker from '@/components/LocationPicker';
-import { formatVND, isValidCoordinate } from '@/utils';
+import { formatVND, isValidCoordinate, hasConfirmedCoordinates } from '@/utils';
 import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
 
 export default function EmployerJobsPage() {
@@ -586,17 +586,27 @@ export default function EmployerJobsPage() {
                   </button>
 
                   <div className="flex items-center gap-1.5">
-                    {(job.address || job.location?.lat) && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address || `${job.location?.lat},${job.location?.lng}`)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-1 text-[11px] font-semibold border border-transparent hover:border-blue-200"
-                        title="Mở tìm kiếm địa chỉ này trên Google Maps"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    )}
+                    {(() => {
+                      const lat = job.location?.lat ?? job.lat ?? job.geoPoint?.coordinates?.[1];
+                      const lng = job.location?.lng ?? job.lng ?? job.geoPoint?.coordinates?.[0];
+                      const hasCoords = isValidCoordinate(lat, lng);
+                      const isConfirmed = hasConfirmedCoordinates(job) || hasCoords;
+                      const navUrl = isConfirmed
+                        ? `https://www.google.com/maps/dir/?api=1&destination=${Number(lat)},${Number(lng)}`
+                        : (job.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}` : null);
+                      if (!navUrl) return null;
+                      return (
+                        <a
+                          href={navUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-1 text-[11px] font-semibold border border-transparent hover:border-blue-200"
+                          title={isConfirmed ? "Mở chỉ đường trên Google Maps đến tọa độ chính xác" : "Mở tìm kiếm địa chỉ này trên Google Maps"}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      );
+                    })()}
                     <button
                       onClick={() => handleOpenEdit(job)}
                       className="p-2 text-gray-500 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-colors border border-transparent hover:border-pink-200"
@@ -793,16 +803,24 @@ export default function EmployerJobsPage() {
                     {fullAddressPreview || 'Chưa có thông tin'}
                   </p>
                 </div>
-                {fullAddressPreview && (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddressPreview)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 text-blue-600 hover:text-blue-700 font-medium text-xs flex items-center gap-1 ml-2"
-                  >
-                    Kiểm tra <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
+                {(() => {
+                  const hasCoords = isValidCoordinate(formData.lat, formData.lng);
+                  const checkUrl = hasCoords
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${formData.lat},${formData.lng}`
+                    : (fullAddressPreview ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddressPreview)}` : null);
+                  if (!checkUrl) return null;
+                  return (
+                    <a
+                      href={checkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 text-blue-600 hover:text-blue-700 font-medium text-xs flex items-center gap-1 ml-2"
+                      title={hasCoords ? "Kiểm tra vị trí ghim trên Google Maps" : "Kiểm tra địa chỉ trên Google Maps"}
+                    >
+                      Kiểm tra <ExternalLink className="w-3 h-3" />
+                    </a>
+                  );
+                })()}
               </div>
             </div>
 
