@@ -207,20 +207,20 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
     assert.equal(getGoogleMapsDestination(updatedWithRepin), '21.0201,105.5312');
   });
 
-  // 8. Simplified address-based Google Maps Directions
+  // 8. Simplified address-based Google Maps Directions / Search
   await t.test('8. Đơn giản hóa toàn bộ nút Chỉ đường trên Google Maps', async (st) => {
     // 1. job.address = "Số 15 Trục đường chính Tân Xã, Thạch Thất"
-    // URL phải chứa chính xác destination đã encode của chuỗi trên.
-    await st.test('1. URL chứa chính xác destination đã encode của job.address', () => {
+    // URL phải chứa chính xác query đã encode của chuỗi trên.
+    await st.test('1. URL chứa chính xác query đã encode của job.address', () => {
       const job = {
         title: 'Phụ Quán',
         address: 'Số 15 Trục đường chính Tân Xã, Thạch Thất',
       };
-      const expectedUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
+      const expectedUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
       const actualUrl = getGoogleMapsDirectionsUrl(job);
 
       assert.equal(actualUrl, expectedUrl);
-      assert.ok(actualUrl.includes('destination=' + encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')));
+      assert.ok(actualUrl.includes('query=' + encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')));
     });
 
     // 2. Dù job có confirmed coordinates, URL vẫn phải dùng address.
@@ -236,7 +236,7 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
 
       assert.equal(
         url,
-        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`
       );
       assert.ok(!url.includes('21.0185'), 'URL must NOT contain latitude');
       assert.ok(!url.includes('105.521'), 'URL must NOT contain longitude');
@@ -293,7 +293,7 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
       // JobMap resolution:
       const jobMapDirectionsUrl = getGoogleMapsDirectionsUrl(job);
 
-      const expectedUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
+      const expectedUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
 
       assert.equal(jobDetailDirectionsUrl, expectedUrl);
       assert.equal(jobCardDirectionsUrl, expectedUrl);
