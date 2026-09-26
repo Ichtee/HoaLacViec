@@ -17,8 +17,10 @@ import {
   routeCache,
   normalizeVietmapAddressComponents,
   vietmapAutocomplete,
+  vietmapSearch,
   vietmapPlace,
   vietmapReverse,
+  vietmapReverseBatch,
   vietmapRoute,
   vietmapRouteTolls,
   vietmapMatchTolls,
@@ -112,7 +114,7 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
     ];
 
     // Seed cache
-    const cacheKey = `${testQuery.toLowerCase()}|${DEFAULT_HOALAC_BIAS}|5`;
+    const cacheKey = `${testQuery.toLowerCase()}|${DEFAULT_HOALAC_BIAS}|6`;
     autocompleteCache.set(cacheKey, mockSuggestions);
 
     // Fetch should return from cache
@@ -124,6 +126,11 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
     // Autocomplete must NOT return coordinates
     assert.equal(cached.suggestions[0].lat, undefined);
     assert.equal(cached.suggestions[0].lng, undefined);
+
+    // 2.3 Search v4 validation
+    const emptySearch = await vietmapSearch('');
+    assert.equal(emptySearch.success, true);
+    assert.equal(emptySearch.results.length, 0);
   });
 
   // 3. Place v4 Contract
@@ -345,6 +352,11 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
     const invalidMatchTolls = await vietmapMatchTolls({ path: [] });
     assert.equal(invalidMatchTolls.success, false);
     assert.equal(invalidMatchTolls.code, 'INVALID_POINTS');
+
+    // 8.4 Reverse-batch parameter validation
+    const invalidReverseBatch = await vietmapReverseBatch([]);
+    assert.equal(invalidReverseBatch.success, false);
+    assert.equal(invalidReverseBatch.code, 'INVALID_POINTS');
   });
 });
 

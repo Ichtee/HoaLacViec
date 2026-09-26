@@ -2,8 +2,10 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import {
   vietmapAutocomplete,
+  vietmapSearch,
   vietmapPlace,
   vietmapReverse,
+  vietmapReverseBatch,
   vietmapRoute,
   vietmapRouteTolls,
   vietmapMatchTolls,
@@ -44,6 +46,38 @@ router.get('/autocomplete', async (req, res, next) => {
     }
 
     const result = await vietmapAutocomplete({
+      text: text.trim(),
+      focus: typeof focus === 'string' ? focus.trim() : undefined,
+    });
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'RESOURCE_LOCKED' ? 423 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/maps/search
+ * Query params: text (full address), focus (lat,lng)
+ */
+router.get('/search', async (req, res, next) => {
+  try {
+    const { text, focus } = req.query;
+
+    if (!text || typeof text !== 'string' || text.trim().length < 2) {
+      return res.json({
+        success: true,
+        results: [],
+        message: 'Vui lòng nhập ít nhất 2 ký tự để tìm kiếm địa chỉ',
+      });
+    }
+
+    const result = await vietmapSearch({
       text: text.trim(),
       focus: typeof focus === 'string' ? focus.trim() : undefined,
     });
@@ -111,6 +145,35 @@ router.get('/reverse', async (req, res, next) => {
 
     if (!result.success) {
       const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      return res.status(statusCode).json(result);
+    }
+
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/maps/reverse-batch
+ * Body: { points: [{lat, lng}, ...] | [[lng, lat], ...] }
+ */
+router.post('/reverse-batch', async (req, res, next) => {
+  try {
+    const { points } = req.body;
+
+    if (!Array.isArray(points) || points.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cần danh sách points để tra cứu địa chỉ hàng loạt',
+        code: 'INVALID_POINTS',
+      });
+    }
+
+    const result = await vietmapReverseBatch(points);
+
+    if (!result.success) {
+      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : 400;
       return res.status(statusCode).json(result);
     }
 

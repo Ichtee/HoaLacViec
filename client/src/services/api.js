@@ -543,6 +543,13 @@ export async function apiVietmapAutocomplete(text, focus, signal) {
   return request(`/maps/autocomplete?${params.toString()}`, { signal });
 }
 
+export async function apiVietmapSearch(text, focus, signal) {
+  const params = new URLSearchParams();
+  if (text) params.set('text', text);
+  if (focus) params.set('focus', focus);
+  return request(`/maps/search?${params.toString()}`, { signal });
+}
+
 export async function apiVietmapPlace(refId, signal) {
   const params = new URLSearchParams();
   if (refId) params.set('refid', refId);
@@ -554,6 +561,14 @@ export async function apiVietmapReverse(lat, lng, signal) {
   params.set('lat', String(lat));
   params.set('lng', String(lng));
   return request(`/maps/reverse?${params.toString()}`, { signal });
+}
+
+export async function apiVietmapReverseBatch(points, signal) {
+  return request('/maps/reverse-batch', {
+    method: 'POST',
+    body: JSON.stringify({ points }),
+    signal,
+  });
 }
 
 export async function apiVietmapRoute(options = {}, signal) {

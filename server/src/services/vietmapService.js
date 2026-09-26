@@ -131,16 +131,16 @@ export function normalizeVietmapResult(raw, refId = null) {
 export async function vietmapAutocomplete(arg1, arg2, arg3) {
   let text = '';
   let focus = undefined;
-  let displayType = 5;
+  let displayType = 6; // Recommended by VietMap guide: old format primary, new in data_new
 
   if (typeof arg1 === 'string') {
     text = arg1;
     focus = arg2;
-    displayType = typeof arg3 === 'number' ? arg3 : 5;
+    displayType = typeof arg3 === 'number' ? arg3 : 6;
   } else if (arg1 && typeof arg1 === 'object') {
     text = arg1.text;
     focus = arg1.focus;
-    displayType = typeof arg1.displayType === 'number' ? arg1.displayType : 5;
+    displayType = typeof arg1.displayType === 'number' ? arg1.displayType : 6;
   }
 
   if (!text || typeof text !== 'string' || text.trim().length < 2) {
@@ -233,6 +233,102 @@ export async function vietmapAutocomplete(arg1, arg2, arg3) {
 }
 
 /**
+ * Search v4: Forward geocode for complete address strings (non-interactive).
+ * Optimized for full address lookups, DB migrations, or external imports.
+ * @param {Object} options
+ * @param {string} options.text - Complete address string
+ * @param {string} [options.focus] - "lat,lng" for ranking bias
+ * @param {number} [options.displayType=6] - 6: Both formats, old primary
+ * @returns {Promise<{ success: boolean, results: Array, error?: string }>}
+ */
+export async function vietmapSearch(options = {}) {
+  const { text, focus, displayType = 6 } = typeof options === 'string' ? { text: options } : options;
+  if (!text || typeof text !== 'string' || text.trim().length < 2) {
+    return { success: true, results: [], message: 'Vui lòng nhập ít nhất 2 ký tự' };
+  }
+
+  const cleanText = text.trim();
+  const apiKey = getVietmapServiceApiKey();
+  if (!apiKey) {
+    return {
+      success: false,
+      error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.',
+      code: 'VIETMAP_KEY_MISSING',
+    };
+  }
+
+  let focusParam = DEFAULT_HOALAC_BIAS;
+  if (focus && typeof focus === 'string') {
+    const parts = focus.split(',').map((p) => Number(p.trim()));
+    if (parts.length === 2 && isValidCoordinate(parts[0], parts[1])) {
+      focusParam = `${parts[0]},${parts[1]}`;
+    }
+  }
+
+  const cacheKey = `search:${cleanText.toLowerCase()}|${focusParam}|${displayType}`;
+  const cached = autocompleteCache.get(cacheKey);
+  if (cached) {
+    return { success: true, results: cached, fromCache: true };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const url = new URL('https://maps.vietmap.vn/api/search/v4');
+    url.searchParams.set('apikey', apiKey);
+    url.searchParams.set('text', cleanText);
+    url.searchParams.set('focus', focusParam);
+    url.searchParams.set('display_type', String(displayType));
+
+    const response = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+    }
+    if (response.status === 423) {
+      return { success: false, error: 'Tài nguyên Vietmap đang bị tạm khóa hoặc vượt hạn mức (423)', code: 'RESOURCE_LOCKED' };
+    }
+    if (!response.ok) {
+      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+    }
+
+    const data = await response.json();
+    if (data?.code === 'OVER_DAILY_LIMIT') {
+      return { success: false, error: 'Đã vượt quá hạn mức truy vấn Vietmap trong ngày', code: 'OVER_DAILY_LIMIT' };
+    }
+    if (!Array.isArray(data)) {
+      return { success: true, results: [] };
+    }
+
+    const results = data.slice(0, 10).map((item) => ({
+      refId: item.ref_id,
+      display: item.display || '',
+      name: item.name || '',
+      address: item.address || '',
+      distance: item.distance || null,
+      boundaries: item.boundaries || [],
+      categories: item.categories || [],
+      dataNew: item.data_new || null,
+    }));
+
+    autocompleteCache.set(cacheKey, results);
+    return { success: true, results };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Search (timeout 8s)', code: 'TIMEOUT' };
+    }
+    return { success: false, error: `Lỗi kết nối Vietmap Search: ${err.message}`, code: 'NETWORK_ERROR' };
+  }
+}
+
+/**
  * Place v4: Fetches exact coordinates and components for a selected ref_id.
  * Each call counts as 1 transaction on Vietmap.
  * @param {Object} options
@@ -313,10 +409,10 @@ export async function vietmapPlace(arg) {
  * @param {Object} options
  * @param {number} options.lat
  * @param {number} options.lng
- * @param {number} [options.displayType=5]
+ * @param {number} [options.displayType=6]
  * @returns {Promise<{ success: boolean, place?: Object, candidates?: Array, error?: string }>}
  */
-export async function vietmapReverse({ lat, lng, displayType = 5 }) {
+export async function vietmapReverse({ lat, lng, displayType = 6 }) {
   if (!isValidCoordinate(lat, lng)) {
     return { success: false, error: 'Tọa độ tìm kiếm không hợp lệ (lat: [-90, 90], lng: [-180, 180])', code: 'INVALID_COORDINATES' };
   }
@@ -674,4 +770,74 @@ export async function vietmapMatchTolls({ path = [], points, vehicle = 1 }) {
     return { success: false, error: `Lỗi kết nối Vietmap Match-tolls: ${err.message}`, code: 'NETWORK_ERROR' };
   }
 }
+
+/**
+ * Reverse-batch: Reverse geocodes a batch of coordinates in one round trip.
+ * Uses lon, not lng, as explicitly required by VietMap reverse-batch API.
+ * @param {Array<{lat: number, lng: number}|{lat: number, lon: number}|[number, number]>} points
+ * @returns {Promise<{ success: boolean, results?: Array, error?: string }>}
+ */
+export async function vietmapReverseBatch(points = []) {
+  if (!Array.isArray(points) || points.length === 0) {
+    return { success: false, error: 'Cần danh sách tọa độ để tra cứu hàng loạt', code: 'INVALID_POINTS' };
+  }
+
+  const apiKey = getVietmapServiceApiKey();
+  if (!apiKey) {
+    return { success: false, error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.', code: 'VIETMAP_KEY_MISSING' };
+  }
+
+  // VietMap reverse-batch strictly requires { lon, lat } (lon, NOT lng!)
+  const batchBody = points.map((pt) => {
+    if (Array.isArray(pt) && pt.length >= 2) {
+      return { lon: Number(pt[0]), lat: Number(pt[1]) };
+    }
+    if (pt && typeof pt === 'object') {
+      const lon = pt.lon !== undefined ? Number(pt.lon) : Number(pt.lng);
+      return { lon, lat: Number(pt.lat) };
+    }
+    return null;
+  }).filter((pt) => pt && !isNaN(pt.lon) && !isNaN(pt.lat));
+
+  if (batchBody.length === 0) {
+    return { success: false, error: 'Không có tọa độ hợp lệ trong danh sách', code: 'INVALID_COORDINATES' };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const url = new URL('https://maps.vietmap.vn/api/geocode-fleet/reverse-batch');
+    url.searchParams.set('apikey', apiKey);
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(batchBody),
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 401) {
+      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+    }
+    if (!response.ok) {
+      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+    }
+
+    const data = await response.json();
+    return { success: true, results: Array.isArray(data) ? data : [] };
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Reverse Batch (timeout 10s)', code: 'TIMEOUT' };
+    }
+    return { success: false, error: `Lỗi kết nối Vietmap Reverse Batch: ${err.message}`, code: 'NETWORK_ERROR' };
+  }
+}
+
 
