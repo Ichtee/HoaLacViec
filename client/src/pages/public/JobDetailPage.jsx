@@ -375,34 +375,45 @@ export default function JobDetailPage() {
                   <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-pink-main shrink-0" /> Số điện thoại / Zalo quán:
                   </p>
-                  <div className="p-2.5 rounded-xl bg-pink-50/60 border border-pink-100 flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm text-text-main tracking-wide">{contactPhone}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="p-3 rounded-2xl bg-pink-50/50 border border-pink-100 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-sm text-text-main tracking-wider">{contactPhone}</span>
+                      <span className="text-[10px] font-medium text-pink-600 bg-pink-100/70 px-2 py-0.5 rounded-full">
+                        Liên hệ trực tiếp
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
                       <a
                         href={`tel:${contactPhone}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all"
+                        className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all"
                         title="Gọi trực tiếp cho chủ quán"
                       >
-                        <Phone className="w-3 h-3" /> Gọi ngay
+                        <Phone className="w-3.5 h-3.5" /> Gọi ngay
                       </a>
                       <a
                         href={`https://zalo.me/${contactPhone.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                        className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
                         title="Nhắn tin Zalo"
                       >
-                        <MessageCircle className="w-3 h-3" /> Zalo
+                        <MessageCircle className="w-3.5 h-3.5" /> Nhắn Zalo
                       </a>
                     </div>
                   </div>
                 </div>
               )}
 
-              {emp?.rating > 0 && (
-                <p className="flex items-center gap-2">
+              {emp?.ratingCount > 0 ? (
+                <p className="flex items-center gap-2 text-xs">
                   <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  {emp.rating.toFixed(1)} ({emp.ratingCount} đánh giá)
+                  <span className="font-bold text-text-main">{emp.rating?.toFixed(1) || '0.0'}</span>
+                  <span className="text-text-muted">({emp.ratingCount} đánh giá)</span>
+                </p>
+              ) : (
+                <p className="flex items-center gap-2 text-xs text-text-muted">
+                  <Star className="w-4 h-4 text-gray-300" />
+                  <span>Chưa có đánh giá</span>
                 </p>
               )}
               {emp?.description && <p className="text-xs leading-relaxed mt-2">{emp.description}</p>}

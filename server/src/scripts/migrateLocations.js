@@ -189,6 +189,14 @@ export async function runLocationMigration(options = {}) {
       changed = true;
     }
 
+    if (!emp.ratingCount || emp.ratingCount === 0) {
+      if (emp.rating !== 0) {
+        emp.rating = 0;
+        emp.ratingCount = 0;
+        changed = true;
+      }
+    }
+
     if (!emp.addressComponents) {
       emp.addressComponents = normalizeAddressComponents(emp.addressComponents || { addressLine: emp.address });
       emp.provinceCode = emp.addressComponents.provinceCode || null;

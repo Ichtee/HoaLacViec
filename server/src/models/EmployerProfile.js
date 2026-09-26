@@ -51,7 +51,7 @@ const employerProfileSchema = new mongoose.Schema({
   verifiedAt: { type: Date, default: null },
   checkinRadius: { type: Number, default: 150, min: 50, max: 500 },
   busRoutes: [{ type: String }],
-  rating: { type: Number, default: 5.0 },
+  rating: { type: Number, default: 0 },
   ratingCount: { type: Number, default: 0 },
 }, { timestamps: true });
 

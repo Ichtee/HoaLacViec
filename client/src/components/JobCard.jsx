@@ -89,11 +89,11 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
               </div>
 
               <div className="flex items-center gap-1.5 min-w-0">
-                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 flex-shrink-0" />
+                <Star className={`w-4 h-4 flex-shrink-0 ${employer?.ratingCount > 0 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
                 <span className="truncate">
-                  {employer?.rating > 0
-                    ? `${employer.rating.toFixed(1)} (${employer.ratingCount || 0} đánh giá)`
-                    : '5.0 (0 đánh giá)'}
+                  {employer?.ratingCount > 0
+                    ? `${employer.rating.toFixed(1)} (${employer.ratingCount} đánh giá)`
+                    : 'Chưa có đánh giá'}
                 </span>
               </div>
             </div>

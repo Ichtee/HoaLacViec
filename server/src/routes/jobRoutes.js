@@ -307,7 +307,7 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
                 address: emp.address,
                 area: emp.area,
                 verified: Boolean(emp.verified),
-                rating: emp.rating || null,
+                rating: (emp.ratingCount && emp.ratingCount > 0) ? emp.rating : null,
                 ratingCount: emp.ratingCount || 0,
               }
             : {
@@ -318,7 +318,7 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
                 rating: null,
                 ratingCount: 0,
               },
-          rating: emp?.rating || null,
+          rating: (emp && emp.ratingCount > 0) ? emp.rating : null,
         };
       });
     } catch (err) {
@@ -413,7 +413,7 @@ router.get('/:id', optionalAuthenticate, async (req, res, next) => {
             area: employer.area,
             contactPhone: employer.contactPhone,
             verified: Boolean(employer.verified),
-            rating: employer.rating || null,
+            rating: (employer.ratingCount && employer.ratingCount > 0) ? employer.rating : null,
             ratingCount: employer.ratingCount || 0,
           }
         : {
