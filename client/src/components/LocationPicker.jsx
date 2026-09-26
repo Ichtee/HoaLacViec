@@ -153,15 +153,16 @@ export default function LocationPicker({
       stageLocation(lat, lng, source);
       try {
         const res = await apiVietmapReverse(lat, lng);
-        if (res?.place) {
+        // New response shape: { success, provider, display, addressLine, lat, lng, addressComponents }
+        if (res?.success && res.display) {
           stageLocation(
             lat,
             lng,
             source,
-            res.place.formattedAddress || res.place.displayName,
+            res.display,
             'vietmap',
-            res.place.refId,
-            res.place.addressComponents
+            res.refId || null,
+            res.addressComponents || null,
           );
         }
       } catch (err) {
@@ -238,11 +239,13 @@ export default function LocationPicker({
         }
 
         const res = await apiVietmapAutocomplete(query, focus, controller.signal);
-        if (res?.suggestions) {
-          setCandidates(res.suggestions.slice(0, 10));
-          if (res.suggestions.length === 0) {
-            setSearchError('Không tìm thấy địa điểm phù hợp trên Vietmap.');
-          }
+        // New response shape returns 'items' (not 'suggestions')
+        const items = res?.items || res?.suggestions || [];
+        if (items.length > 0) {
+          setCandidates(items.slice(0, 10));
+        } else {
+          setCandidates([]);
+          setSearchError('Không tìm thấy địa điểm phù hợp trên Vietmap.');
         }
       } catch (err) {
         if (err.name !== 'AbortError') {
@@ -364,11 +367,12 @@ export default function LocationPicker({
       }
 
       const res = await apiVietmapAutocomplete(query, focus);
-      if (res?.suggestions) {
-        setCandidates(res.suggestions.slice(0, 10));
-        if (res.suggestions.length === 0) {
-          setSearchError('Không tìm thấy địa điểm phù hợp trên Vietmap.');
-        }
+      const items = res?.items || res?.suggestions || [];
+      if (items.length > 0) {
+        setCandidates(items.slice(0, 10));
+      } else {
+        setCandidates([]);
+        setSearchError('Không tìm thấy địa điểm phù hợp trên Vietmap.');
       }
     } catch (err) {
       setSearchError(err.message || 'Lỗi khi tìm kiếm trên Vietmap');
@@ -384,8 +388,9 @@ export default function LocationPicker({
 
     try {
       setSearching(true);
+      // New response shape: { success, provider, display, addressLine, lat, lng, addressComponents }
       const place = await apiVietmapPlace(candidate.refId);
-      if (place && isValidCoordinate(place.lat, place.lng)) {
+      if (place && place.success && isValidCoordinate(place.lat, place.lng)) {
         const nLat = Number(place.lat);
         const nLng = Number(place.lng);
 
@@ -393,10 +398,10 @@ export default function LocationPicker({
           nLat,
           nLng,
           'places',
-          place.formattedAddress || place.displayName,
+          place.display || candidate.display || '',
           'vietmap',
-          place.refId,
-          place.addressComponents
+          candidate.refId,
+          place.addressComponents || null,
         );
 
         if (mapInstanceRef.current) {

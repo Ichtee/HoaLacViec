@@ -90,21 +90,46 @@ Client sẽ hoạt động tại `http://localhost:5173`.
 | :--- | :--- | :--- |
 | `PORT` | Cổng dịch vụ Express | `5000` |
 | `MONGO_URI` | Chuỗi kết nối MongoDB | `mongodb://127.0.0.1:27017/hoalacviec` |
-| `JWT_SECRET` | Khóa bí mật ký mã JWT | Tùy chọn bảo mật |
-| `VIETMAP_SERVICE_API_KEY` | API Key Vietmap Services (Autocomplete, Place, Reverse, Route) | Cần thiết nếu bật Vietmap |
+| `JWT_SECRET` | Khóa bí mật ký mã JWT | **Bắt buộc** |
+| `VIETMAP_SERVICE_API_KEY` | API Key Vietmap Services (Autocomplete, Place, Reverse, Route) — chỉ dùng backend | Cần thiết |
+| `VIETMAP_API_BASE_URL` | Base URL Vietmap API | `https://maps.vietmap.vn` |
 | `ENABLE_VIETMAP` | Bật tích hợp Vietmap (`true`/`false`) | `false` |
-| `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID cho backend xác thực token | Tùy chọn |
+| `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID | Tùy chọn |
 
 ### Client (`client/.env`)
 | Tên Biến | Mô Tả | Mặc Định |
 | :--- | :--- | :--- |
 | `VITE_DATA_MODE` | Chế độ dữ liệu (`api` hoặc `mock`) | `api` |
 | `VITE_APP_NAME` | Tên thương hiệu hiển thị | `Hoa Lạc Việc` |
-| `VITE_VIETMAP_TILE_API_KEY` | Vietmap MapTile API Key (render bản đồ vector tile client) | Cần thiết nếu dùng bản đồ Vietmap |
-| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps JavaScript API Key (tùy chọn) | Tùy chọn |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth Web Client ID cho nút Đăng nhập Google | Tùy chọn |
+| `VITE_VIETMAP_TILE_API_KEY` | Vietmap Tile API Key (render bản đồ vector tile phía client) | Cần thiết |
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth Web Client ID | Tùy chọn |
 
 ---
+
+## 🗺️ Cấu Hình Vietmap API Key (Bảo Mật)
+
+Vietmap cấp **2 loại key riêng biệt**. Không dùng chung một key cho cả hai.
+
+### Services Key (`VIETMAP_SERVICE_API_KEY`) — **Backend only**
+Dùng cho Autocomplete, Search, Place, Reverse, Route v4.
+
+**Bắt buộc trong production:**
+- Vào [Vietmap Console](https://maps.vietmap.vn/console-v2/) → chọn project → key management
+- **Giới hạn IP server** (whitelist IP của backend/cloud, không mở public)
+- **Chỉ bật API đang sử dụng** (Autocomplete, Place, Reverse, Route — tắt Matrix, TSP, VRP)
+- **Đặt quota hàng ngày** để tránh overbilling khi bị tấn công
+- **Dev và production** dùng key/project riêng
+- **Không commit key vào git**, không log key, không log outbound URL
+
+### Tile Key (`VITE_VIETMAP_TILE_API_KEY`) — **Client-side**
+Dùng để render bản đồ vector trong trình duyệt. Key này có thể thấy trong JS bundle.
+
+**Bắt buộc trong production:**
+- **Giới hạn referring domain** (chỉ cho phép domain production của bạn)
+- **Đặt per-key tile quota** để giới hạn thiệt hại nếu key bị lộ
+- **Dev và production** dùng key/project riêng
+
+
 
 ## 🔑 Cấu Hình Đăng Nhập Google (Google Login Setup)
 

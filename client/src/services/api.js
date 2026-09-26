@@ -536,26 +536,57 @@ export async function apiResolveReport(id, resolutionData) {
 }
 
 // ─── VIETMAP MAP SERVICES ──────────────────────────────────────────
+// All map endpoints require JWT authentication (sent via getAuthHeaders()).
+
+/**
+ * Autocomplete v4: Type-ahead address suggestions.
+ * Returns { success, items: [{ refId, name, display, distanceKm, boundaries, legacyAddress, currentAddress }] }
+ */
 export async function apiVietmapAutocomplete(text, focus, signal) {
   const params = new URLSearchParams();
   if (text) params.set('text', text);
-  if (focus) params.set('focus', focus);
+  // focus = "lat,lng" string — split to focusLat/focusLng per backend spec
+  if (focus && typeof focus === 'string') {
+    const parts = focus.split(',');
+    if (parts.length === 2) {
+      params.set('focusLat', parts[0].trim());
+      params.set('focusLng', parts[1].trim());
+    }
+  }
   return request(`/maps/autocomplete?${params.toString()}`, { signal });
 }
 
+/**
+ * Search v4: Forward geocoding for full address strings (non-interactive).
+ * Returns { success, items: [...] }
+ */
 export async function apiVietmapSearch(text, focus, signal) {
   const params = new URLSearchParams();
   if (text) params.set('text', text);
-  if (focus) params.set('focus', focus);
+  if (focus && typeof focus === 'string') {
+    const parts = focus.split(',');
+    if (parts.length === 2) {
+      params.set('focusLat', parts[0].trim());
+      params.set('focusLng', parts[1].trim());
+    }
+  }
   return request(`/maps/search?${params.toString()}`, { signal });
 }
 
+/**
+ * Place v4: Resolves refId → { provider, display, addressLine, lat, lng, addressComponents }.
+ * Call ONLY when user selects a suggestion — not on every keystroke.
+ */
 export async function apiVietmapPlace(refId, signal) {
   const params = new URLSearchParams();
   if (refId) params.set('refid', refId);
   return request(`/maps/place?${params.toString()}`, { signal });
 }
 
+/**
+ * Reverse v4: Coordinates → address.
+ * Returns { success, provider, refId, display, addressLine, lat, lng, addressComponents }
+ */
 export async function apiVietmapReverse(lat, lng, signal) {
   const params = new URLSearchParams();
   params.set('lat', String(lat));
@@ -563,52 +594,15 @@ export async function apiVietmapReverse(lat, lng, signal) {
   return request(`/maps/reverse?${params.toString()}`, { signal });
 }
 
-export async function apiVietmapReverseBatch(points, signal) {
-  return request('/maps/reverse-batch', {
-    method: 'POST',
-    body: JSON.stringify({ points }),
-    signal,
-  });
-}
-
-export async function apiVietmapRoute(options = {}, signal) {
-  const {
-    origin,
-    destination,
-    points,
-    vehicle = 'motorcycle',
-    capacity,
-    avoid,
-    annotations,
-  } = options;
-
+/**
+ * Route v4: Calculate road route between 2+ points.
+ * vehicle: 'motorcycle' | 'car' (only these two in current phase)
+ * Returns { success, provider, distanceMeters, durationMilliseconds, bbox, coordinates, instructions }
+ */
+export async function apiVietmapRoute({ origin, destination, points, vehicle = 'motorcycle' } = {}, signal) {
   return request('/maps/route', {
     method: 'POST',
-    body: JSON.stringify({
-      origin,
-      destination,
-      points,
-      vehicle,
-      capacity,
-      avoid,
-      annotations,
-    }),
-    signal,
-  });
-}
-
-export async function apiVietmapRouteTolls({ points, vehicle = 1 }, signal) {
-  return request('/maps/route-tolls', {
-    method: 'POST',
-    body: JSON.stringify({ points, vehicle }),
-    signal,
-  });
-}
-
-export async function apiVietmapMatchTolls({ points, path, vehicle = 1 }, signal) {
-  return request('/maps/match-tolls', {
-    method: 'POST',
-    body: JSON.stringify({ points, path, vehicle }),
+    body: JSON.stringify({ origin, destination, points, vehicle }),
     signal,
   });
 }

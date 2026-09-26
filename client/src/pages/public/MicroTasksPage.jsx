@@ -80,9 +80,18 @@ function VietmapAddressAutocomplete({
     const timer = setTimeout(async () => {
       try {
         const res = await apiVietmapAutocomplete(text.trim(), '21.0128,105.5255', controller.signal);
-        if (res?.suggestions) {
-          setSuggestions(res.suggestions.slice(0, 8));
-          setOpen(res.suggestions.length > 0);
+        const rawItems = res?.items || res?.suggestions || [];
+        if (rawItems.length > 0) {
+          const mapped = rawItems.map((item) => ({
+            refId: item.refId,
+            title: item.display || item.name || item.title || '',
+            address: item.currentAddress || item.legacyAddress || item.address || '',
+          }));
+          setSuggestions(mapped.slice(0, 8));
+          setOpen(mapped.length > 0);
+        } else {
+          setSuggestions([]);
+          setOpen(false);
         }
       } catch (err) {
         if (err.name !== 'AbortError') {
@@ -107,10 +116,10 @@ function VietmapAddressAutocomplete({
       const place = await apiVietmapPlace(item.refId);
       if (place && typeof place.lat === 'number' && typeof place.lng === 'number') {
         onSelect({
-          address: place.formattedAddress || item.title,
+          address: place.display || place.formattedAddress || item.title,
           lat: place.lat,
           lng: place.lng,
-          refId: place.refId,
+          refId: place.refId || item.refId,
         });
       } else {
         onChange(item.title);
@@ -216,10 +225,11 @@ export default function MicroTasksPage() {
         destination: { lat: dPoint.lat, lng: dPoint.lng },
         vehicle: 'motorcycle',
       });
-      if (res?.route) {
+      const routeData = res?.route || (res?.success ? res : null);
+      if (routeData) {
         setFormData((prev) => ({
           ...prev,
-          route: res.route,
+          route: routeData,
         }));
       }
     } catch (err) {

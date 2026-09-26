@@ -172,10 +172,10 @@ test('VIETMAP Integration & Security Contract Tests', async (t) => {
 
   // 4. Reverse v4 Contract
   await t.test('4. Reverse v4: Validates coordinates and returns structured address components', async () => {
-    // Invalid coordinates rejected
-    const invalidRes = await vietmapReverse(100, 200);
+    // Invalid coordinates rejected (out of range: lat=100 > 90, lng=200 > 180)
+    const invalidRes = await vietmapReverse({ lat: 100, lng: 200 });
     assert.equal(invalidRes.success, false);
-    assert.equal(invalidRes.code, 'INVALID_COORDINATES');
+    assert.equal(invalidRes.code, 'VIETMAP_INVALID_RESPONSE');
 
     // Normalizing raw Vietmap address components
     const rawVietmap = {

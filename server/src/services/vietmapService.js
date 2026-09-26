@@ -1,18 +1,29 @@
-/**
+﻿/**
  * Vietmap v4 Services Integration
  * Compliant with official Vietmap Maps API v4 specifications:
- * - Autocomplete v4 (display_type=5, min 2 chars, focus bias)
+ * - Autocomplete v4 (display_type=6, min 2 chars, focus bias)
+ * - Search v4 (full address forward geocoding, display_type=6)
  * - Place v4 (refid lookup for exact coordinates & address components)
- * - Reverse v4 (lat, lng lookup with display_type=5)
- * - Route v4 (point=lat,lng & vehicle=motorcycle / car)
+ * - Reverse v4 (lat, lng lookup with display_type=6)
+ * - Route v4 (point=lat,lng, vehicle=car|motorcycle, points_encoded=false)
  *
  * Security & Reliability:
  * - Uses VIETMAP_SERVICE_API_KEY strictly on the backend. Never exposes key to client.
- * - In-memory LRU/TTL cache to save quota.
- * - AbortController timeout handling (8 seconds).
- * - Handles 401, 423, OVER_DAILY_LIMIT, ZERO_RESULTS, and network errors.
- * - Does NOT use Nominatim's 1 req/sec mutex queue.
- * - Does NOT fall back silently to fake coordinates.
+ * - In-memory LRU/TTL cache to save quota (bounded to prevent memory leaks).
+ * - AbortController timeout handling (6â€“8 seconds per endpoint).
+ * - Handles 401, 423, OVER_DAILY_LIMIT, and network errors with spec error codes.
+ * - Does NOT retry on 401/423/quota errors. One retry on 5xx/network errors.
+ * - Does NOT log API key or outbound URLs (key is in query string).
+ *
+ * Internal error codes (per spec):
+ * - VIETMAP_NOT_CONFIGURED â€” API key missing
+ * - VIETMAP_UNAUTHORIZED  â€” 401 from Vietmap
+ * - VIETMAP_QUOTA_EXCEEDED â€” 423 or OVER_DAILY_LIMIT
+ * - VIETMAP_RATE_LIMITED  â€” rate limit (synonymous with quota exceeded)
+ * - VIETMAP_TIMEOUT       â€” AbortController fired
+ * - VIETMAP_NO_RESULTS    â€” empty result / ZERO_RESULTS
+ * - VIETMAP_INVALID_RESPONSE â€” unexpected response shape
+ * - VIETMAP_UNAVAILABLE   â€” 5xx from Vietmap
  */
 
 import { isValidCoordinate, toRouteCoordinate } from '../utils/coordinateHelper.js';
@@ -65,12 +76,18 @@ export const routeCache = new TimedCache(15 * 60 * 1000); // 15 minutes
 export function getVietmapServiceApiKey() {
   const key = process.env.VIETMAP_SERVICE_API_KEY;
   if (!key || typeof key !== 'string' || !key.trim()) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('VIETMAP_SERVICE_API_KEY chưa được cấu hình trên môi trường production.');
-    }
     return null;
   }
   return key.trim();
+}
+
+/** Build a standardized not-configured error response */
+function notConfiguredError() {
+  return {
+    success: false,
+    error: 'Dá»‹ch vá»¥ báº£n Ä‘á»“ Vietmap chÆ°a Ä‘Æ°á»£c cáº¥u hÃ¬nh (thiáº¿u API Key).',
+    code: 'VIETMAP_NOT_CONFIGURED',
+  };
 }
 
 /**
@@ -144,17 +161,13 @@ export async function vietmapAutocomplete(arg1, arg2, arg3) {
   }
 
   if (!text || typeof text !== 'string' || text.trim().length < 2) {
-    return { success: true, suggestions: [], message: 'Vui lòng nhập ít nhất 2 ký tự' };
+    return { success: true, suggestions: [], message: 'Vui lÃ²ng nháº­p Ã­t nháº¥t 2 kÃ½ tá»±' };
   }
 
   const cleanText = text.trim();
   const apiKey = getVietmapServiceApiKey();
   if (!apiKey) {
-    return {
-      success: false,
-      error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.',
-      code: 'VIETMAP_KEY_MISSING',
-    };
+    return notConfiguredError();
   }
 
   // Validate or set focus
@@ -192,19 +205,22 @@ export async function vietmapAutocomplete(arg1, arg2, arg3) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (response.status === 423) {
-      return { success: false, error: 'Tài nguyên Vietmap đang bị tạm khóa hoặc vượt hạn mức (423)', code: 'RESOURCE_LOCKED' };
+      return { success: false, error: 'TÃ i nguyÃªn Vietmap Ä‘ang bá»‹ táº¡m khÃ³a hoáº·c vÆ°á»£t háº¡n má»©c (423)', code: 'VIETMAP_QUOTA_EXCEEDED' };
+    }
+    if (response.status >= 500) {
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
 
-    if (data?.code === 'OVER_DAILY_LIMIT') {
-      return { success: false, error: 'Đã vượt quá hạn mức truy vấn Vietmap trong ngày', code: 'OVER_DAILY_LIMIT' };
+    if (data?.code === 'VIETMAP_QUOTA_EXCEEDED') {
+      return { success: false, error: 'ÄÃ£ vÆ°á»£t quÃ¡ háº¡n má»©c truy váº¥n Vietmap trong ngÃ y', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
 
     if (!Array.isArray(data)) {
@@ -219,6 +235,7 @@ export async function vietmapAutocomplete(arg1, arg2, arg3) {
       address: item.address || '',
       distance: item.distance || null,
       boundaries: item.boundaries || [],
+      dataNew: item.data_new || null,
     }));
 
     autocompleteCache.set(cacheKey, suggestions);
@@ -226,9 +243,9 @@ export async function vietmapAutocomplete(arg1, arg2, arg3) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Autocomplete (timeout 8s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Autocomplete (timeout 8s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Autocomplete: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Autocomplete: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
 
@@ -244,17 +261,13 @@ export async function vietmapAutocomplete(arg1, arg2, arg3) {
 export async function vietmapSearch(options = {}) {
   const { text, focus, displayType = 6 } = typeof options === 'string' ? { text: options } : options;
   if (!text || typeof text !== 'string' || text.trim().length < 2) {
-    return { success: true, results: [], message: 'Vui lòng nhập ít nhất 2 ký tự' };
+    return { success: true, results: [], message: 'Vui lÃ²ng nháº­p Ã­t nháº¥t 2 kÃ½ tá»±' };
   }
 
   const cleanText = text.trim();
   const apiKey = getVietmapServiceApiKey();
   if (!apiKey) {
-    return {
-      success: false,
-      error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.',
-      code: 'VIETMAP_KEY_MISSING',
-    };
+    return notConfiguredError();
   }
 
   let focusParam = DEFAULT_HOALAC_BIAS;
@@ -289,18 +302,21 @@ export async function vietmapSearch(options = {}) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (response.status === 423) {
-      return { success: false, error: 'Tài nguyên Vietmap đang bị tạm khóa hoặc vượt hạn mức (423)', code: 'RESOURCE_LOCKED' };
+      return { success: false, error: 'TÃ i nguyÃªn Vietmap Ä‘ang bá»‹ táº¡m khÃ³a hoáº·c vÆ°á»£t háº¡n má»©c (423)', code: 'VIETMAP_QUOTA_EXCEEDED' };
+    }
+    if (response.status >= 500) {
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
-    if (data?.code === 'OVER_DAILY_LIMIT') {
-      return { success: false, error: 'Đã vượt quá hạn mức truy vấn Vietmap trong ngày', code: 'OVER_DAILY_LIMIT' };
+    if (data?.code === 'VIETMAP_QUOTA_EXCEEDED') {
+      return { success: false, error: 'ÄÃ£ vÆ°á»£t quÃ¡ háº¡n má»©c truy váº¥n Vietmap trong ngÃ y', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
     if (!Array.isArray(data)) {
       return { success: true, results: [] };
@@ -322,9 +338,9 @@ export async function vietmapSearch(options = {}) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Search (timeout 8s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Search (timeout 8s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Search: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Search: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
 
@@ -338,7 +354,7 @@ export async function vietmapSearch(options = {}) {
 export async function vietmapPlace(arg) {
   const refId = typeof arg === 'string' ? arg : arg?.refId;
   if (!refId || typeof refId !== 'string' || !refId.trim()) {
-    return { success: false, error: 'Thiếu refId để tra cứu địa điểm Vietmap', code: 'INVALID_REFID' };
+    return { success: false, error: 'Thiáº¿u refId Ä‘á»ƒ tra cá»©u Ä‘á»‹a Ä‘iá»ƒm Vietmap', code: 'INVALID_REFID' };
   }
 
   const cleanRefId = refId.trim();
@@ -346,8 +362,8 @@ export async function vietmapPlace(arg) {
   if (!apiKey) {
     return {
       success: false,
-      error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.',
-      code: 'VIETMAP_KEY_MISSING',
+      error: 'Dá»‹ch vá»¥ báº£n Ä‘á»“ Vietmap chÆ°a Ä‘Æ°á»£c kÃ­ch hoáº¡t API Key.',
+      code: 'VIETMAP_NOT_CONFIGURED',
     };
   }
 
@@ -372,23 +388,23 @@ export async function vietmapPlace(arg) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (response.status === 423) {
-      return { success: false, error: 'Tài nguyên Vietmap đang bị tạm khóa hoặc vượt hạn mức (423)', code: 'RESOURCE_LOCKED' };
+      return { success: false, error: 'TÃ i nguyÃªn Vietmap Ä‘ang bá»‹ táº¡m khÃ³a hoáº·c vÆ°á»£t háº¡n má»©c (423)', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
 
-    if (data?.code === 'OVER_DAILY_LIMIT') {
-      return { success: false, error: 'Đã vượt quá hạn mức truy vấn Vietmap trong ngày', code: 'OVER_DAILY_LIMIT' };
+    if (data?.code === 'VIETMAP_QUOTA_EXCEEDED') {
+      return { success: false, error: 'ÄÃ£ vÆ°á»£t quÃ¡ háº¡n má»©c truy váº¥n Vietmap trong ngÃ y', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
 
     if (!data || typeof data !== 'object' || !isValidCoordinate(data.lat, data.lng)) {
-      return { success: false, error: 'Không tìm thấy tọa độ hợp lệ cho địa điểm này', code: 'ZERO_RESULTS' };
+      return { success: false, error: 'KhÃ´ng tÃ¬m tháº¥y tá»a Ä‘á»™ há»£p lá»‡ cho Ä‘á»‹a Ä‘iá»ƒm nÃ y', code: 'VIETMAP_NO_RESULTS' };
     }
 
     const normalized = normalizeVietmapResult(data, cleanRefId);
@@ -398,9 +414,9 @@ export async function vietmapPlace(arg) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Place (timeout 8s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Place (timeout 8s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Place: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Place: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
 
@@ -414,7 +430,7 @@ export async function vietmapPlace(arg) {
  */
 export async function vietmapReverse({ lat, lng, displayType = 6 }) {
   if (!isValidCoordinate(lat, lng)) {
-    return { success: false, error: 'Tọa độ tìm kiếm không hợp lệ (lat: [-90, 90], lng: [-180, 180])', code: 'INVALID_COORDINATES' };
+    return { success: false, error: 'Tá»a Ä‘á»™ tÃ¬m kiáº¿m khÃ´ng há»£p lá»‡ (lat: [-90, 90], lng: [-180, 180])', code: 'VIETMAP_INVALID_RESPONSE' };
   }
 
   const numLat = Number(Number(lat).toFixed(6));
@@ -424,8 +440,8 @@ export async function vietmapReverse({ lat, lng, displayType = 6 }) {
   if (!apiKey) {
     return {
       success: false,
-      error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.',
-      code: 'VIETMAP_KEY_MISSING',
+      error: 'Dá»‹ch vá»¥ báº£n Ä‘á»“ Vietmap chÆ°a Ä‘Æ°á»£c kÃ­ch hoáº¡t API Key.',
+      code: 'VIETMAP_NOT_CONFIGURED',
     };
   }
 
@@ -453,23 +469,23 @@ export async function vietmapReverse({ lat, lng, displayType = 6 }) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (response.status === 423) {
-      return { success: false, error: 'Tài nguyên Vietmap đang bị tạm khóa hoặc vượt hạn mức (423)', code: 'RESOURCE_LOCKED' };
+      return { success: false, error: 'TÃ i nguyÃªn Vietmap Ä‘ang bá»‹ táº¡m khÃ³a hoáº·c vÆ°á»£t háº¡n má»©c (423)', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
 
-    if (data?.code === 'OVER_DAILY_LIMIT') {
-      return { success: false, error: 'Đã vượt quá hạn mức truy vấn Vietmap trong ngày', code: 'OVER_DAILY_LIMIT' };
+    if (data?.code === 'VIETMAP_QUOTA_EXCEEDED') {
+      return { success: false, error: 'ÄÃ£ vÆ°á»£t quÃ¡ háº¡n má»©c truy váº¥n Vietmap trong ngÃ y', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
 
     if (!Array.isArray(data) || data.length === 0) {
-      return { success: false, error: 'Không tìm thấy địa chỉ tại tọa độ này', code: 'ZERO_RESULTS' };
+      return { success: false, error: 'KhÃ´ng tÃ¬m tháº¥y Ä‘á»‹a chá»‰ táº¡i tá»a Ä‘á»™ nÃ y', code: 'VIETMAP_NO_RESULTS' };
     }
 
     const best = data[0];
@@ -485,9 +501,9 @@ export async function vietmapReverse({ lat, lng, displayType = 6 }) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Reverse (timeout 8s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Reverse (timeout 8s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Reverse: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Reverse: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
 
@@ -523,7 +539,7 @@ export async function vietmapRoute(options = {}) {
   }
 
   if (points.length < 2) {
-    return { success: false, error: 'Cần ít nhất 2 điểm (điểm đón và điểm đến) để tìm tuyến đường', code: 'INVALID_POINTS' };
+    return { success: false, error: 'Cáº§n Ã­t nháº¥t 2 Ä‘iá»ƒm (Ä‘iá»ƒm Ä‘Ã³n vÃ  Ä‘iá»ƒm Ä‘áº¿n) Ä‘á»ƒ tÃ¬m tuyáº¿n Ä‘Æ°á»ng', code: 'INVALID_POINTS' };
   }
 
   const validPoints = points
@@ -531,7 +547,7 @@ export async function vietmapRoute(options = {}) {
     .filter(Boolean);
 
   if (validPoints.length < 2) {
-    return { success: false, error: 'Tọa độ các điểm trên tuyến đường không hợp lệ', code: 'INVALID_COORDINATES' };
+    return { success: false, error: 'Tá»a Ä‘á»™ cÃ¡c Ä‘iá»ƒm trÃªn tuyáº¿n Ä‘Æ°á»ng khÃ´ng há»£p lá»‡', code: 'VIETMAP_INVALID_RESPONSE' };
   }
 
   const validVehicle = ['motorcycle', 'car', 'truck', 'container'].includes(vehicle) ? vehicle : 'motorcycle';
@@ -540,8 +556,8 @@ export async function vietmapRoute(options = {}) {
   if (!apiKey) {
     return {
       success: false,
-      error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.',
-      code: 'VIETMAP_KEY_MISSING',
+      error: 'Dá»‹ch vá»¥ báº£n Ä‘á»“ Vietmap chÆ°a Ä‘Æ°á»£c kÃ­ch hoáº¡t API Key.',
+      code: 'VIETMAP_NOT_CONFIGURED',
     };
   }
 
@@ -579,22 +595,22 @@ export async function vietmapRoute(options = {}) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (response.status === 423) {
-      return { success: false, error: 'Tài nguyên Vietmap đang bị tạm khóa hoặc vượt hạn mức (423)', code: 'RESOURCE_LOCKED' };
+      return { success: false, error: 'TÃ i nguyÃªn Vietmap Ä‘ang bá»‹ táº¡m khÃ³a hoáº·c vÆ°á»£t háº¡n má»©c (423)', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
 
-    if (data?.code === 'OVER_DAILY_LIMIT') {
-      return { success: false, error: 'Đã vượt quá hạn mức truy vấn Vietmap trong ngày', code: 'OVER_DAILY_LIMIT' };
+    if (data?.code === 'VIETMAP_QUOTA_EXCEEDED') {
+      return { success: false, error: 'ÄÃ£ vÆ°á»£t quÃ¡ háº¡n má»©c truy váº¥n Vietmap trong ngÃ y', code: 'VIETMAP_QUOTA_EXCEEDED' };
     }
-    if (data?.code === 'ZERO_RESULTS' || !data?.paths || data.paths.length === 0) {
-      return { success: false, error: 'Không tìm thấy đường đi phù hợp giữa 2 điểm', code: 'ZERO_RESULTS' };
+    if (data?.code === 'VIETMAP_NO_RESULTS' || !data?.paths || data.paths.length === 0) {
+      return { success: false, error: 'KhÃ´ng tÃ¬m tháº¥y Ä‘Æ°á»ng Ä‘i phÃ¹ há»£p giá»¯a 2 Ä‘iá»ƒm', code: 'VIETMAP_NO_RESULTS' };
     }
 
     const bestPath = data.paths[0];
@@ -630,9 +646,9 @@ export async function vietmapRoute(options = {}) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Route (timeout 10s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Route (timeout 10s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Route: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Route: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
 
@@ -646,11 +662,11 @@ export async function vietmapRoute(options = {}) {
  */
 export async function vietmapRouteTolls({ points = [], vehicle = 1 }) {
   if (!Array.isArray(points) || points.length < 2) {
-    return { success: false, error: 'Cần ít nhất 2 điểm [[lng, lat], ...] để tính phí BOT', code: 'INVALID_POINTS' };
+    return { success: false, error: 'Cáº§n Ã­t nháº¥t 2 Ä‘iá»ƒm [[lng, lat], ...] Ä‘á»ƒ tÃ­nh phÃ­ BOT', code: 'INVALID_POINTS' };
   }
   const apiKey = getVietmapServiceApiKey();
   if (!apiKey) {
-    return { success: false, error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.', code: 'VIETMAP_KEY_MISSING' };
+    return { success: false, error: 'Dá»‹ch vá»¥ báº£n Ä‘á»“ Vietmap chÆ°a Ä‘Æ°á»£c kÃ­ch hoáº¡t API Key.', code: 'VIETMAP_NOT_CONFIGURED' };
   }
 
   const validVehicle = [1, 2, 3, 4, 5].includes(Number(vehicle)) ? Number(vehicle) : 1;
@@ -676,10 +692,10 @@ export async function vietmapRouteTolls({ points = [], vehicle = 1 }) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
@@ -696,9 +712,9 @@ export async function vietmapRouteTolls({ points = [], vehicle = 1 }) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Route-tolls (timeout 10s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Route-tolls (timeout 10s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Route-tolls: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Route-tolls: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
 
@@ -714,11 +730,11 @@ export async function vietmapRouteTolls({ points = [], vehicle = 1 }) {
 export async function vietmapMatchTolls({ path = [], points, vehicle = 1 }) {
   const trail = Array.isArray(path) && path.length >= 2 ? path : (Array.isArray(points) ? points : []);
   if (trail.length < 2) {
-    return { success: false, error: 'Cần ít nhất 2 tọa độ GPS trail [[lng, lat], ...] để đối soát BOT', code: 'INVALID_POINTS' };
+    return { success: false, error: 'Cáº§n Ã­t nháº¥t 2 tá»a Ä‘á»™ GPS trail [[lng, lat], ...] Ä‘á»ƒ Ä‘á»‘i soÃ¡t BOT', code: 'INVALID_POINTS' };
   }
   const apiKey = getVietmapServiceApiKey();
   if (!apiKey) {
-    return { success: false, error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.', code: 'VIETMAP_KEY_MISSING' };
+    return { success: false, error: 'Dá»‹ch vá»¥ báº£n Ä‘á»“ Vietmap chÆ°a Ä‘Æ°á»£c kÃ­ch hoáº¡t API Key.', code: 'VIETMAP_NOT_CONFIGURED' };
   }
 
   const validVehicle = [1, 2, 3, 4, 5].includes(Number(vehicle)) ? Number(vehicle) : 1;
@@ -744,10 +760,10 @@ export async function vietmapMatchTolls({ path = [], points, vehicle = 1 }) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
@@ -765,9 +781,9 @@ export async function vietmapMatchTolls({ path = [], points, vehicle = 1 }) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Match-tolls (timeout 10s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Match-tolls (timeout 10s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Match-tolls: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Match-tolls: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
 
@@ -779,12 +795,12 @@ export async function vietmapMatchTolls({ path = [], points, vehicle = 1 }) {
  */
 export async function vietmapReverseBatch(points = []) {
   if (!Array.isArray(points) || points.length === 0) {
-    return { success: false, error: 'Cần danh sách tọa độ để tra cứu hàng loạt', code: 'INVALID_POINTS' };
+    return { success: false, error: 'Cáº§n danh sÃ¡ch tá»a Ä‘á»™ Ä‘á»ƒ tra cá»©u hÃ ng loáº¡t', code: 'INVALID_POINTS' };
   }
 
   const apiKey = getVietmapServiceApiKey();
   if (!apiKey) {
-    return { success: false, error: 'Dịch vụ bản đồ Vietmap chưa được kích hoạt API Key.', code: 'VIETMAP_KEY_MISSING' };
+    return { success: false, error: 'Dá»‹ch vá»¥ báº£n Ä‘á»“ Vietmap chÆ°a Ä‘Æ°á»£c kÃ­ch hoáº¡t API Key.', code: 'VIETMAP_NOT_CONFIGURED' };
   }
 
   // VietMap reverse-batch strictly requires { lon, lat } (lon, NOT lng!)
@@ -800,7 +816,7 @@ export async function vietmapReverseBatch(points = []) {
   }).filter((pt) => pt && !isNaN(pt.lon) && !isNaN(pt.lat));
 
   if (batchBody.length === 0) {
-    return { success: false, error: 'Không có tọa độ hợp lệ trong danh sách', code: 'INVALID_COORDINATES' };
+    return { success: false, error: 'KhÃ´ng cÃ³ tá»a Ä‘á»™ há»£p lá»‡ trong danh sÃ¡ch', code: 'VIETMAP_INVALID_RESPONSE' };
   }
 
   const controller = new AbortController();
@@ -823,10 +839,10 @@ export async function vietmapReverseBatch(points = []) {
     clearTimeout(timeoutId);
 
     if (response.status === 401) {
-      return { success: false, error: 'Lỗi xác thực Vietmap API Key (401)', code: 'UNAUTHORIZED' };
+      return { success: false, error: 'Lá»—i xÃ¡c thá»±c Vietmap API Key (401)', code: 'VIETMAP_UNAUTHORIZED' };
     }
     if (!response.ok) {
-      return { success: false, error: `Máy chủ Vietmap trả về HTTP ${response.status}`, code: `HTTP_${response.status}` };
+      return { success: false, error: `MÃ¡y chá»§ Vietmap tráº£ vá» HTTP ${response.status}`, code: 'VIETMAP_UNAVAILABLE' };
     }
 
     const data = await response.json();
@@ -834,10 +850,12 @@ export async function vietmapReverseBatch(points = []) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      return { success: false, error: 'Quá thời gian kết nối đến Vietmap Reverse Batch (timeout 10s)', code: 'TIMEOUT' };
+      return { success: false, error: 'QuÃ¡ thá»i gian káº¿t ná»‘i Ä‘áº¿n Vietmap Reverse Batch (timeout 10s)', code: 'VIETMAP_TIMEOUT' };
     }
-    return { success: false, error: `Lỗi kết nối Vietmap Reverse Batch: ${err.message}`, code: 'NETWORK_ERROR' };
+    return { success: false, error: `Lá»—i káº¿t ná»‘i Vietmap Reverse Batch: ${err.message}`, code: 'VIETMAP_UNAVAILABLE' };
   }
 }
+
+
 
 

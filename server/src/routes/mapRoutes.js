@@ -5,16 +5,15 @@ import {
   vietmapSearch,
   vietmapPlace,
   vietmapReverse,
-  vietmapReverseBatch,
   vietmapRoute,
-  vietmapRouteTolls,
-  vietmapMatchTolls,
 } from '../services/vietmapService.js';
 import { isValidCoordinate } from '../utils/coordinateHelper.js';
+import { authenticate, requireActiveUser } from '../middlewares/auth.js';
 
 const router = express.Router();
 
 // Dedicated rate limiter for map search endpoints to protect Vietmap quota
+// Applied before auth so even unauthenticated burst is throttled
 const mapSearchLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 120, // 120 requests per 5 minutes per IP
@@ -27,35 +26,76 @@ const mapSearchLimiter = rateLimit({
   },
 });
 
+// Apply rate limiter to all map endpoints
 router.use(mapSearchLimiter);
+
+// Convenience auth guard: authenticate then require active account
+const authGuard = [authenticate, requireActiveUser];
 
 /**
  * GET /api/maps/autocomplete
- * Query params: text, focus (lat,lng)
+ * Query params: text, focusLat, focusLng
+ * Auth: required (active user only — protects Vietmap quota from public abuse)
  */
-router.get('/autocomplete', async (req, res, next) => {
+router.get('/autocomplete', authGuard, async (req, res, next) => {
   try {
-    const { text, focus } = req.query;
+    const { text, focusLat, focusLng } = req.query;
 
+    // Validate text (min 2 chars)
     if (!text || typeof text !== 'string' || text.trim().length < 2) {
       return res.json({
         success: true,
-        suggestions: [],
+        items: [],
         message: 'Vui lòng nhập ít nhất 2 ký tự để gợi ý địa chỉ',
       });
     }
 
+    // Validate focusLat/focusLng — must be provided together or not at all
+    let focus;
+    if (focusLat !== undefined || focusLng !== undefined) {
+      if (focusLat === undefined || focusLng === undefined) {
+        return res.status(400).json({
+          success: false,
+          error: 'focusLat và focusLng phải cùng tồn tại hoặc cùng vắng.',
+          code: 'INVALID_FOCUS',
+        });
+      }
+      if (!isValidCoordinate(focusLat, focusLng)) {
+        return res.status(400).json({
+          success: false,
+          error: 'focusLat phải trong [-90,90], focusLng phải trong [-180,180].',
+          code: 'INVALID_FOCUS',
+        });
+      }
+      focus = `${focusLat},${focusLng}`;
+    }
+
     const result = await vietmapAutocomplete({
-      text: text.trim(),
-      focus: typeof focus === 'string' ? focus.trim() : undefined,
+      text: text.trim().slice(0, 500),
+      focus,
     });
 
     if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'RESOURCE_LOCKED' ? 423 : 400;
+      const statusCode =
+        result.code === 'VIETMAP_UNAUTHORIZED' ? 401
+        : result.code === 'VIETMAP_QUOTA_EXCEEDED' ? 429
+        : result.code === 'VIETMAP_RATE_LIMITED' ? 429
+        : 503;
       return res.status(statusCode).json(result);
     }
 
-    return res.json(result);
+    // Normalize to spec response shape
+    const items = (result.suggestions || []).map((s) => ({
+      refId: s.refId,
+      name: s.name || '',
+      display: s.display || '',
+      distanceKm: typeof s.distance === 'number' ? s.distance : null,
+      boundaries: s.boundaries || [],
+      legacyAddress: s.address || '',
+      currentAddress: s.dataNew?.display || s.address || '',
+    }));
+
+    return res.json({ success: true, items });
   } catch (err) {
     next(err);
   }
@@ -63,31 +103,64 @@ router.get('/autocomplete', async (req, res, next) => {
 
 /**
  * GET /api/maps/search
- * Query params: text (full address), focus (lat,lng)
+ * Query params: text (full address), focusLat, focusLng
+ * Auth: required (active user only)
  */
-router.get('/search', async (req, res, next) => {
+router.get('/search', authGuard, async (req, res, next) => {
   try {
-    const { text, focus } = req.query;
+    const { text, focusLat, focusLng } = req.query;
 
     if (!text || typeof text !== 'string' || text.trim().length < 2) {
       return res.json({
         success: true,
-        results: [],
+        items: [],
         message: 'Vui lòng nhập ít nhất 2 ký tự để tìm kiếm địa chỉ',
       });
     }
 
+    let focus;
+    if (focusLat !== undefined || focusLng !== undefined) {
+      if (focusLat === undefined || focusLng === undefined) {
+        return res.status(400).json({
+          success: false,
+          error: 'focusLat và focusLng phải cùng tồn tại hoặc cùng vắng.',
+          code: 'INVALID_FOCUS',
+        });
+      }
+      if (!isValidCoordinate(focusLat, focusLng)) {
+        return res.status(400).json({
+          success: false,
+          error: 'focusLat phải trong [-90,90], focusLng phải trong [-180,180].',
+          code: 'INVALID_FOCUS',
+        });
+      }
+      focus = `${focusLat},${focusLng}`;
+    }
+
     const result = await vietmapSearch({
-      text: text.trim(),
-      focus: typeof focus === 'string' ? focus.trim() : undefined,
+      text: text.trim().slice(0, 500),
+      focus,
     });
 
     if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'RESOURCE_LOCKED' ? 423 : 400;
+      const statusCode =
+        result.code === 'VIETMAP_UNAUTHORIZED' ? 401
+        : result.code === 'VIETMAP_QUOTA_EXCEEDED' ? 429
+        : 503;
       return res.status(statusCode).json(result);
     }
 
-    return res.json(result);
+    const items = (result.results || []).map((s) => ({
+      refId: s.refId,
+      name: s.name || '',
+      display: s.display || '',
+      distanceKm: typeof s.distance === 'number' ? s.distance : null,
+      boundaries: s.boundaries || [],
+      legacyAddress: s.address || '',
+      currentAddress: s.dataNew?.display || s.address || '',
+    }));
+
+    return res.json({ success: true, items });
   } catch (err) {
     next(err);
   }
@@ -95,9 +168,10 @@ router.get('/search', async (req, res, next) => {
 
 /**
  * GET /api/maps/place
- * Query params: refid
+ * Query params: refId (opaque token — DO NOT use as path param)
+ * Auth: required (active user only)
  */
-router.get('/place', async (req, res, next) => {
+router.get('/place', authGuard, async (req, res, next) => {
   try {
     const refId = req.query.refid || req.query.refId;
 
@@ -112,11 +186,32 @@ router.get('/place', async (req, res, next) => {
     const result = await vietmapPlace({ refId: refId.trim() });
 
     if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      const statusCode =
+        result.code === 'VIETMAP_UNAUTHORIZED' ? 401
+        : result.code === 'VIETMAP_NO_RESULTS' ? 404
+        : result.code === 'VIETMAP_QUOTA_EXCEEDED' ? 429
+        : 503;
       return res.status(statusCode).json(result);
     }
 
-    return res.json(result);
+    const place = result.place;
+    // Spec-compliant Place response
+    return res.json({
+      success: true,
+      provider: 'vietmap',
+      display: place.formattedAddress || place.displayName || '',
+      addressLine: place.addressComponents?.addressLine || '',
+      lat: place.lat,
+      lng: place.lng,
+      addressComponents: {
+        wardCode: place.addressComponents?.wardCode || null,
+        wardName: place.addressComponents?.wardName || '',
+        districtCode: place.addressComponents?.districtCode || null,
+        districtName: place.addressComponents?.districtName || '',
+        provinceCode: place.addressComponents?.provinceCode || null,
+        provinceName: place.addressComponents?.provinceName || '',
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -125,8 +220,9 @@ router.get('/place', async (req, res, next) => {
 /**
  * GET /api/maps/reverse
  * Query params: lat, lng
+ * Auth: required (active user only)
  */
-router.get('/reverse', async (req, res, next) => {
+router.get('/reverse', authGuard, async (req, res, next) => {
   try {
     const { lat, lng } = req.query;
 
@@ -144,40 +240,33 @@ router.get('/reverse', async (req, res, next) => {
     });
 
     if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      const statusCode =
+        result.code === 'VIETMAP_UNAUTHORIZED' ? 401
+        : result.code === 'VIETMAP_NO_RESULTS' ? 404
+        : result.code === 'VIETMAP_QUOTA_EXCEEDED' ? 429
+        : 503;
       return res.status(statusCode).json(result);
     }
 
-    return res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * POST /api/maps/reverse-batch
- * Body: { points: [{lat, lng}, ...] | [[lng, lat], ...] }
- */
-router.post('/reverse-batch', async (req, res, next) => {
-  try {
-    const { points } = req.body;
-
-    if (!Array.isArray(points) || points.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cần danh sách points để tra cứu địa chỉ hàng loạt',
-        code: 'INVALID_POINTS',
-      });
-    }
-
-    const result = await vietmapReverseBatch(points);
-
-    if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : 400;
-      return res.status(statusCode).json(result);
-    }
-
-    return res.json(result);
+    const place = result.place;
+    // Spec-compliant Reverse response (same shape as Place, plus refId if available)
+    return res.json({
+      success: true,
+      provider: 'vietmap',
+      refId: place.refId || null,
+      display: place.formattedAddress || place.displayName || '',
+      addressLine: place.addressComponents?.addressLine || '',
+      lat: place.lat,
+      lng: place.lng,
+      addressComponents: {
+        wardCode: place.addressComponents?.wardCode || null,
+        wardName: place.addressComponents?.wardName || '',
+        districtCode: place.addressComponents?.districtCode || null,
+        districtName: place.addressComponents?.districtName || '',
+        provinceCode: place.addressComponents?.provinceCode || null,
+        provinceName: place.addressComponents?.provinceName || '',
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -185,22 +274,32 @@ router.post('/reverse-batch', async (req, res, next) => {
 
 /**
  * POST /api/maps/route
- * Body: { origin, destination, points, vehicle, capacity, avoid, annotations }
+ * Body: { points: [{ lat, lng }, ...], vehicle: 'motorcycle'|'car' }
+ * Auth: required (active user only)
+ * Vehicle allowlist: only 'car' and 'motorcycle' in this phase
  */
-router.post('/route', async (req, res, next) => {
+router.post('/route', authGuard, async (req, res, next) => {
   try {
     const {
+      points,
       origin,
       destination,
-      points,
       vehicle = 'motorcycle',
-      capacity,
-      avoid,
-      annotations,
     } = req.body;
 
-    let routePoints = [];
+    // Vehicle allowlist per spec
+    const ALLOWED_VEHICLES = ['car', 'motorcycle'];
+    const validVehicle = ALLOWED_VEHICLES.includes(vehicle) ? vehicle : null;
+    if (!validVehicle) {
+      return res.status(400).json({
+        success: false,
+        error: `vehicle phải là 'car' hoặc 'motorcycle'. Nhận được: ${vehicle}`,
+        code: 'INVALID_VEHICLE',
+      });
+    }
 
+    // Build point list
+    let routePoints = [];
     if (Array.isArray(points) && points.length >= 2) {
       routePoints = points;
     } else if (origin && destination) {
@@ -208,84 +307,71 @@ router.post('/route', async (req, res, next) => {
     } else {
       return res.status(400).json({
         success: false,
-        error: 'Cần cung cấp điểm đón (origin) và điểm đến (destination) hoặc mảng points',
+        error: 'Cần cung cấp ít nhất 2 điểm qua tham số points hoặc origin+destination',
         code: 'INVALID_POINTS',
       });
     }
 
+    // Validate minimum 2 points
+    if (routePoints.length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cần ít nhất 2 điểm để tính tuyến đường',
+        code: 'INVALID_POINTS',
+      });
+    }
+
+    // Validate each point has valid lat/lng
+    for (let i = 0; i < routePoints.length; i++) {
+      const p = routePoints[i];
+      if (!isValidCoordinate(p?.lat, p?.lng)) {
+        return res.status(400).json({
+          success: false,
+          error: `Điểm ${i + 1} có tọa độ không hợp lệ: lat phải [-90,90], lng phải [-180,180]`,
+          code: 'INVALID_COORDINATES',
+        });
+      }
+    }
+
+    // Route v4: points_encoded=false, no toll/congestion for micro-task phase
     const result = await vietmapRoute({
       points: routePoints,
-      vehicle: typeof vehicle === 'string' ? vehicle : 'motorcycle',
-      capacity,
-      avoid,
-      annotations,
+      vehicle: validVehicle,
+      // No annotations (toll/congestion not needed in this phase)
     });
 
     if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : result.code === 'ZERO_RESULTS' ? 404 : 400;
+      const statusCode =
+        result.code === 'VIETMAP_UNAUTHORIZED' ? 401
+        : result.code === 'VIETMAP_NO_RESULTS' ? 404
+        : result.code === 'VIETMAP_QUOTA_EXCEEDED' ? 429
+        : result.code === 'VIETMAP_TIMEOUT' ? 504
+        : 503;
       return res.status(statusCode).json(result);
     }
 
-    return res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * POST /api/maps/route-tolls
- * Body: { points: [[lng, lat], [lng, lat]], vehicle: 1..5 }
- */
-router.post('/route-tolls', async (req, res, next) => {
-  try {
-    const { points, vehicle = 1 } = req.body;
-
-    if (!Array.isArray(points) || points.length < 2) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cần mảng points với ít nhất 2 điểm dạng [[lng, lat], [lng, lat]]',
-        code: 'INVALID_POINTS',
-      });
-    }
-
-    const result = await vietmapRouteTolls({ points, vehicle });
-
-    if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : 400;
-      return res.status(statusCode).json(result);
-    }
-
-    return res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * POST /api/maps/match-tolls
- * Body: { points: [[lng, lat], ...], vehicle: 1..5 }
- */
-router.post('/match-tolls', async (req, res, next) => {
-  try {
-    const { points, path, vehicle = 1 } = req.body;
-    const trail = Array.isArray(points) ? points : path;
-
-    if (!Array.isArray(trail) || trail.length < 2) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cần mảng GPS trail với ít nhất 2 điểm dạng [[lng, lat], ...]',
-        code: 'INVALID_POINTS',
-      });
-    }
-
-    const result = await vietmapMatchTolls({ points: trail, vehicle });
-
-    if (!result.success) {
-      const statusCode = result.code === 'UNAUTHORIZED' ? 401 : 400;
-      return res.status(statusCode).json(result);
-    }
-
-    return res.json(result);
+    const route = result.route;
+    const distanceMeters = route.distance || 0;
+    const durationMilliseconds = route.timeMs || 0;
+    // Spec-compliant Route response with convenience distanceKm / durationMinutes
+    return res.json({
+      success: true,
+      provider: 'vietmap',
+      distanceMeters,
+      durationMilliseconds,
+      distanceKm: route.distanceKm || Number((distanceMeters / 1000).toFixed(2)),
+      durationMinutes: route.durationMinutes || Math.round(durationMilliseconds / 60000),
+      bbox: route.bbox || null,
+      // coordinates in GeoJSON [lng, lat] per spec
+      coordinates: route.geoJsonCoordinates || [],
+      instructions: (route.instructions || []).map((ins) => ({
+        text: ins.text || '',
+        sign: ins.sign || 0,
+        distanceMeters: ins.distance || 0,
+        durationMs: ins.time || 0,
+        streetName: ins.street_name || '',
+      })),
+    });
   } catch (err) {
     next(err);
   }
