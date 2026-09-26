@@ -81,6 +81,63 @@ router.put('/users/:id/status', async (req, res) => {
   }
 });
 
+// PUT /api/admin/users/:id/role (Thay đổi Role của người dùng)
+router.put('/users/:id/role', async (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!['student', 'employer', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Vai trò không hợp lệ (chỉ chấp nhận student, employer, admin)' });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
+
+    user.role = role;
+    if (user.status === 'pending') {
+      user.status = 'active';
+    }
+    await user.save();
+
+    // Tự động đảm bảo Profile tương ứng tồn tại để user không bị lỗi khi truy cập
+    if (role === 'student') {
+      const existingProfile = await StudentProfile.findOne({ userId: user._id });
+      if (!existingProfile) {
+        await StudentProfile.create({
+          userId: user._id,
+          university: 'Đại học FPT Hòa Lạc',
+          major: 'Kỹ thuật phần mềm',
+          studentCode: 'SE' + Math.floor(100000 + Math.random() * 900000),
+          address: 'Ký túc xá ĐH FPT, Khu CNC Hòa Lạc, Thạch Thất, Hà Nội',
+          location: { lat: 21.0135, lng: 105.5252 },
+          geoPoint: { type: 'Point', coordinates: [105.5252, 21.0135] },
+          locationStatus: 'confirmed',
+          locationSource: 'map_pin',
+          verified: true,
+        });
+      }
+    } else if (role === 'employer') {
+      const existingProfile = await EmployerProfile.findOne({ userId: user._id });
+      if (!existingProfile) {
+        await EmployerProfile.create({
+          userId: user._id,
+          storeName: user.name ? `${user.name} Store` : 'Cửa hàng Hoa Lạc',
+          address: 'Khu Công nghệ cao Hòa Lạc, Thạch Thất, Hà Nội',
+          location: { lat: 21.0135, lng: 105.5252 },
+          geoPoint: { type: 'Point', coordinates: [105.5252, 21.0135] },
+          locationStatus: 'confirmed',
+          locationSource: 'map_pin',
+          verified: true,
+        });
+      }
+    }
+
+    const updatedUser = await User.findById(user._id).select('-password');
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/admin/jobs
 router.get('/jobs', async (req, res) => {
   try {

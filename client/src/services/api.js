@@ -405,6 +405,13 @@ export async function apiAdminUpdateUserStatus(userId, status) {
   });
 }
 
+export async function apiAdminUpdateUserRole(userId, role) {
+  return request(`/admin/users/${userId}/role`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  });
+}
+
 export async function apiAdminGetJobs(params = {}) {
   const query = new URLSearchParams(params).toString();
   return request(`/admin/jobs${query ? `?${query}` : ''}`);
