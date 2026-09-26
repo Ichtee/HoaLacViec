@@ -8,12 +8,17 @@ import { useAuth } from '@/hooks/useAuth.jsx';
 import { getEmployerProfile, updateEmployerProfile, updateUserProfile } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import LocationPicker from '@/components/LocationPicker.jsx';
 
 export default function StoreProfilePage() {
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState({
     storeName: '',
     address: '',
+    location: { lat: null, lng: null },
+    locationStatus: 'unconfirmed',
+    locationSource: null,
+    addressComponents: null,
     phone: '',
     email: '',
     category: 'Cà phê & Đồ uống',
@@ -39,6 +44,10 @@ export default function StoreProfilePage() {
             phone: data.contactPhone || data.phone || user.phone || '',
             email: data.email || user.email || '',
             address: data.address || '',
+            location: data.location || { lat: null, lng: null },
+            locationStatus: data.locationStatus || 'unconfirmed',
+            locationSource: data.locationSource || null,
+            addressComponents: data.addressComponents || null,
             businessLicense: data.businessLicense || '',
             description: data.description || '',
             verificationStatus: data.verified || user.status === 'active' ? 'verified' : 'pending',
@@ -49,6 +58,9 @@ export default function StoreProfilePage() {
             storeName: user.name || '',
             phone: user.phone || '',
             email: user.email || '',
+            location: { lat: null, lng: null },
+            locationStatus: 'unconfirmed',
+            locationSource: null,
             verificationStatus: user.status === 'active' ? 'verified' : 'pending',
           }));
         }
@@ -169,8 +181,36 @@ export default function StoreProfilePage() {
           <input
             type="text"
             value={profile.address}
-            onChange={e => setProfile({ ...profile, address: e.target.value })}
+            onChange={e => setProfile(prev => ({
+              ...prev,
+              address: e.target.value,
+              // If address changes, reset status to unconfirmed
+              locationStatus: 'unconfirmed',
+            }))}
+            placeholder="Số nhà, tên đường, thôn/xóm..."
             className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-pink-main"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-text-muted mb-2">Vị trí cơ sở trên bản đồ (Dùng để sinh viên tìm kiếm & điểm danh ca)</label>
+          <LocationPicker
+            value={{
+              lat: profile.location?.lat,
+              lng: profile.location?.lng,
+              locationStatus: profile.locationStatus,
+              locationSource: profile.locationSource,
+            }}
+            addressHint={profile.address}
+            onChange={({ lat, lng, locationStatus, locationSource, address: resolvedAddress }) => {
+              setProfile(prev => ({
+                ...prev,
+                address: resolvedAddress || prev.address,
+                location: { lat, lng },
+                locationStatus,
+                locationSource,
+              }));
+            }}
           />
         </div>
 

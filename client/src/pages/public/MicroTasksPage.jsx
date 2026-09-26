@@ -281,11 +281,11 @@ export default function MicroTasksPage() {
                         <span className="font-medium text-text-main truncate">{task.location}</span>
                       </div>
                       <a
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(task.location + ', Hòa Lạc, Thạch Thất, Hà Nội')}`}
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(task.location)}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg shrink-0 transition-colors"
-                        title="Mở chỉ đường trên Google Maps"
+                        title="Tìm địa chỉ trên Google Maps"
                       >
                         Bản đồ ↗
                       </a>
@@ -457,13 +457,13 @@ export default function MicroTasksPage() {
               <p className="text-xs text-text-muted flex items-center justify-between">
                 <span>Địa điểm: <strong className="text-text-main">{acceptModalTask.location}</strong> • Hạn chót: {acceptModalTask.deadline}</span>
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(acceptModalTask.location + ', Hòa Lạc, Thạch Thất, Hà Nội')}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(acceptModalTask.location)}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 underline font-semibold ml-2 shrink-0"
-                  title="Mở chỉ đường Google Maps"
+                  title="Tìm địa chỉ trên Google Maps"
                 >
-                  Chỉ đường ↗
+                  Tìm vị trí ↗
                 </a>
               </p>
               <p className="text-xs text-text-muted">

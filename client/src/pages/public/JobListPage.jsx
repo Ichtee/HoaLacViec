@@ -58,10 +58,8 @@ export default function JobListPage() {
     return null;
   }, [geoCoords]);
 
-  // Automatically request GPS on mount so browser shows native permission prompt
-  useEffect(() => {
-    requestGpsLocation({ enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
-  }, [requestGpsLocation]);
+  // Location is read from global LocationContext (bootstrapped at App root)
+  // No auto-request on mount to avoid duplicate prompt (Requirement 9)
 
   async function handleTriggerGps() {
     if (geoStatus === 'denied') {

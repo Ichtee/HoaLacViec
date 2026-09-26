@@ -10,10 +10,11 @@ import {
   CheckCircle2,
   Loader2,
   Navigation,
-  HelpCircle,
+  Check,
 } from 'lucide-react';
 import { isValidCoordinate } from '@/utils';
 import { geocodeAddress } from '@/services';
+import { useGeolocation } from '@/hooks/useGeolocation.js';
 
 const DEFAULT_MAP_CENTER = [21.0128, 105.5255]; // Hoa Lac center for view only
 
@@ -21,7 +22,7 @@ function createPinIcon() {
   return L.divIcon({
     className: 'custom-picker-pin',
     html: `
-      <div class="relative cursor-grab active:cursor-grabbing transform -translate-x-1/2 -translate-y-full animate-bounce-once">
+      <div class="relative cursor-grab active:cursor-grabbing transform -translate-x-1/2 -translate-y-full">
         <div class="w-8 h-8 rounded-full bg-pink-600 text-white flex items-center justify-center shadow-lg border-2 border-white ring-4 ring-pink-200">
           <span style="font-size: 14px;">📍</span>
         </div>
@@ -46,11 +47,42 @@ export default function LocationPicker({
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [candidates, setCandidates] = useState([]);
   const [showManualInputs, setShowManualInputs] = useState(false);
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
+  const [accuracyWarning, setAccuracyWarning] = useState('');
+
+  // Use centralized useGeolocation hook (Requirement Phase 6 item 1)
+  const { requestLocation, status: gpsStatus, coords: gpsCoords } = useGeolocation();
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [tileError, setTileError] = useState(false);
+
+  // Staged location holds current active coordinates on the map
+  const [stagedLocation, setStagedLocation] = useState(
+    isValidCoordinate(value?.lat, value?.lng)
+      ? {
+          lat: Number(value.lat),
+          lng: Number(value.lng),
+          source: value.locationSource || 'map_pin',
+          status: value.locationStatus || 'unconfirmed',
+          displayName: '',
+        }
+      : null
+  );
+
+  // Sync staged location when external value changes
+  useEffect(() => {
+    if (isValidCoordinate(value?.lat, value?.lng)) {
+      setStagedLocation({
+        lat: Number(value.lat),
+        lng: Number(value.lng),
+        source: value.locationSource || 'map_pin',
+        status: value.locationStatus || 'unconfirmed',
+      });
+    } else if (value?.lat === null && value?.lng === null) {
+      setStagedLocation(null);
+    }
+  }, [value?.lat, value?.lng, value?.locationSource, value?.locationStatus]);
 
   const hasConfirmedLocation = Boolean(
     value?.lat !== null &&
@@ -61,26 +93,56 @@ export default function LocationPicker({
     value?.locationStatus === 'confirmed'
   );
 
-  const updateLocation = useCallback((lat, lng, source) => {
+  // Stage location with pending_confirmation (Phase 3 item 2)
+  const stageLocation = useCallback((lat, lng, source, displayName = '') => {
     if (!isValidCoordinate(lat, lng)) {
       setSearchError('Tọa độ không hợp lệ. Vĩ độ phải từ -90 đến 90, kinh độ từ -180 đến 180.');
       return;
     }
     setSearchError('');
-    onChange?.({
+    const newCoords = {
       lat: Number(Number(lat).toFixed(6)),
       lng: Number(Number(lng).toFixed(6)),
-      locationStatus: 'confirmed',
+      source,
+      status: 'pending_confirmation',
+      displayName,
+    };
+    setStagedLocation(newCoords);
+    onChange?.({
+      lat: newCoords.lat,
+      lng: newCoords.lng,
+      locationStatus: 'pending_confirmation',
       locationSource: source,
+      formattedAddress: displayName || undefined,
     });
   }, [onChange]);
+
+  // Explicit confirmation button action (Phase 3 item 2)
+  const handleConfirmLocation = useCallback(() => {
+    const target = stagedLocation || (isValidCoordinate(value?.lat, value?.lng) ? value : null);
+    if (!target || !isValidCoordinate(target.lat, target.lng)) {
+      setSearchError('Chưa có vị trí hợp lệ để xác nhận. Vui lòng click lên bản đồ để chọn vị trí quán.');
+      return;
+    }
+    setSearchError('');
+    onChange?.({
+      lat: Number(Number(target.lat).toFixed(6)),
+      lng: Number(Number(target.lng).toFixed(6)),
+      locationStatus: 'confirmed',
+      locationSource: target.source || target.locationSource || 'map_pin',
+      formattedAddress: target.displayName || undefined,
+    });
+  }, [stagedLocation, value, onChange]);
 
   const handleClearLocation = useCallback(() => {
     if (markerRef.current && mapInstanceRef.current) {
       markerRef.current.remove();
       markerRef.current = null;
     }
+    setStagedLocation(null);
     setSearchError('');
+    setAccuracyWarning('');
+    setCandidates([]);
     onChange?.({
       lat: null,
       lng: null,
@@ -89,10 +151,10 @@ export default function LocationPicker({
     });
   }, [onChange]);
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet Map with valid OpenStreetMap tiles (Phase 1 item 3)
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (mapInstanceRef.current) return; // Prevent double init
+    if (mapInstanceRef.current) return;
 
     const initialLat = isValidCoordinate(value?.lat, value?.lng) ? value.lat : DEFAULT_MAP_CENTER[0];
     const initialLng = isValidCoordinate(value?.lat, value?.lng) ? value.lng : DEFAULT_MAP_CENTER[1];
@@ -105,10 +167,10 @@ export default function LocationPicker({
       attributionControl: true,
     });
 
-    const tileLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-      maxZoom: 20,
-      attribution: '&copy; Google Maps',
+    // Valid OpenStreetMap Tile Layer (Requirement Phase 1 item 3)
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     });
 
     tileLayer.addTo(map);
@@ -117,10 +179,11 @@ export default function LocationPicker({
     // Click map to place/move pin
     map.on('click', (e) => {
       const { lat, lng } = e.latlng;
-      updateLocation(lat, lng, 'map_pin');
+      setAccuracyWarning('');
+      setCandidates([]);
+      stageLocation(lat, lng, 'map_pin');
     });
 
-    // Invalidate size once rendered inside dialog
     const timer = setTimeout(() => {
       map.invalidateSize();
     }, 250);
@@ -133,15 +196,17 @@ export default function LocationPicker({
         markerRef.current = null;
       }
     };
-  }, []); // Run once on mount
+  }, [stageLocation]);
 
-  // Sync marker with value props
+  // Sync marker with stagedLocation or value
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    if (hasConfirmedLocation) {
-      const pos = [value.lat, value.lng];
+    const activeLoc = stagedLocation || (isValidCoordinate(value?.lat, value?.lng) ? value : null);
+
+    if (activeLoc && isValidCoordinate(activeLoc.lat, activeLoc.lng)) {
+      const pos = [Number(activeLoc.lat), Number(activeLoc.lng)];
       if (!markerRef.current) {
         const marker = L.marker(pos, {
           icon: createPinIcon(),
@@ -151,13 +216,14 @@ export default function LocationPicker({
 
         marker.on('dragend', (e) => {
           const newPos = e.target.getLatLng();
-          updateLocation(newPos.lat, newPos.lng, 'map_pin');
+          setAccuracyWarning('');
+          stageLocation(newPos.lat, newPos.lng, 'map_pin');
         });
 
         marker.bindPopup(`
           <div style="font-size: 11px; font-weight: 600; text-align: center;">
-            📍 Vị trí quán đã ghim<br/>
-            <span style="color: #6b7280; font-weight: normal;">Kéo thả để chỉnh sửa</span>
+            📍 Vị trí ghim quán<br/>
+            <span style="color: #6b7280; font-weight: normal;">Bấm "Xác nhận vị trí này" bên dưới bản đồ</span>
           </div>
         `);
 
@@ -171,9 +237,9 @@ export default function LocationPicker({
         markerRef.current = null;
       }
     }
-  }, [hasConfirmedLocation, value?.lat, value?.lng, updateLocation]);
+  }, [stagedLocation, value?.lat, value?.lng, stageLocation]);
 
-  // Handle Backend Nominatim Geocoding Search
+  // Handle Backend Nominatim Geocoding Search: displays 3-5 candidates (Phase 1 item 6)
   async function handleSearch(e) {
     if (e) e.preventDefault();
     const query = searchQuery.trim() || addressHint.trim();
@@ -185,16 +251,15 @@ export default function LocationPicker({
     try {
       setSearching(true);
       setSearchError('');
+      setCandidates([]);
 
       const res = await geocodeAddress(query);
-      if (res?.lat !== undefined && res?.lng !== undefined && isValidCoordinate(res.lat, res.lng)) {
-        const lat = res.lat;
-        const lng = res.lng;
-        updateLocation(lat, lng, 'geocoded');
+      const list = res?.candidates || res?.results || [];
 
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 1.2 });
-        }
+      if (Array.isArray(list) && list.length > 0) {
+        setCandidates(list.slice(0, 5));
+      } else if (res?.lat !== undefined && res?.lng !== undefined && isValidCoordinate(res.lat, res.lng)) {
+        setCandidates([{ lat: res.lat, lng: res.lng, displayName: res.displayName || query }]);
       } else {
         setSearchError('Không tìm thấy địa điểm trên bản đồ. Bạn có thể click trực tiếp lên bản đồ để ghim vị trí quán.');
       }
@@ -205,44 +270,45 @@ export default function LocationPicker({
     }
   }
 
-  // Handle Get Device GPS
-  function handleGetDeviceGps() {
-    if (!navigator.geolocation) {
-      setSearchError('Trình duyệt không hỗ trợ Geolocation.');
-      return;
+  // Handle choosing a specific geocoded candidate (Phase 1 item 6)
+  function handleSelectCandidate(cand) {
+    setAccuracyWarning('');
+    stageLocation(cand.lat, cand.lng, 'geocoded', cand.displayName);
+    setCandidates([]);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([cand.lat, cand.lng], 16, { duration: 1.2 });
     }
-
-    setGpsLoading(true);
-    setSearchError('');
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGpsLoading(false);
-        const { latitude, longitude } = pos.coords;
-        if (isValidCoordinate(latitude, longitude)) {
-          updateLocation(latitude, longitude, 'device');
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([latitude, longitude], 17, { duration: 1 });
-          }
-        } else {
-          setSearchError('Tọa độ từ thiết bị không hợp lệ.');
-        }
-      },
-      (err) => {
-        setGpsLoading(false);
-        if (err.code === 1) {
-          setSearchError('Bạn đã từ chối quyền truy cập vị trí trên trình duyệt.');
-        } else if (err.code === 3) {
-          setSearchError('Quá thời gian lấy tín hiệu GPS từ thiết bị.');
-        } else {
-          setSearchError('Không thể lấy tọa độ từ thiết bị của bạn.');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
   }
 
-  // Handle Manual Coordinates Apply
+  // Handle Get Device GPS via centralized useGeolocation (Phase 3 item 4 & Phase 6 item 1)
+  async function handleGetDeviceGps() {
+    setGpsLoading(true);
+    setSearchError('');
+    setAccuracyWarning('');
+    setCandidates([]);
+
+    try {
+      const res = await requestLocation({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+      if (res && isValidCoordinate(res.lat, res.lng)) {
+        // Phase 3 item 4: if accuracy > 100m, warn clearly, do not auto confirm
+        if (res.accuracy && res.accuracy > 100) {
+          setAccuracyWarning(`Độ sai số GPS của thiết bị khá lớn (±${Math.round(res.accuracy)}m > 100m). Vui lòng kéo pin trên bản đồ đến vị trí chính xác của quán trước khi bấm xác nhận.`);
+        }
+        stageLocation(res.lat, res.lng, 'device');
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([res.lat, res.lng], 17, { duration: 1 });
+        }
+      } else {
+        setSearchError('Không lấy được tọa độ GPS từ thiết bị. Hãy chắc chắn bạn đã cấp quyền và bật định vị.');
+      }
+    } catch {
+      setSearchError('Lỗi khi lấy vị trí thiết bị.');
+    } finally {
+      setGpsLoading(false);
+    }
+  }
+
+  // Handle Manual Coordinates Apply (Phase 3 item 3: manual coordinates require user to view pin & confirm)
   function handleApplyManualCoords(e) {
     if (e) e.preventDefault();
     const lat = parseFloat(manualLat);
@@ -253,12 +319,18 @@ export default function LocationPicker({
       return;
     }
 
-    updateLocation(lat, lng, 'manual_coordinates');
+    setAccuracyWarning('');
+    setCandidates([]);
+    stageLocation(lat, lng, 'manual_coordinates');
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 1 });
     }
     setShowManualInputs(false);
   }
+
+  const isConfirmed = value?.locationStatus === 'confirmed';
+  const isPending = stagedLocation?.status === 'pending_confirmation' || value?.locationStatus === 'pending_confirmation';
+  const isUnconfirmed = !isConfirmed && !isPending;
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -307,11 +379,11 @@ export default function LocationPicker({
             <span>Tọa độ</span>
           </button>
 
-          {hasConfirmedLocation && (
+          {(hasConfirmedLocation || stagedLocation) && (
             <button
               type="button"
               onClick={handleClearLocation}
-              className="px-2.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs border border-red-200 flex items-center gap-1 transition-all"
+              className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-all"
               title="Xóa ghim vị trí"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -320,117 +392,152 @@ export default function LocationPicker({
         </div>
       </div>
 
-      {/* Manual Coordinate Form Drawer */}
-      {showManualInputs && (
-        <form onSubmit={handleApplyManualCoords} className="p-3 bg-gray-50 rounded-xl border border-gray-200 space-y-2 animate-fade-in">
-          <div className="flex items-center justify-between text-[11px] font-bold text-gray-700">
-            <span>Nhập tọa độ thủ công:</span>
-            <span className="text-[10px] text-gray-500 font-normal">Ví dụ: Lat: 21.0128, Lng: 105.5255</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="any"
-              placeholder="Vĩ độ (Lat, VD: 21.0128)"
-              value={manualLat}
-              onChange={(e) => setManualLat(e.target.value)}
-              className="p-2 text-xs rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-1 focus:ring-pink-main font-mono"
-            />
-            <input
-              type="number"
-              step="any"
-              placeholder="Kinh độ (Lng, VD: 105.5255)"
-              value={manualLng}
-              onChange={(e) => setManualLng(e.target.value)}
-              className="p-2 text-xs rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-1 focus:ring-pink-main font-mono"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-1">
+      {/* Geocoding Candidate List (Phase 1 item 6: Never auto-select result 0, show 3-5 candidates) */}
+      {candidates.length > 0 && (
+        <div className="p-2.5 rounded-2xl bg-white border border-pink-200 shadow-md space-y-1.5 animate-fade-in">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-bold text-gray-700">
+              Chọn địa điểm phù hợp nhất ({candidates.length} kết quả tìm được):
+            </span>
             <button
               type="button"
-              onClick={() => setShowManualInputs(false)}
-              className="px-2.5 py-1 text-xs text-gray-600 hover:text-gray-800"
+              onClick={() => setCandidates([])}
+              className="text-[10px] text-gray-400 hover:text-gray-600"
             >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              className="px-3 py-1 rounded-lg bg-pink-600 text-white font-bold text-xs hover:bg-pink-700"
-            >
-              Ghim tọa độ này
+              Đóng
             </button>
           </div>
+          <div className="divide-y divide-gray-100 max-h-48 overflow-y-auto">
+            {candidates.map((cand, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSelectCandidate(cand)}
+                className="w-full text-left p-2 rounded-xl hover:bg-pink-50 text-xs transition-colors flex items-start gap-2"
+              >
+                <MapPin className="w-3.5 h-3.5 text-pink-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 line-clamp-1">{cand.displayName}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    {cand.lat.toFixed(5)}, {cand.lng.toFixed(5)}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Manual Coordinates Input Form */}
+      {showManualInputs && (
+        <form onSubmit={handleApplyManualCoords} className="p-3 bg-gray-50 rounded-2xl border border-gray-200 flex flex-wrap gap-2 items-center text-xs animate-fade-in">
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500 font-medium">Vĩ độ:</span>
+            <input
+              type="number"
+              step="any"
+              placeholder="VD: 21.0128"
+              value={manualLat}
+              onChange={(e) => setManualLat(e.target.value)}
+              className="w-28 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-gray-500 font-medium">Kinh độ:</span>
+            <input
+              type="number"
+              step="any"
+              placeholder="VD: 105.5255"
+              value={manualLng}
+              onChange={(e) => setManualLng(e.target.value)}
+              className="w-28 px-2 py-1 bg-white border border-gray-300 rounded-lg text-xs"
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-3 py-1 bg-gray-800 hover:bg-black text-white font-bold rounded-lg text-xs"
+          >
+            Xem trên bản đồ
+          </button>
         </form>
       )}
 
-      {/* Error alert if any */}
+      {/* Warnings & Errors */}
       {searchError && (
-        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 animate-fade-in">
+        <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-1.5 animate-fade-in">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
           <span>{searchError}</span>
         </div>
       )}
 
-      {/* Interactive Map Container */}
-      <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-        <div
-          ref={mapContainerRef}
-          style={{ height: '260px', width: '100%', zIndex: 1 }}
-          className="bg-slate-100"
-        />
+      {accuracyWarning && (
+        <div className="p-2.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-950 text-xs flex items-center gap-1.5 animate-fade-in">
+          <AlertCircle className="w-4 h-4 text-orange-600 shrink-0" />
+          <span>{accuracyWarning}</span>
+        </div>
+      )}
 
-        {/* Tile warning if offline/tile error */}
-        {tileError && (
-          <div className="absolute top-2 right-2 z-[500] px-2.5 py-1 rounded-lg bg-white/95 shadow border border-amber-200 text-[10px] text-amber-800 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3 text-amber-600" />
-            <span>Mạng chậm khi tải lớp bản đồ</span>
+      {/* Map Container */}
+      <div className="relative rounded-2xl overflow-hidden border border-gray-200 shadow-inner">
+        <div ref={mapContainerRef} style={{ height: '300px', width: '100%' }} />
+
+        {/* Floating Controls Overlay */}
+        <div className="absolute top-2 right-2 z-[400] flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (mapInstanceRef.current) {
+                mapInstanceRef.current.setView(DEFAULT_MAP_CENTER, 14);
+              }
+            }}
+            className="bg-white/95 hover:bg-white p-1.5 rounded-lg shadow border border-gray-200 text-gray-700 text-[10px] font-bold"
+            title="Đưa bản đồ về trung tâm Hòa Lạc"
+          >
+            Hòa Lạc
+          </button>
+        </div>
+
+        {/* Map Click Helper Banner */}
+        <div className="absolute bottom-2 left-2 right-2 z-[400] pointer-events-none">
+          <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-xl text-[11px] text-center pointer-events-auto">
+            💡 Click hoặc kéo thả chiếc ghim đỏ 📍 để chọn đúng vị trí quán của bạn
           </div>
-        )}
-
-        {/* Floating helper overlay */}
-        <div className="absolute bottom-2 left-2 z-[500] bg-white/95 backdrop-blur-sm px-2.5 py-1 rounded-lg shadow-sm border border-gray-200 text-[11px] text-gray-600 flex items-center gap-1.5 pointer-events-none">
-          <HelpCircle className="w-3.5 h-3.5 text-pink-600 shrink-0" />
-          <span>Click bản đồ hoặc kéo thả ghim 📍 để chọn vị trí chính xác của quán</span>
         </div>
       </div>
 
-      {/* Status Confirmation Badge */}
-      {hasConfirmedLocation ? (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-3 animate-fade-in">
-          <div className="flex items-center gap-2 min-w-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div className="min-w-0">
-              <p className="font-bold text-emerald-950">✓ Đã xác nhận vị trí quán trên bản đồ</p>
-              <p className="text-[11px] text-emerald-700 font-mono mt-0.5 truncate">
-                Tọa độ: {value.lat.toFixed(5)}, {value.lng.toFixed(5)} • Nguồn: {
-                  value.locationSource === 'device' ? 'GPS thiết bị' :
-                  value.locationSource === 'geocoded' ? 'Tìm kiếm địa chỉ' :
-                  value.locationSource === 'map_pin' ? 'Ghim trên bản đồ' :
-                  value.locationSource === 'places' ? 'Google Places' : 'Tọa độ thủ công'
-                }
-              </p>
+      {/* Confirmation & Status Bar (Phase 3 items 1, 2) */}
+      <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          {isConfirmed ? (
+            <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Đã xác nhận vị trí trên bản đồ ({value.lat.toFixed(5)}, {value.lng.toFixed(5)})</span>
             </div>
-          </div>
-          <a
-            href={`https://www.google.com/maps?q=${value.lat},${value.lng}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold underline shrink-0"
+          ) : isPending ? (
+            <div className="flex items-center gap-1.5 text-amber-700 font-bold">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Đang chọn tọa độ ({stagedLocation.lat.toFixed(5)}, {stagedLocation.lng.toFixed(5)}) — Cần xác nhận lại</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-gray-600 font-medium">
+              <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+              <span>Chưa có vị trí bản đồ (Tin tuyển dụng sẽ chỉ hiển thị địa chỉ text)</span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Button: Confirm this location */}
+        {(stagedLocation || (isValidCoordinate(value?.lat, value?.lng) && !isConfirmed)) && (
+          <button
+            type="button"
+            onClick={handleConfirmLocation}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all shrink-0"
           >
-            Mở xem
-          </a>
-        </div>
-      ) : (
-        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 animate-fade-in">
-          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-          <div>
-            <p className="font-bold text-amber-950">Chưa xác nhận vị trí quán</p>
-            <p className="text-[11px] text-amber-800 mt-0.5">
-              Bạn có thể click trực tiếp lên bản đồ, tìm kiếm hoặc bấm &ldquo;Lấy GPS tại quán&rdquo; để xác nhận vị trí chính xác. Vị trí xác nhận là bắt buộc để sinh viên có thể chấm công GPS.
-            </p>
-          </div>
-        </div>
-      )}
+            <Check className="w-3.5 h-3.5" />
+            <span>Xác nhận vị trí này</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

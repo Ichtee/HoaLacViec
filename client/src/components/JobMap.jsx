@@ -3,27 +3,20 @@ import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, ExternalLink, Compass, Crosshair, AlertCircle } from 'lucide-react';
-import { formatVND, isValidCoordinate } from '@/utils';
+import { formatVND, isValidCoordinate, hasConfirmedCoordinates, getGoogleMapsDestination } from '@/utils';
 import { SALARY_UNIT_LABELS } from '@/constants';
 
 // Default center of map: Hoa Lac Area
 export const DEFAULT_HOALAC_CENTER = [21.0128, 105.5255];
 
-// Google Maps Layer Configurations (100% Google Maps)
+// OpenStreetMap Layer Configuration (MVP Standard)
 const MAP_LAYERS = {
-  google_streets: {
+  osm: {
     name: 'Bản đồ',
-    url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    maxZoom: 20,
-    attribution: '&copy; Google Maps',
-  },
-  google_satellite: {
-    name: 'Vệ tinh',
-    url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-    maxZoom: 20,
-    attribution: '&copy; Google Maps',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c'],
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   },
 };
 
@@ -84,7 +77,7 @@ export function JobMap({
   const resizeTimeoutRef = useRef(null);
 
   const [activeJob, setActiveJob] = useState(singleJob || null);
-  const [currentLayerKey, setCurrentLayerKey] = useState('google_streets');
+  const [currentLayerKey, setCurrentLayerKey] = useState('osm');
   const [tileError, setTileError] = useState(false);
 
   // Initialize Map and cleanup on unmount
@@ -228,7 +221,9 @@ export function JobMap({
       const lat = job.location?.lat;
       const lng = job.location?.lng;
 
-      if (!isValidCoordinate(lat, lng)) {
+      // Requirement 5: Only create markers for confirmed locations with valid coordinates
+      // Do NOT create markers for unconfirmed or legacy_unverified jobs
+      if (!hasConfirmedCoordinates(job)) {
         return;
       }
 
@@ -387,14 +382,15 @@ export function JobMap({
               Xem chi tiết việc làm
             </Link>
             {(() => {
-              const dest = activeJob.address
-                || (activeJob.storeName ? `${activeJob.storeName}, Hòa Lạc, Thạch Thất, Hà Nội` : '')
-                || (isValidCoordinate(activeJob.location?.lat, activeJob.location?.lng)
-                    ? `${activeJob.location.lat},${activeJob.location.lng}`
-                    : 'Hòa Lạc, Thạch Thất, Hà Nội');
+              const dest = getGoogleMapsDestination(activeJob);
+              if (!dest) return null;
+              const isConfirmed = hasConfirmedCoordinates(activeJob);
+              const navUrl = isConfirmed
+                ? `https://www.google.com/maps/dir/?api=1&destination=${dest}`
+                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`;
               return (
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`}
+                  href={navUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="p-2 rounded-xl border border-green-200 text-text-muted hover:text-green-dark hover:bg-green-50 text-xs transition-colors flex items-center gap-1"

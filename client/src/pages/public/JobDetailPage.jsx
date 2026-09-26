@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   MapPin, Clock, DollarSign, Users, Star, CheckCircle, Shield,
   Bookmark, BookmarkCheck, Send, ArrowLeft, Bus, AlertTriangle, Calendar, Navigation, ExternalLink,
-  Phone, MessageCircle, Flag
+  Phone, MessageCircle, Flag, Search, AlertCircle
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
 import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport, updateUserProfile } from '@/services';
@@ -15,7 +15,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Textarea } from '@/components/Form.jsx';
 import { LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS, DAYS_OF_WEEK } from '@/constants';
-import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDistance } from '@/utils';
+import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDistance, hasConfirmedCoordinates, getGoogleMapsDestination } from '@/utils';
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -155,14 +155,16 @@ export default function JobDetailPage() {
   const unitLabel = SALARY_UNIT_LABELS[job.salaryUnit] || '';
   const contactPhone = job.contactPhone || emp?.contactPhone || emp?.phone || job.phone;
 
-  // Construct search destination for Google Maps: use full address directly
-  const fullAddress = job.address || emp?.address || '';
-  const mapSearchQuery = fullAddress
-    || (job.storeName ? `${job.storeName}, Hòa Lạc, Thạch Thất, Hà Nội` : '')
-    || (job.location?.lat && job.location?.lng ? `${job.location.lat},${job.location.lng}` : 'Hòa Lạc, Thạch Thất, Hà Nội');
+  // Format address strictly: do not display employer.address over job.address if job has separate address
+  const displayAddress = (job.address && job.address.trim())
+    ? job.address.trim()
+    : (emp?.address && emp.address.trim())
+    ? emp.address.trim()
+    : '';
 
-  const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapSearchQuery)}`;
-  const googleMapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapSearchQuery)}`;
+  // Canonical Google Maps destination determination
+  const isConfirmedLocation = hasConfirmedCoordinates(job);
+  const destination = getGoogleMapsDestination(job);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -352,21 +354,42 @@ export default function JobDetailPage() {
                   <MapPin className="w-3.5 h-3.5 text-green-main shrink-0" /> Địa chỉ làm việc:
                 </p>
                 <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-100 text-xs font-medium text-text-main leading-relaxed break-words">
-                  {fullAddress || 'Khu CNC Hòa Lạc, Thạch Thất, Hà Nội'}
+                  {displayAddress || 'Chưa có thông tin địa chỉ cụ thể'}
                 </div>
               </div>
 
-              {/* Single clean Google Maps Directions Button */}
-              <a
-                href={googleMapsNavUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
-                title="Mở chỉ đường Google Maps từ vị trí của bạn đến quán"
-              >
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Chỉ đường trên Google Maps</span>
-              </a>
+              {/* Google Maps Actions: Confirmed coordinates vs Unconfirmed address */}
+              {isConfirmedLocation && destination ? (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${destination}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                  title="Mở chỉ đường Google Maps từ vị trí của bạn đến tọa độ chính xác"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  <span>Chỉ đường trên Google Maps</span>
+                </a>
+              ) : destination ? (
+                <div className="space-y-2">
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Địa điểm này chưa được nhà tuyển dụng xác nhận trên bản đồ. Kết quả tìm kiếm có thể không chính xác.
+                    </p>
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-all"
+                    title="Tìm kiếm địa chỉ này trên Google Maps"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Tìm địa chỉ trên Google Maps</span>
+                  </a>
+                </div>
+              ) : null}
 
               {/* Direct Phone & Zalo */}
               {contactPhone && (

@@ -11,6 +11,7 @@ import { searchGoogleMapsPlaces } from '../services/serpApi.js';
 import { authenticate, authorize, optionalAuthenticate } from '../middlewares/auth.js';
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
+import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
 
 const router = express.Router();
 
@@ -484,21 +485,11 @@ router.post('/', authenticate, async (req, res, next) => {
       data.benefits = data.benefits.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
     }
 
-    // Normalize location & address: Real coordinates only, NO FAKE DEFAULTS!
-    if (isValidCoordinate(data.location?.lat, data.location?.lng)) {
-      data.location = {
-        lat: Number(data.location.lat),
-        lng: Number(data.location.lng),
-      };
-      data.locationStatus = data.locationStatus || 'confirmed';
-      data.locationSource = data.locationSource || 'manual_coordinates';
-      data.locationConfirmedAt = data.locationConfirmedAt || new Date();
-    } else {
-      data.location = { lat: null, lng: null };
-      data.locationStatus = 'unconfirmed';
-      data.locationSource = null;
-      data.locationConfirmedAt = null;
-    }
+    // Normalize location & address: Canonical contract with real coordinates only
+    const normalizedLoc = normalizeLocationInput(data, null, {
+      isExplicitConfirm: data.locationStatus === LOCATION_STATUSES.CONFIRMED,
+    });
+    Object.assign(data, normalizedLoc);
 
     const newJob = await Job.create(data);
     res.status(201).json(newJob);
@@ -682,26 +673,61 @@ router.put('/:id', authenticate, async (req, res, next) => {
       }
     }
 
-    // Normalize location
-    if (req.body.location !== undefined) {
-      if (isValidCoordinate(req.body.location?.lat, req.body.location?.lng)) {
-        req.body.location = {
-          lat: Number(req.body.location.lat),
-          lng: Number(req.body.location.lng),
-        };
-        req.body.locationStatus = req.body.locationStatus || 'confirmed';
-        req.body.locationSource = req.body.locationSource || 'manual_coordinates';
-        req.body.locationConfirmedAt = req.body.locationConfirmedAt || new Date();
-      } else {
-        req.body.location = { lat: null, lng: null };
-        req.body.locationStatus = 'unconfirmed';
-        req.body.locationSource = null;
-        req.body.locationConfirmedAt = null;
-      }
+    const existingJob = await Job.findById(req.params.id);
+    if (!existingJob) return res.status(404).json({ error: 'Không tìm thấy việc làm', code: 'JOB_NOT_FOUND' });
+
+    // Normalize location & address using authoritative contract
+    if (
+      req.body.location !== undefined ||
+      req.body.locationStatus !== undefined ||
+      req.body.address !== undefined ||
+      req.body.addressComponents !== undefined ||
+      req.body.locationSource !== undefined
+    ) {
+      const normalizedLoc = normalizeLocationInput(req.body, existingJob, {
+        isExplicitConfirm: req.body.locationStatus === LOCATION_STATUSES.CONFIRMED,
+      });
+      Object.assign(req.body, normalizedLoc);
     }
 
     const updated = await Job.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
     res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/jobs/:id/location/confirm (Explicit location confirmation)
+router.post('/:id/location/confirm', authenticate, async (req, res, next) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+
+    if (req.user.role !== 'admin' && job.employerUserId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Bạn không có quyền xác nhận vị trí cho tin tuyển dụng này.', code: 'FORBIDDEN' });
+    }
+
+    const payload = {
+      location: req.body.location || job.location,
+      address: req.body.address || job.address,
+      addressComponents: req.body.addressComponents || job.addressComponents,
+      locationSource: req.body.locationSource || job.locationSource || 'map_pin',
+      locationStatus: 'confirmed',
+    };
+
+    const normalizedLoc = normalizeLocationInput(payload, job, { isExplicitConfirm: true });
+    if (normalizedLoc.locationStatus !== LOCATION_STATUSES.CONFIRMED || !normalizedLoc.geoPoint) {
+      return res.status(400).json({
+        error: 'Tọa độ không hợp lệ, không thể xác nhận vị trí.',
+        code: 'INVALID_COORDINATES',
+      });
+    }
+
+    Object.assign(job, normalizedLoc);
+    if (req.body.address) job.address = req.body.address;
+    await job.save();
+
+    res.json({ message: 'Vị trí đã được xác nhận thành công.', job });
   } catch (err) {
     next(err);
   }

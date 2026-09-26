@@ -74,14 +74,20 @@ export async function getWards(districtCode) {
 }
 
 // Automatically resolve area code for any ward/district (does NOT return fake coordinates)
-export function getWardCoordinates(provinceName = '', districtName = '', wardName = '') {
+export function resolveAreaCode(provinceName = '', districtName = '', wardName = '') {
   const q = `${provinceName} ${districtName} ${wardName}`.toLowerCase();
-  let area = 'fpt_university';
-  if (q.includes('tân xã')) area = 'tan_xa';
-  else if (q.includes('thạch hòa') || q.includes('đhqg')) area = 'dhqg_dorm';
-  else if (q.includes('bình yên')) area = 'binh_yen';
-  else if (q.includes('hạ bằng')) area = 'ha_bang';
-  else if (q.includes('phú cát') || q.includes('cổ đông')) area = 'thach_hoa';
+  if (q.includes('fpt') || q.includes('đại học fpt')) return 'fpt_university';
+  if (q.includes('tân xã')) return 'tan_xa';
+  if (q.includes('thạch hòa') || q.includes('đhqg')) return 'dhqg_dorm';
+  if (q.includes('bình yên')) return 'binh_yen';
+  if (q.includes('hạ bằng')) return 'ha_bang';
+  if (q.includes('phú cát') || q.includes('cổ đông')) return 'thach_hoa';
+  return 'other';
+}
+
+// Backward-compatibility alias
+export function getWardCoordinates(provinceName = '', districtName = '', wardName = '') {
+  const area = resolveAreaCode(provinceName, districtName, wardName);
   return { lat: null, lng: null, area };
 }
 

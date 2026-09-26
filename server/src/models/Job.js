@@ -33,7 +33,7 @@ const jobSchema = new mongoose.Schema({
   },
   locationStatus: {
     type: String,
-    enum: ['unconfirmed', 'confirmed', 'legacy_unverified'],
+    enum: ['unconfirmed', 'pending_confirmation', 'confirmed', 'legacy_unverified'],
     default: 'unconfirmed',
   },
   locationSource: {
@@ -42,6 +42,18 @@ const jobSchema = new mongoose.Schema({
     default: null,
   },
   locationConfirmedAt: { type: Date, default: null },
+  addressComponents: {
+    addressLine: { type: String, default: '' },
+    wardCode: { type: String, default: null },
+    wardName: { type: String, default: '' },
+    districtCode: { type: String, default: null },
+    districtName: { type: String, default: '' },
+    provinceCode: { type: String, default: null },
+    provinceName: { type: String, default: '' },
+  },
+  provinceCode: { type: String, default: null },
+  districtCode: { type: String, default: null },
+  wardCode: { type: String, default: null },
   schedule: [{ 
     dayOfWeek: { type: Number, min: 1, max: 7 },
     startTime: { type: String },
@@ -96,6 +108,8 @@ jobSchema.index({ area: 1 });
 jobSchema.index({ category: 1 });
 jobSchema.index({ createdAt: -1 });
 jobSchema.index({ featured: -1, createdAt: -1 });
+jobSchema.index({ locationStatus: 1 });
+jobSchema.index({ provinceCode: 1, districtCode: 1, wardCode: 1 });
 jobSchema.index({ geoPoint: '2dsphere' }, { sparse: true });
 
 export const Job = mongoose.model('Job', jobSchema);

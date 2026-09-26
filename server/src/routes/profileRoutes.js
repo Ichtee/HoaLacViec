@@ -7,6 +7,7 @@ import { EmployerVerification } from '../models/EmployerVerification.js';
 import { Availability } from '../models/Availability.js';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.js';
 import { isValidCoordinate } from '../utils/geoHelper.js';
+import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ const STUDENT_SELF_UPDATE_FIELDS = [
   'major',
   'area',
   'address',
+  'addressComponents',
   'bio',
   'skills',
   'transport',
@@ -27,6 +29,7 @@ const EMPLOYER_SELF_UPDATE_FIELDS = [
   'storeName',
   'storeType',
   'address',
+  'addressComponents',
   'area',
   'contactName',
   'contactPhone',
@@ -93,9 +96,12 @@ function toPrivateStudentDTO(profile) {
     major: profile.major,
     area: profile.area,
     address: profile.address,
+    addressComponents: profile.addressComponents || null,
     location: profile.location,
+    geoPoint: profile.geoPoint || null,
     locationStatus: profile.locationStatus,
     locationSource: profile.locationSource,
+    locationConfirmedAt: profile.locationConfirmedAt || null,
     bio: profile.bio,
     skills: profile.skills,
     transport: profile.transport,
@@ -120,8 +126,10 @@ function toPublicEmployerDTO(profile) {
     storeName: profile.storeName,
     storeType: profile.storeType,
     address: profile.address,
+    addressComponents: profile.addressComponents || null,
     area: profile.area,
     location: profile.location,
+    geoPoint: profile.geoPoint || null,
     locationStatus: profile.locationStatus,
     contactName: profile.contactName,
     contactPhone: profile.contactPhone,
@@ -191,28 +199,20 @@ router.put('/student/:userId', authenticate, async (req, res, next) => {
       }
     }
 
-    // Handle location updates safely
-    if (req.body.location !== undefined) {
-      if (req.body.location === null) {
-        updateData.location = { lat: null, lng: null };
-        updateData.locationStatus = 'unconfirmed';
-        updateData.locationSource = null;
-      } else if (typeof req.body.location === 'object') {
-        const { lat, lng } = req.body.location;
-        if (lat !== undefined && lng !== undefined && lat !== null && lng !== null) {
-          if (!isValidCoordinate(lat, lng)) {
-            return res.status(400).json({
-              error: 'Tọa độ vị trí không hợp lệ.',
-              code: 'INVALID_COORDINATES',
-            });
-          }
-          updateData.location = { lat: Number(lat), lng: Number(lng) };
-          updateData.locationStatus = 'confirmed';
-          updateData.locationSource = ['device', 'places', 'map_pin', 'manual_coordinates'].includes(req.body.locationSource)
-            ? req.body.locationSource
-            : 'manual_coordinates';
-        }
-      }
+    const existingProfile = await StudentProfile.findOne({ userId: req.params.userId });
+
+    // Handle location updates via authoritative contract
+    if (
+      req.body.location !== undefined ||
+      req.body.locationStatus !== undefined ||
+      req.body.address !== undefined ||
+      req.body.addressComponents !== undefined ||
+      req.body.locationSource !== undefined
+    ) {
+      const normalizedLoc = normalizeLocationInput(req.body, existingProfile, {
+        isExplicitConfirm: req.body.locationStatus === LOCATION_STATUSES.CONFIRMED,
+      });
+      Object.assign(updateData, normalizedLoc);
     }
 
     const profile = await StudentProfile.findOneAndUpdate(
@@ -311,30 +311,20 @@ router.put('/employer/:userId', authenticate, async (req, res, next) => {
       }
     }
 
-    // Handle location updates safely
-    if (req.body.location !== undefined) {
-      if (req.body.location === null) {
-        updateData.location = { lat: null, lng: null };
-        updateData.locationStatus = 'unconfirmed';
-        updateData.locationSource = null;
-        updateData.locationConfirmedAt = null;
-      } else if (typeof req.body.location === 'object') {
-        const { lat, lng } = req.body.location;
-        if (lat !== undefined && lng !== undefined && lat !== null && lng !== null) {
-          if (!isValidCoordinate(lat, lng)) {
-            return res.status(400).json({
-              error: 'Tọa độ vị trí không hợp lệ.',
-              code: 'INVALID_COORDINATES',
-            });
-          }
-          updateData.location = { lat: Number(lat), lng: Number(lng) };
-          updateData.locationStatus = 'confirmed';
-          updateData.locationSource = ['device', 'places', 'map_pin', 'manual_coordinates'].includes(req.body.locationSource)
-            ? req.body.locationSource
-            : 'manual_coordinates';
-          updateData.locationConfirmedAt = new Date();
-        }
-      }
+    const existingProfile = await EmployerProfile.findOne({ userId: req.params.userId });
+
+    // Handle location updates via authoritative contract
+    if (
+      req.body.location !== undefined ||
+      req.body.locationStatus !== undefined ||
+      req.body.address !== undefined ||
+      req.body.addressComponents !== undefined ||
+      req.body.locationSource !== undefined
+    ) {
+      const normalizedLoc = normalizeLocationInput(req.body, existingProfile, {
+        isExplicitConfirm: req.body.locationStatus === LOCATION_STATUSES.CONFIRMED,
+      });
+      Object.assign(updateData, normalizedLoc);
     }
 
     const profile = await EmployerProfile.findOneAndUpdate(
@@ -344,6 +334,43 @@ router.put('/employer/:userId', authenticate, async (req, res, next) => {
     );
 
     res.json(toPrivateEmployerDTO(profile));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/profiles/employer/me/location/confirm (Explicit location confirmation for current employer)
+router.post('/employer/me/location/confirm', authenticate, async (req, res, next) => {
+  try {
+    const profile = await EmployerProfile.findOne({ userId: req.user._id });
+    if (!profile) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ nhà tuyển dụng.', code: 'PROFILE_NOT_FOUND' });
+    }
+
+    const payload = {
+      location: req.body.location || profile.location,
+      address: req.body.address || profile.address,
+      addressComponents: req.body.addressComponents || profile.addressComponents,
+      locationSource: req.body.locationSource || profile.locationSource || 'map_pin',
+      locationStatus: 'confirmed',
+    };
+
+    const normalizedLoc = normalizeLocationInput(payload, profile, { isExplicitConfirm: true });
+    if (normalizedLoc.locationStatus !== LOCATION_STATUSES.CONFIRMED || !normalizedLoc.geoPoint) {
+      return res.status(400).json({
+        error: 'Tọa độ không hợp lệ, không thể xác nhận vị trí.',
+        code: 'INVALID_COORDINATES',
+      });
+    }
+
+    Object.assign(profile, normalizedLoc);
+    if (req.body.address) profile.address = req.body.address;
+    await profile.save();
+
+    res.json({
+      message: 'Vị trí cơ sở đã được xác nhận thành công.',
+      profile: toPrivateEmployerDTO(profile),
+    });
   } catch (err) {
     next(err);
   }

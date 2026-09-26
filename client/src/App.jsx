@@ -54,9 +54,13 @@ import AdminUsersPage from '@/pages/admin/AdminUsersPage.jsx';
 import AccountInfoPage from '@/pages/common/AccountInfoPage.jsx';
 import ChangePasswordPage from '@/pages/common/ChangePasswordPage.jsx';
 
+// Geolocation Bootstrap
+import { LocationPermissionBootstrap } from '@/components/LocationPermissionBootstrap.jsx';
+
 export default function App() {
   return (
     <Router>
+      <LocationPermissionBootstrap />
       <PendingRouteEnforcer />
       <Routes>
         {/* Public Routes */}

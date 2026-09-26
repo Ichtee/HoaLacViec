@@ -12,6 +12,7 @@ import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { isValidCoordinate } from '@/utils';
+import { useGeolocation } from '@/hooks/useGeolocation.js';
 
 function getShiftStatusBadge(status) {
   switch (status) {
@@ -49,6 +50,7 @@ const REASON_CODE_LABELS = {
 
 export default function StudentShiftsPage() {
   const { user } = useAuth();
+  const { requestLocation } = useGeolocation();
   const [shifts, setShifts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -81,81 +83,51 @@ export default function StudentShiftsPage() {
   }
 
   // Request fresh, high-accuracy GPS specifically for attendance
-  const requestFreshGps = useCallback(() => {
-    if (!navigator.geolocation) {
-      setGpsState({
-        status: 'error',
-        coords: null,
-        error: 'Trình duyệt hoặc thiết bị của bạn không hỗ trợ Geolocation GPS.',
-      });
-      return;
-    }
-
-    if (window.isSecureContext === false) {
-      setGpsState({
-        status: 'error',
-        coords: null,
-        error: 'Tính năng GPS yêu cầu kết nối bảo mật HTTPS.',
-      });
-      return;
-    }
-
+  const requestFreshGps = useCallback(async () => {
     setGpsState({
       status: 'requesting',
       coords: null,
       error: null,
     });
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        const timestamp = pos.timestamp || Date.now();
+    try {
+      const pos = await requestLocation({
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+        maxAccuracy: 100,
+      });
 
-        if (!isValidCoordinate(latitude, longitude)) {
-          setGpsState({
-            status: 'error',
-            coords: null,
-            error: 'Tọa độ GPS nhận được không hợp lệ.',
-          });
-          return;
-        }
-
-        const isLowAccuracy = accuracy > 100;
-        setGpsState({
-          status: isLowAccuracy ? 'low_accuracy' : 'success',
-          coords: {
-            lat: latitude,
-            lng: longitude,
-            accuracy: Math.round(accuracy),
-            timestamp,
-          },
-          error: isLowAccuracy
-            ? `Độ chính xác GPS hiện tại chưa cao (sai số ±${Math.round(accuracy)}m > 100m). Yêu cầu có thể được chuyển sang Cần quản lý duyệt.`
-            : null,
-        });
-      },
-      (err) => {
-        let msg = 'Không thể lấy tọa độ GPS từ thiết bị.';
-        if (err.code === 1) {
-          msg = 'Bạn đã từ chối quyền vị trí. Vui lòng bật quyền truy cập vị trí trên trình duyệt.';
-        } else if (err.code === 2) {
-          msg = 'Thiết bị không dò được sóng GPS/WiFi định vị.';
-        } else if (err.code === 3) {
-          msg = 'Quá thời gian chờ lấy tọa độ GPS từ thiết bị.';
-        }
+      if (!pos || !isValidCoordinate(pos.lat, pos.lng)) {
         setGpsState({
           status: 'error',
           coords: null,
-          error: msg,
+          error: 'Không thể lấy tọa độ GPS từ thiết bị hoặc bạn đã từ chối quyền vị trí.',
         });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0, // Must be fresh!
+        return;
       }
-    );
-  }, []);
+
+      const isLowAccuracy = (pos.accuracy || 0) > 100;
+      setGpsState({
+        status: isLowAccuracy ? 'low_accuracy' : 'success',
+        coords: {
+          lat: pos.lat,
+          lng: pos.lng,
+          accuracy: Math.round(pos.accuracy || 0),
+          timestamp: pos.timestamp || Date.now(),
+        },
+        error: isLowAccuracy
+          ? `Độ chính xác GPS hiện tại chưa cao (sai số ±${Math.round(pos.accuracy)}m > 100m). Yêu cầu có thể được chuyển sang Cần quản lý duyệt.`
+          : null,
+      });
+    } catch (err) {
+      setGpsState({
+        status: 'error',
+        coords: null,
+        error: err.message || 'Lỗi khi lấy vị trí GPS từ thiết bị.',
+      });
+    }
+  }, [requestLocation]);
 
   function handleOpenModal(shift) {
     setModalShift(shift);

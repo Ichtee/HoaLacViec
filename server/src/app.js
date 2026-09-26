@@ -34,6 +34,12 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
+// Permissions-Policy for Geolocation (Requirement 11)
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'geolocation=(self)');
+  next();
+});
+
 // Precise CORS origin whitelist from environment
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')

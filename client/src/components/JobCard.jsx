@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Clock, DollarSign, Users, CheckCircle, Star, Bookmark, BookmarkCheck, Calendar, Navigation } from 'lucide-react';
+import { MapPin, Clock, DollarSign, Users, CheckCircle, Star, Bookmark, BookmarkCheck, Calendar, Navigation, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Badge, VerifiedBadge } from './Badge.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS } from '@/constants';
-import { formatVND, formatDate } from '@/utils';
+import { formatVND, formatDate, hasConfirmedCoordinates, getGoogleMapsDestination } from '@/utils';
 
 export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false }) {
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
@@ -78,9 +78,9 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 min-w-0" title={employer?.address || job.address || 'Hòa Lạc'}>
+              <div className="flex items-center gap-1.5 min-w-0" title={job.address || employer?.address || 'Hòa Lạc'}>
                 <MapPin className="w-4 h-4 flex-shrink-0 text-red-500" />
-                <span className="truncate">{employer?.address?.split(',')[0] || job.address?.split(',')[0] || 'Hòa Lạc'}</span>
+                <span className="truncate">{job.address?.split(',')[0] || employer?.address?.split(',')[0] || 'Hòa Lạc'}</span>
               </div>
 
               <div className="flex items-center gap-1.5 min-w-0">
@@ -105,23 +105,44 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
           <div className="flex items-center gap-2">
             <p className="text-xs text-text-light">Đăng {formatDate(job.postedAt)}</p>
             {(() => {
-              const dest = job.address
-                || (job.storeName ? `${job.storeName}, Hòa Lạc, Thạch Thất, Hà Nội` : '')
-                || (job.location?.lat && job.location?.lng ? `${job.location.lat},${job.location.lng}` : 'Hòa Lạc, Thạch Thất, Hà Nội');
-              const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+              const isConfirmed = hasConfirmedCoordinates(job);
+              const dest = getGoogleMapsDestination(job);
+              if (!dest) return null;
+
+              if (isConfirmed) {
+                const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+                return (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      window.open(navUrl, '_blank');
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-semibold transition-colors"
+                    title="Mở chỉ đường trên Google Maps đến tọa độ chính xác"
+                  >
+                    <Navigation className="w-3 h-3 text-blue-600" />
+                    <span>Chỉ đường</span>
+                  </button>
+                );
+              }
+
+              // Unconfirmed location: show search button with warning tooltip
+              const searchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`;
               return (
                 <button
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    window.open(navUrl, '_blank');
+                    window.open(searchUrl, '_blank');
                   }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-semibold transition-colors"
-                  title="Mở chỉ đường trên Google Maps đến vị trí này"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 text-[11px] font-semibold transition-colors border border-amber-200"
+                  title="Địa điểm này chưa được nhà tuyển dụng xác nhận trên bản đồ. Kết quả tìm kiếm có thể không chính xác."
                 >
-                  <Navigation className="w-3 h-3 text-blue-600" />
-                  <span>Chỉ đường</span>
+                  <Search className="w-3 h-3 text-amber-600" />
+                  <span>Tìm địa chỉ</span>
                 </button>
               );
             })()}

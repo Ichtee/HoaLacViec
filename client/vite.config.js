@@ -12,6 +12,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    headers: {
+      'Permissions-Policy': 'geolocation=(self)',
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

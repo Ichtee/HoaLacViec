@@ -23,7 +23,7 @@ const employerProfileSchema = new mongoose.Schema({
   },
   locationStatus: {
     type: String,
-    enum: ['unconfirmed', 'confirmed', 'legacy_unverified'],
+    enum: ['unconfirmed', 'pending_confirmation', 'confirmed', 'legacy_unverified'],
     default: 'unconfirmed',
   },
   locationSource: {
@@ -32,6 +32,18 @@ const employerProfileSchema = new mongoose.Schema({
     default: null,
   },
   locationConfirmedAt: { type: Date, default: null },
+  addressComponents: {
+    addressLine: { type: String, default: '' },
+    wardCode: { type: String, default: null },
+    wardName: { type: String, default: '' },
+    districtCode: { type: String, default: null },
+    districtName: { type: String, default: '' },
+    provinceCode: { type: String, default: null },
+    provinceName: { type: String, default: '' },
+  },
+  provinceCode: { type: String, default: null },
+  districtCode: { type: String, default: null },
+  wardCode: { type: String, default: null },
   contactName: { type: String, default: '' },
   contactPhone: { type: String, default: '' },
   description: { type: String, default: '' },

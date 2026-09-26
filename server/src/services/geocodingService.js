@@ -33,7 +33,7 @@ async function doGeocode(cleanQuery, cacheKey) {
   try {
     const url = new URL('https://nominatim.openstreetmap.org/search');
     url.searchParams.set('format', 'json');
-    url.searchParams.set('limit', '3');
+    url.searchParams.set('limit', '5');
     url.searchParams.set('addressdetails', '1');
     url.searchParams.set('q', cleanQuery);
 
@@ -59,30 +59,36 @@ async function doGeocode(cleanQuery, cacheKey) {
     if (!Array.isArray(data) || data.length === 0) {
       return {
         success: false,
+        candidates: [],
         error: 'Không tìm thấy tọa độ phù hợp cho địa chỉ này',
       };
     }
 
-    const best = data[0];
-    const lat = parseFloat(best.lat);
-    const lng = parseFloat(best.lon);
+    const candidates = data
+      .map((d) => ({
+        lat: parseFloat(d.lat),
+        lng: parseFloat(d.lon),
+        displayName: d.display_name,
+        address: d.address || {},
+      }))
+      .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
 
-    if (isNaN(lat) || isNaN(lng)) {
+    if (candidates.length === 0) {
       return {
         success: false,
+        candidates: [],
         error: 'Dữ liệu tọa độ trả về không hợp lệ',
       };
     }
 
+    const best = candidates[0];
+
     const result = {
-      lat,
-      lng,
-      displayName: best.display_name,
-      results: data.map((d) => ({
-        lat: parseFloat(d.lat),
-        lng: parseFloat(d.lon),
-        displayName: d.display_name,
-      })),
+      lat: best.lat,
+      lng: best.lng,
+      displayName: best.displayName,
+      candidates,
+      results: candidates,
     };
 
     geocodeCache.set(cacheKey, result);

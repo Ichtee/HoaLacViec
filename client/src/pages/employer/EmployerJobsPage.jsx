@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-  Briefcase, Plus, Search, Edit, Trash2, ToggleLeft, ToggleRight, MapPin,
-  Clock, DollarSign, Users, Eye, ExternalLink,
-  Loader2, PauseCircle, PlayCircle
+  Briefcase, Plus, Edit, Trash2, MapPin,
+  DollarSign, Users, ExternalLink,
+  PauseCircle, PlayCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -18,7 +18,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import LocationPicker from '@/components/LocationPicker';
 import { formatVND, isValidCoordinate } from '@/utils';
-import { getProvinces, getDistricts, getWards, getWardCoordinates } from '@/services/provinces';
+import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
 
 export default function EmployerJobsPage() {
   const { user, updateUser } = useAuth();
@@ -43,7 +43,6 @@ export default function EmployerJobsPage() {
   const [selectedWardCode, setSelectedWardCode] = useState('');
   const [selectedWardName, setSelectedWardName] = useState('');
   const [detailAddress, setDetailAddress] = useState('');
-  const detailAddressInputRef = useRef(null);
 
   function buildFullAddress(detail, ward, district, province) {
     const rawDetail = (detail || '').trim();
@@ -167,6 +166,7 @@ export default function EmployerJobsPage() {
     }
   }, [user]);
 
+  // Phone synchronization with user
   useEffect(() => {
     if (user?.phone) {
       setEmployerPhone(prev => prev || user.phone);
@@ -176,39 +176,6 @@ export default function EmployerJobsPage() {
       }));
     }
   }, [user?.phone]);
-
-  // Initialize Google Places Autocomplete when modal is open and API Key is present
-  useEffect(() => {
-    if (!isModalOpen || !detailAddressInputRef.current) return;
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey) return;
-
-    loadGoogleMapsScript(apiKey)
-      .then((googleMaps) => {
-        if (!detailAddressInputRef.current) return;
-        const autocomplete = new googleMaps.places.Autocomplete(detailAddressInputRef.current, {
-          componentRestrictions: { country: 'vn' },
-          fields: ['address_components', 'geometry', 'formatted_address', 'name'],
-        });
-
-        autocomplete.addListener('place_changed', () => {
-          const place = autocomplete.getPlace();
-          if (place && place.geometry && place.geometry.location) {
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
-            const placeName = place.name || place.formatted_address;
-            setDetailAddress(placeName);
-            setFormData(prev => ({
-              ...prev,
-              lat,
-              lng,
-            }));
-            setMapLinkInput(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
-          }
-        });
-      })
-      .catch(() => {});
-  }, [isModalOpen]);
 
   // Cascading Handlers
   async function handleProvinceChange(e) {
@@ -223,6 +190,14 @@ export default function EmployerJobsPage() {
 
     const prov = provinces.find(p => String(p.code) === String(code));
     setSelectedProvinceName(prov ? prov.name : '');
+
+    // Requirement 6: Editing address resets confirmed location status until pin is reconfirmed
+    setFormData(prev => ({
+      ...prev,
+      locationStatus: 'unconfirmed',
+      locationConfirmedAt: null,
+    }));
+    setGeoCustomVerified(false);
 
     if (code) {
       setLoadingDistricts(true);
@@ -245,6 +220,13 @@ export default function EmployerJobsPage() {
     const dist = districts.find(d => String(d.code) === String(code));
     setSelectedDistrictName(dist ? dist.name : '');
 
+    // Requirement Phase 3 item 1: Editing address resets confirmed location status to unconfirmed
+    setFormData(prev => ({
+      ...prev,
+      locationStatus: 'unconfirmed',
+      locationConfirmedAt: null,
+    }));
+
     if (code) {
       setLoadingWards(true);
       try {
@@ -264,91 +246,36 @@ export default function EmployerJobsPage() {
     const wName = ward ? ward.name : '';
     setSelectedWardName(wName);
 
-    const coords = getWardCoordinates(selectedProvinceName, selectedDistrictName, wName);
+    const resolvedArea = resolveAreaCode(selectedProvinceName, selectedDistrictName, wName);
     setFormData(prev => ({
       ...prev,
-      area: coords.area,
+      area: resolvedArea,
+      locationStatus: 'unconfirmed',
+      locationConfirmedAt: null,
     }));
   }
 
-  const [geoError, setGeoError] = useState('');
-  const [geoNotFound, setGeoNotFound] = useState(false);
-  const [searchingPlaces, setSearchingPlaces] = useState(false);
-  const [suggestedPlaces, setSuggestedPlaces] = useState([]);
-
-  // Search Google Maps places via SerpApi with intelligent local context
-  async function handleSearchSerpApiPlaces(overrideQuery) {
-    const raw = (overrideQuery !== undefined ? overrideQuery : detailAddress || '').trim();
-    if (!raw || raw.length < 2) {
-      setGeoError('Vui lòng nhập tên quán từ 2 ký tự (VD: "Xôi Bánh Mỳ cô Hà" hoặc "Cà phê Mộc")');
-      return;
-    }
-    setGeoError('');
-    setGeoNotFound(false);
-    setSearchingPlaces(true);
-    try {
-      // Build location-aware query so Google Maps knows to look around Thạch Thất / Hòa Lạc
-      let query = raw;
-      const lower = raw.toLowerCase();
-      const areaParts = [selectedWardName, selectedDistrictName, 'Hà Nội'].filter(Boolean);
-      const areaContext = areaParts.join(', ');
-
-      if (!lower.includes('hòa lạc') && !lower.includes('thạch thất') && !lower.includes('hà nội')) {
-        query = areaContext ? `${raw}, ${areaContext}` : `${raw}, Hòa Lạc, Hà Nội`;
-      }
-
-      const center = { lat: Number(formData.lat) || 21.0128, lng: Number(formData.lng) || 105.5255 };
-      let res = await searchPlaces(query, center);
-
-      // Fallback: try raw query if scoped search returned 0
-      if ((!res?.places || res.places.length === 0) && query !== raw) {
-        res = await searchPlaces(raw, center);
-      }
-
-      if (res?.places && res.places.length > 0) {
-        setSuggestedPlaces(res.places);
-        setGeoError('');
-        setGeoNotFound(false);
-      } else {
-        setSuggestedPlaces([]);
-        setGeoNotFound(true);
-        setGeoError('');
-      }
-    } catch (err) {
-      setGeoError(err.message || 'Lỗi khi gọi Google Maps');
-      setSuggestedPlaces([]);
-    } finally {
-      setSearchingPlaces(false);
-    }
-  }
-
-  // Update detailAddress without burning SerpApi requests while typing
+  // Update detailAddress: editing address resets location status to unconfirmed
   function handleDetailAddressChange(val) {
     setDetailAddress(val);
-    if (suggestedPlaces.length > 0) {
-      setSuggestedPlaces([]);
-    }
-    if (geoError) setGeoError('');
-    if (geoNotFound) setGeoNotFound(false);
-  }
-
-  function handleSelectSerpPlace(place) {
-    setDetailAddress(place.title);
     setFormData(prev => ({
       ...prev,
-      lat: place.lat,
-      lng: place.lng,
-      locationStatus: 'confirmed',
-      locationSource: 'places',
-      address: place.address || prev.address,
+      locationStatus: 'unconfirmed',
+      locationConfirmedAt: null,
     }));
-    setSuggestedPlaces([]);
-    setMapLinkInput(`${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}`);
   }
 
   function handleOpenCreate() {
     setEditingJob(null);
     setDetailAddress('');
+    setSelectedProvinceCode('');
+    setSelectedProvinceName('');
+    setSelectedDistrictCode('');
+    setSelectedDistrictName('');
+    setSelectedWardCode('');
+    setSelectedWardName('');
+    setDistricts([]);
+    setWards([]);
     setFormData({
       title: '',
       jobType: 'Theo ca',
@@ -356,7 +283,7 @@ export default function EmployerJobsPage() {
       salaryUnit: 'hour',
       contactPhone: user?.phone || employerPhone || '',
       address: '',
-      area: 'tan_xa',
+      area: 'other',
       lat: null,
       lng: null,
       locationStatus: 'unconfirmed',
@@ -367,15 +294,34 @@ export default function EmployerJobsPage() {
       requirements: '',
       benefits: '',
     });
-    setGeoCustomVerified(false);
-    setGeoError('');
-    setGeoNotFound(false);
     setIsModalOpen(true);
   }
 
-  function handleOpenEdit(job) {
+  async function handleOpenEdit(job) {
     setEditingJob(job);
-    setDetailAddress(job.address?.split(',')[0] || '');
+    const pCode = job.addressComponents?.provinceCode || job.provinceCode || '';
+    const dCode = job.addressComponents?.districtCode || job.districtCode || '';
+    const wCode = job.addressComponents?.wardCode || job.wardCode || '';
+    const pName = job.addressComponents?.provinceName || job.provinceName || '';
+    const dName = job.addressComponents?.districtName || job.districtName || '';
+    const wName = job.addressComponents?.wardName || job.wardName || '';
+    const addrLine = job.addressComponents?.addressLine || job.detailAddress || job.address?.split(',')[0] || '';
+
+    setSelectedProvinceCode(pCode);
+    setSelectedProvinceName(pName);
+    setSelectedDistrictCode(dCode);
+    setSelectedDistrictName(dName);
+    setSelectedWardCode(wCode);
+    setSelectedWardName(wName);
+    setDetailAddress(addrLine);
+
+    if (pCode) {
+      getDistricts(pCode).then(setDistricts).catch(() => {});
+    }
+    if (dCode) {
+      getWards(dCode).then(setWards).catch(() => {});
+    }
+
     const hasValidCoords = isValidCoordinate(job.location?.lat, job.location?.lng);
     setFormData({
       title: job.title || '',
@@ -384,7 +330,7 @@ export default function EmployerJobsPage() {
       salaryUnit: job.salaryUnit || 'hour',
       contactPhone: job.contactPhone || user?.phone || employerPhone || '',
       address: job.address || '',
-      area: job.area || 'tan_xa',
+      area: job.area || 'other',
       lat: hasValidCoords ? job.location.lat : null,
       lng: hasValidCoords ? job.location.lng : null,
       locationStatus: job.locationStatus || (hasValidCoords ? 'confirmed' : 'unconfirmed'),
@@ -395,9 +341,6 @@ export default function EmployerJobsPage() {
       requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : (job.requirements || ''),
       benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : (job.benefits || ''),
     });
-    setGeoCustomVerified(hasValidCoords && job.locationStatus === 'confirmed');
-    setGeoError('');
-    setGeoNotFound(false);
     setIsModalOpen(true);
   }
 
@@ -424,12 +367,23 @@ export default function EmployerJobsPage() {
         salaryAmount: Number(formData.salaryAmount) || 25000,
         salaryUnit: formData.salaryUnit,
         contactPhone: inputPhone,
-        area: formData.area,
+        area: formData.area || 'other',
         address: finalAddress,
+        addressComponents: {
+          addressLine: detailAddress.trim(),
+          wardCode: selectedWardCode || null,
+          wardName: selectedWardName || '',
+          districtCode: selectedDistrictCode || null,
+          districtName: selectedDistrictName || '',
+          provinceCode: selectedProvinceCode || null,
+          provinceName: selectedProvinceName || '',
+        },
+        provinceCode: selectedProvinceCode || null,
+        districtCode: selectedDistrictCode || null,
+        wardCode: selectedWardCode || null,
         location: locationPayload,
-        locationStatus: isConfirmed ? 'confirmed' : 'unconfirmed',
+        locationStatus: isConfirmed ? 'confirmed' : formData.locationStatus || 'unconfirmed',
         locationSource: isConfirmed ? (formData.locationSource || 'map_pin') : null,
-        locationConfirmedAt: isConfirmed ? new Date() : null,
         slots: Number(formData.slots) || 2,
         shiftDetail: formData.shiftDetail,
         description: formData.description,
@@ -790,85 +744,20 @@ export default function EmployerJobsPage() {
                 </div>
               </div>
 
-              {/* Tên quán & Tìm kiếm vị trí Google Maps */}
+              {/* Tên quán & Địa chỉ cụ thể */}
               <div className="space-y-2 pt-1">
                 <label className="block text-[11px] font-medium text-gray-700">
-                  Tên quán / Địa chỉ cụ thể:
+                  Tên quán / Số nhà, ngõ, đường cụ thể:
                 </label>
-                <div className="relative">
-                  <input
-                    ref={detailAddressInputRef}
-                    type="text"
-                    value={detailAddress}
-                    onChange={e => handleDetailAddressChange(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSearchSerpApiPlaces();
-                      }
-                    }}
-                    placeholder="Ví dụ: Highlands Coffee, Quán Cơm 68, Cà phê Mộc..."
-                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main font-medium text-xs text-text-main placeholder:text-gray-400 pr-24"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleSearchSerpApiPlaces()}
-                    disabled={searchingPlaces || !detailAddress.trim()}
-                    className="absolute right-1.5 top-1.5 bottom-1.5 px-3 rounded-lg bg-pink-main hover:bg-pink-dark disabled:opacity-40 text-white font-semibold text-xs transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    {searchingPlaces ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                    Tìm vị trí
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  value={detailAddress}
+                  onChange={e => handleDetailAddressChange(e.target.value)}
+                  placeholder="Ví dụ: Cà phê Mộc, Số 10 Thôn 3, hoặc Km 29 Đại lộ Thăng Long..."
+                  className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main font-medium text-xs text-text-main placeholder:text-gray-400"
+                />
 
-                {/* Danh sách gợi ý từ Google Maps */}
-                {suggestedPlaces.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-lg p-2 space-y-1 max-h-56 overflow-y-auto z-10 animate-fade-in">
-                    <p className="text-[11px] font-semibold text-gray-500 px-1.5 py-0.5">
-                      Gợi ý địa điểm từ Google Maps (bấm để chọn):
-                    </p>
-                    {suggestedPlaces.map((place, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => handleSelectSerpPlace(place)}
-                        className="p-2.5 hover:bg-pink-50/70 rounded-xl cursor-pointer transition-all border border-transparent hover:border-pink-100 flex items-center justify-between gap-3 group"
-                      >
-                        <div className="flex items-start gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-lg bg-pink-50 text-pink-main flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-pink-main group-hover:text-white transition-colors">
-                            <MapPin className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-xs text-gray-800 truncate">{place.title}</p>
-                            <p className="text-[11px] text-gray-500 truncate">{place.address}</p>
-                            {place.rating && (
-                              <span className="text-[10px] text-amber-600 font-medium">
-                                ⭐ {place.rating} ({place.reviews || 0} đánh giá)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="px-2.5 py-1 text-xs font-semibold bg-white group-hover:bg-pink-main group-hover:text-white text-gray-700 rounded-lg border border-gray-200 group-hover:border-transparent shrink-0 shadow-sm transition-all"
-                        >
-                          Chọn
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Khi không tìm thấy trên Google Places */}
-                {geoNotFound && !suggestedPlaces.length && (
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs space-y-1 animate-fade-in">
-                    <p className="font-bold">💡 Chưa thấy quán trên danh mục Google?</p>
-                    <p className="text-[11px] text-blue-800">
-                      Không sao cả! Bạn chỉ cần click trực tiếp vào bản đồ bên dưới để ghim vị trí quán hoặc bấm &ldquo;Lấy GPS tại quán&rdquo;.
-                    </p>
-                  </div>
-                )}
-
-                {/* Interactive Leaflet Location Picker with draggable pin */}
+                {/* Interactive Leaflet Location Picker with OpenStreetMap & Nominatim candidates */}
                 <div className="pt-2">
                   <LocationPicker
                     value={{
@@ -877,7 +766,7 @@ export default function EmployerJobsPage() {
                       locationStatus: formData.locationStatus,
                       locationSource: formData.locationSource,
                     }}
-                    onChange={({ lat, lng, locationStatus, locationSource }) => {
+                    onChange={({ lat, lng, locationStatus, locationSource, formattedAddress }) => {
                       setFormData(prev => ({
                         ...prev,
                         lat,
@@ -885,7 +774,9 @@ export default function EmployerJobsPage() {
                         locationStatus,
                         locationSource,
                       }));
-                      setGeoCustomVerified(Boolean(lat !== null && lng !== null));
+                      if (formattedAddress && !detailAddress) {
+                        setDetailAddress(formattedAddress);
+                      }
                     }}
                     addressHint={fullAddressPreview || detailAddress}
                   />

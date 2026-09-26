@@ -208,6 +208,10 @@ export default function StudentProfilePage() {
                 <option value="KTX ĐHQG Hòa Lạc">KTX ĐHQG Hòa Lạc</option>
                 <option value="Thạch Hòa - Thạch Thất">Thạch Hòa - Thạch Thất</option>
               </select>
+              <p className="text-[11px] text-gray-500 mt-1.5 flex items-start gap-1">
+                <span className="text-green-600 font-semibold shrink-0">🔒 Quyền riêng tư:</span>
+                Vị trí của bạn chỉ dùng để tính khoảng cách và gợi ý việc làm gần nhất. Hệ thống không công khai tọa độ chính xác của bạn.
+              </p>
             </div>
 
             <div>

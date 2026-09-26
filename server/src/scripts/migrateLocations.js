@@ -2,8 +2,9 @@
  * Safe Idempotent Migration Script for Geolocation & GeoJSON Point Data
  * - Synchronizes geoPoint [lng, lat] with 2dsphere index for Job, EmployerProfile, and StudentProfile
  * - Marks existing data with legacy default coordinates as 'legacy_unverified'
- * - Does NOT delete any data
- * - Supports dry run mode with flag: `node src/scripts/migrateLocations.js --dry-run`
+ * - Default is --dry-run; only writes to DB when --apply is passed
+ * - Verifies geoPoint.coordinates[0] === location.lng && geoPoint.coordinates[1] === location.lat
+ * - 100% Idempotent: running a second time on migrated DB produces updated: 0
  */
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -11,12 +12,15 @@ import { Job } from '../models/Job.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { StudentProfile } from '../models/StudentProfile.js';
 import { isValidCoordinate } from '../utils/geoHelper.js';
+import { normalizeAddressComponents, LOCATION_STATUSES } from '../utils/locationContract.js';
 
 dotenv.config();
 
 export async function runLocationMigration(options = {}) {
-  const isDryRun = options.dryRun || process.argv.includes('--dry-run');
-  console.log(`[Migration] Starting location data normalization... (Dry Run: ${isDryRun ? 'YES' : 'NO'})`);
+  const isApply = Boolean(options.apply || process.argv.includes('--apply'));
+  const isDryRun = !isApply;
+
+  console.log(`[Migration] Starting location data normalization... (Mode: ${isDryRun ? 'DRY-RUN (read-only)' : 'APPLY (writing changes)'})`);
 
   const isOldDefaultCoord = (lat, lng) => {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return true;
@@ -27,9 +31,10 @@ export async function runLocationMigration(options = {}) {
   };
 
   const stats = {
-    jobs: { total: 0, updated: 0, geoPointAdded: 0, unconfirmed: 0, legacyUnverified: 0 },
-    employers: { total: 0, updated: 0, geoPointAdded: 0, unconfirmed: 0, legacyUnverified: 0 },
-    students: { total: 0, updated: 0, geoPointAdded: 0, unconfirmed: 0, legacyUnverified: 0 },
+    jobs: { total: 0, updated: 0, geoPointAdded: 0, unconfirmed: 0, legacyUnverified: 0, verifiedValid: 0 },
+    employers: { total: 0, updated: 0, geoPointAdded: 0, unconfirmed: 0, legacyUnverified: 0, verifiedValid: 0 },
+    students: { total: 0, updated: 0, geoPointAdded: 0, unconfirmed: 0, legacyUnverified: 0, verifiedValid: 0 },
+    mismatches: 0,
   };
 
   // 1. Migrate Jobs
@@ -41,31 +46,82 @@ export async function runLocationMigration(options = {}) {
     const lng = job.location?.lng;
 
     if (!isValidCoordinate(lat, lng)) {
-      job.location = { lat: null, lng: null };
-      job.geoPoint = undefined;
-      job.locationStatus = 'unconfirmed';
-      job.locationSource = null;
-      stats.jobs.unconfirmed++;
-      changed = true;
-    } else {
-      if (!job.locationStatus || job.locationStatus === 'unconfirmed') {
-        job.locationStatus = isOldDefaultCoord(lat, lng) ? 'legacy_unverified' : 'confirmed';
-        if (job.locationStatus === 'legacy_unverified') stats.jobs.legacyUnverified++;
+      // Record has missing/invalid coordinates -> clean and set to unconfirmed
+      if (
+        job.location?.lat !== null ||
+        job.location?.lng !== null ||
+        job.geoPoint !== undefined ||
+        job.locationStatus !== LOCATION_STATUSES.UNCONFIRMED ||
+        job.locationSource !== null
+      ) {
+        job.location = { lat: null, lng: null };
+        job.geoPoint = undefined;
+        job.locationStatus = LOCATION_STATUSES.UNCONFIRMED;
+        job.locationSource = null;
+        job.locationConfirmedAt = null;
+        stats.jobs.unconfirmed++;
         changed = true;
       }
-      if (!job.geoPoint || !job.geoPoint.coordinates || job.geoPoint.coordinates.length !== 2) {
+    } else {
+      // Record has valid coordinates -> ensure geoPoint is [lng, lat]
+      const nLat = Number(Number(lat).toFixed(6));
+      const nLng = Number(Number(lng).toFixed(6));
+
+      if (
+        !job.locationStatus ||
+        job.locationStatus === LOCATION_STATUSES.UNCONFIRMED ||
+        job.locationStatus === 'draft'
+      ) {
+        const nextStatus = isOldDefaultCoord(nLat, nLng)
+          ? LOCATION_STATUSES.LEGACY_UNVERIFIED
+          : LOCATION_STATUSES.CONFIRMED;
+        job.locationStatus = nextStatus;
+        if (nextStatus === LOCATION_STATUSES.LEGACY_UNVERIFIED) {
+          stats.jobs.legacyUnverified++;
+        }
+        changed = true;
+      }
+
+      const hasExactGeoPoint =
+        job.geoPoint &&
+        job.geoPoint.type === 'Point' &&
+        Array.isArray(job.geoPoint.coordinates) &&
+        job.geoPoint.coordinates.length === 2 &&
+        job.geoPoint.coordinates[0] === nLng &&
+        job.geoPoint.coordinates[1] === nLat;
+
+      if (!hasExactGeoPoint) {
+        job.location = { lat: nLat, lng: nLng };
         job.geoPoint = {
           type: 'Point',
-          coordinates: [lng, lat],
+          coordinates: [nLng, nLat],
         };
         stats.jobs.geoPointAdded++;
         changed = true;
       }
     }
 
+    // Ensure addressComponents structure exists
+    if (!job.addressComponents || !job.addressComponents.addressLine !== undefined) {
+      job.addressComponents = normalizeAddressComponents(job.addressComponents || { addressLine: job.address });
+      job.provinceCode = job.addressComponents.provinceCode || null;
+      job.districtCode = job.addressComponents.districtCode || null;
+      job.wardCode = job.addressComponents.wardCode || null;
+    }
+
+    // Verify coordinate sync
+    if (job.geoPoint?.coordinates) {
+      if (job.geoPoint.coordinates[0] === job.location.lng && job.geoPoint.coordinates[1] === job.location.lat) {
+        stats.jobs.verifiedValid++;
+      } else {
+        stats.mismatches++;
+        console.error(`[Mismatch] Job ${job._id}: geoPoint [${job.geoPoint.coordinates}] vs location [${job.location.lat}, ${job.location.lng}]`);
+      }
+    }
+
     if (changed) {
       stats.jobs.updated++;
-      if (!isDryRun) {
+      if (isApply) {
         await job.save();
       }
     }
@@ -80,22 +136,44 @@ export async function runLocationMigration(options = {}) {
     const lng = emp.location?.lng;
 
     if (!isValidCoordinate(lat, lng)) {
-      emp.location = { lat: null, lng: null };
-      emp.geoPoint = undefined;
-      emp.locationStatus = 'unconfirmed';
-      emp.locationSource = null;
-      stats.employers.unconfirmed++;
-      changed = true;
+      if (
+        emp.location?.lat !== null ||
+        emp.location?.lng !== null ||
+        emp.geoPoint !== undefined ||
+        emp.locationStatus !== LOCATION_STATUSES.UNCONFIRMED ||
+        emp.locationSource !== null
+      ) {
+        emp.location = { lat: null, lng: null };
+        emp.geoPoint = undefined;
+        emp.locationStatus = LOCATION_STATUSES.UNCONFIRMED;
+        emp.locationSource = null;
+        emp.locationConfirmedAt = null;
+        stats.employers.unconfirmed++;
+        changed = true;
+      }
     } else {
-      if (!emp.locationStatus || emp.locationStatus === 'unconfirmed') {
-        emp.locationStatus = 'legacy_unverified';
+      const nLat = Number(Number(lat).toFixed(6));
+      const nLng = Number(Number(lng).toFixed(6));
+
+      if (!emp.locationStatus || emp.locationStatus === LOCATION_STATUSES.UNCONFIRMED) {
+        emp.locationStatus = LOCATION_STATUSES.LEGACY_UNVERIFIED;
         stats.employers.legacyUnverified++;
         changed = true;
       }
-      if (!emp.geoPoint || !emp.geoPoint.coordinates || emp.geoPoint.coordinates.length !== 2) {
+
+      const hasExactGeoPoint =
+        emp.geoPoint &&
+        emp.geoPoint.type === 'Point' &&
+        Array.isArray(emp.geoPoint.coordinates) &&
+        emp.geoPoint.coordinates.length === 2 &&
+        emp.geoPoint.coordinates[0] === nLng &&
+        emp.geoPoint.coordinates[1] === nLat;
+
+      if (!hasExactGeoPoint) {
+        emp.location = { lat: nLat, lng: nLng };
         emp.geoPoint = {
           type: 'Point',
-          coordinates: [lng, lat],
+          coordinates: [nLng, nLat],
         };
         stats.employers.geoPointAdded++;
         changed = true;
@@ -107,9 +185,25 @@ export async function runLocationMigration(options = {}) {
       changed = true;
     }
 
+    if (!emp.addressComponents) {
+      emp.addressComponents = normalizeAddressComponents(emp.addressComponents || { addressLine: emp.address });
+      emp.provinceCode = emp.addressComponents.provinceCode || null;
+      emp.districtCode = emp.addressComponents.districtCode || null;
+      emp.wardCode = emp.addressComponents.wardCode || null;
+    }
+
+    if (emp.geoPoint?.coordinates) {
+      if (emp.geoPoint.coordinates[0] === emp.location.lng && emp.geoPoint.coordinates[1] === emp.location.lat) {
+        stats.employers.verifiedValid++;
+      } else {
+        stats.mismatches++;
+        console.error(`[Mismatch] Employer ${emp._id}: geoPoint [${emp.geoPoint.coordinates}] vs location [${emp.location.lat}, ${emp.location.lng}]`);
+      }
+    }
+
     if (changed) {
       stats.employers.updated++;
-      if (!isDryRun) {
+      if (isApply) {
         await emp.save();
       }
     }
@@ -124,41 +218,80 @@ export async function runLocationMigration(options = {}) {
     const lng = stu.location?.lng;
 
     if (!isValidCoordinate(lat, lng)) {
-      stu.location = { lat: null, lng: null };
-      stu.geoPoint = undefined;
-      stu.locationStatus = 'unconfirmed';
-      stu.locationSource = null;
-      stats.students.unconfirmed++;
-      changed = true;
+      if (
+        stu.location?.lat !== null ||
+        stu.location?.lng !== null ||
+        stu.geoPoint !== undefined ||
+        stu.locationStatus !== LOCATION_STATUSES.UNCONFIRMED ||
+        stu.locationSource !== null
+      ) {
+        stu.location = { lat: null, lng: null };
+        stu.geoPoint = undefined;
+        stu.locationStatus = LOCATION_STATUSES.UNCONFIRMED;
+        stu.locationSource = null;
+        stu.locationConfirmedAt = null;
+        stats.students.unconfirmed++;
+        changed = true;
+      }
     } else {
-      if (!stu.locationStatus || stu.locationStatus === 'unconfirmed') {
-        stu.locationStatus = 'legacy_unverified';
+      const nLat = Number(Number(lat).toFixed(6));
+      const nLng = Number(Number(lng).toFixed(6));
+
+      if (!stu.locationStatus || stu.locationStatus === LOCATION_STATUSES.UNCONFIRMED) {
+        stu.locationStatus = LOCATION_STATUSES.LEGACY_UNVERIFIED;
         stats.students.legacyUnverified++;
         changed = true;
       }
-      if (!stu.geoPoint || !stu.geoPoint.coordinates || stu.geoPoint.coordinates.length !== 2) {
+
+      const hasExactGeoPoint =
+        stu.geoPoint &&
+        stu.geoPoint.type === 'Point' &&
+        Array.isArray(stu.geoPoint.coordinates) &&
+        stu.geoPoint.coordinates.length === 2 &&
+        stu.geoPoint.coordinates[0] === nLng &&
+        stu.geoPoint.coordinates[1] === nLat;
+
+      if (!hasExactGeoPoint) {
+        stu.location = { lat: nLat, lng: nLng };
         stu.geoPoint = {
           type: 'Point',
-          coordinates: [lng, lat],
+          coordinates: [nLng, nLat],
         };
         stats.students.geoPointAdded++;
         changed = true;
       }
     }
 
+    if (!stu.addressComponents) {
+      stu.addressComponents = normalizeAddressComponents(stu.addressComponents || { addressLine: stu.address });
+      stu.provinceCode = stu.addressComponents.provinceCode || null;
+      stu.districtCode = stu.addressComponents.districtCode || null;
+      stu.wardCode = stu.addressComponents.wardCode || null;
+    }
+
+    if (stu.geoPoint?.coordinates) {
+      if (stu.geoPoint.coordinates[0] === stu.location.lng && stu.geoPoint.coordinates[1] === stu.location.lat) {
+        stats.students.verifiedValid++;
+      } else {
+        stats.mismatches++;
+        console.error(`[Mismatch] Student ${stu._id}: geoPoint [${stu.geoPoint.coordinates}] vs location [${stu.location.lat}, ${stu.location.lng}]`);
+      }
+    }
+
     if (changed) {
       stats.students.updated++;
-      if (!isDryRun) {
+      if (isApply) {
         await stu.save();
       }
     }
   }
 
   console.log('----------------------------------------------------');
-  console.log(`[Migration] Results (Dry Run: ${isDryRun ? 'YES' : 'NO'}):`);
-  console.log(`- Jobs: ${stats.jobs.updated}/${stats.jobs.total} updated (GeoPoint: +${stats.jobs.geoPointAdded}, Unconfirmed: ${stats.jobs.unconfirmed}, Legacy: ${stats.jobs.legacyUnverified})`);
-  console.log(`- EmployerProfiles: ${stats.employers.updated}/${stats.employers.total} updated (GeoPoint: +${stats.employers.geoPointAdded}, Unconfirmed: ${stats.employers.unconfirmed}, Legacy: ${stats.employers.legacyUnverified})`);
-  console.log(`- StudentProfiles: ${stats.students.updated}/${stats.students.total} updated (GeoPoint: +${stats.students.geoPointAdded}, Unconfirmed: ${stats.students.unconfirmed}, Legacy: ${stats.students.legacyUnverified})`);
+  console.log(`[Migration] Results (Mode: ${isDryRun ? 'DRY-RUN' : 'APPLIED'}):`);
+  console.log(`- Jobs: ${stats.jobs.updated}/${stats.jobs.total} changes detected (Verified Valid: ${stats.jobs.verifiedValid})`);
+  console.log(`- EmployerProfiles: ${stats.employers.updated}/${stats.employers.total} changes detected (Verified Valid: ${stats.employers.verifiedValid})`);
+  console.log(`- StudentProfiles: ${stats.students.updated}/${stats.students.total} changes detected (Verified Valid: ${stats.students.verifiedValid})`);
+  console.log(`- Coordinate Mismatches: ${stats.mismatches}`);
   console.log('----------------------------------------------------');
   return stats;
 }

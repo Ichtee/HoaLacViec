@@ -50,6 +50,80 @@ export function isValidCoordinate(lat, lng) {
 }
 
 /**
+ * Check if an entity (job/employer/task) has verified coordinates
+ */
+export function hasConfirmedCoordinates(entity) {
+  if (!entity || typeof entity !== 'object') return false;
+  const lat = entity.location?.lat ?? entity.lat;
+  const lng = entity.location?.lng ?? entity.lng;
+  return (
+    entity.locationStatus === 'confirmed' &&
+    isValidCoordinate(lat, lng)
+  );
+}
+
+/**
+ * Canonical helper for Google Maps navigation/search destination.
+ * Priority:
+ * 1. If locationStatus === 'confirmed' and coordinates are valid: return `${lat},${lng}`
+ * 2. If stored Google placeId: return placeId
+ * 3. If unconfirmed coordinates: return formattedAddress for search only (never exact navigation)
+ * 4. Never fall back to fake "Hòa Lạc" or artificially concatenated storeName
+ */
+export function getGoogleMapsDestination(entity) {
+  if (!entity || typeof entity !== 'object') return null;
+
+  const lat = entity.location?.lat ?? entity.lat;
+  const lng = entity.location?.lng ?? entity.lng;
+
+  const confirmed =
+    entity.locationStatus === 'confirmed' &&
+    isValidCoordinate(lat, lng);
+
+  // 1. Confirmed coordinates priority: return `${lat},${lng}`
+  if (confirmed) {
+    return `${Number(lat)},${Number(lng)}`;
+  }
+
+  // 2. Google placeId if saved
+  const placeId = entity.googlePlaceId || entity.placeId;
+  if (placeId && typeof placeId === 'string' && placeId.trim()) {
+    return placeId.trim();
+  }
+
+  // 3. Unconfirmed: only return formatted address for search
+  // Never fallback to fake "Hòa Lạc" or storeName
+  const rawAddress = typeof entity.address === 'string' ? entity.address.trim() : '';
+  if (rawAddress) {
+    return rawAddress;
+  }
+
+  return null;
+}
+
+/**
+ * Returns Google Maps directions URL for confirmed locations,
+ * or Google Maps search URL for unconfirmed addresses.
+ */
+export function getGoogleMapsNavigationUrl(entity) {
+  if (!entity || typeof entity !== 'object') return null;
+  const confirmed = hasConfirmedCoordinates(entity);
+  const dest = getGoogleMapsDestination(entity);
+  if (!dest) return null;
+
+  if (confirmed) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+  }
+
+  const placeId = entity.googlePlaceId || entity.placeId;
+  if (placeId && typeof placeId === 'string' && placeId.trim()) {
+    return `https://www.google.com/maps/dir/?api=1&destination_place_id=${encodeURIComponent(placeId.trim())}`;
+  }
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`;
+}
+
+/**
  * Computes geodesic distance in meters between two coordinates using the Haversine formula.
  * @param {number} lat1 - Latitude of point 1
  * @param {number} lon1 - Longitude of point 1

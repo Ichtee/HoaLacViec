@@ -25,7 +25,7 @@ const studentProfileSchema = new mongoose.Schema({
   },
   locationStatus: {
     type: String,
-    enum: ['unconfirmed', 'confirmed', 'legacy_unverified'],
+    enum: ['unconfirmed', 'pending_confirmation', 'confirmed', 'legacy_unverified'],
     default: 'unconfirmed',
   },
   locationSource: {
@@ -33,6 +33,19 @@ const studentProfileSchema = new mongoose.Schema({
     enum: ['device', 'places', 'map_pin', 'manual_coordinates', 'geocoded', null],
     default: null,
   },
+  locationConfirmedAt: { type: Date, default: null },
+  addressComponents: {
+    addressLine: { type: String, default: '' },
+    wardCode: { type: String, default: null },
+    wardName: { type: String, default: '' },
+    districtCode: { type: String, default: null },
+    districtName: { type: String, default: '' },
+    provinceCode: { type: String, default: null },
+    provinceName: { type: String, default: '' },
+  },
+  provinceCode: { type: String, default: null },
+  districtCode: { type: String, default: null },
+  wardCode: { type: String, default: null },
   bio: { type: String, default: '' },
   skills: [{ type: String }],
   transport: {
