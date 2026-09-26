@@ -7,6 +7,8 @@
  * - Timeout handling with AbortController
  */
 
+import { searchGoogleMapsPlaces } from './serpApi.js';
+
 const geocodeCache = new Map();
 let lastRequestTime = 0;
 const MIN_INTERVAL_MS = 1000; // Nominatim policy: max 1 request/second
@@ -49,6 +51,8 @@ async function doGeocode(cleanQuery, cacheKey) {
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      const fallback = await tryGoogleMapsFallback(cleanQuery, cacheKey);
+      if (fallback) return fallback;
       return {
         success: false,
         error: `Máy chủ bản đồ trả về lỗi HTTP ${response.status}`,
@@ -57,6 +61,8 @@ async function doGeocode(cleanQuery, cacheKey) {
 
     const data = await response.json();
     if (!Array.isArray(data) || data.length === 0) {
+      const fallback = await tryGoogleMapsFallback(cleanQuery, cacheKey);
+      if (fallback) return fallback;
       return {
         success: false,
         candidates: [],
@@ -74,6 +80,8 @@ async function doGeocode(cleanQuery, cacheKey) {
       .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
 
     if (candidates.length === 0) {
+      const fallback = await tryGoogleMapsFallback(cleanQuery, cacheKey);
+      if (fallback) return fallback;
       return {
         success: false,
         candidates: [],
@@ -95,11 +103,46 @@ async function doGeocode(cleanQuery, cacheKey) {
     return { success: true, ...result };
   } catch (err) {
     clearTimeout(timeoutId);
+    const fallback = await tryGoogleMapsFallback(cleanQuery, cacheKey);
+    if (fallback) return fallback;
     if (err.name === 'AbortError') {
       return { success: false, error: 'Quá thời gian kết nối tới dịch vụ bản đồ (timeout 6s)' };
     }
     return { success: false, error: `Lỗi kết nối định vị: ${err.message}` };
   }
+}
+
+async function tryGoogleMapsFallback(cleanQuery, cacheKey) {
+  if (!process.env.SERPAPI_API_KEY) return null;
+  try {
+    const places = await searchGoogleMapsPlaces(cleanQuery);
+    if (Array.isArray(places) && places.length > 0) {
+      const candidates = places
+        .map((p) => ({
+          lat: Number(p.lat),
+          lng: Number(p.lng),
+          displayName: p.title + (p.address ? ` (${p.address})` : ''),
+          address: { road: p.address || '' },
+        }))
+        .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+
+      if (candidates.length > 0) {
+        const result = {
+          lat: candidates[0].lat,
+          lng: candidates[0].lng,
+          displayName: candidates[0].displayName,
+          candidates,
+          results: candidates,
+          source: 'google_maps',
+        };
+        geocodeCache.set(cacheKey, result);
+        return { success: true, ...result };
+      }
+    }
+  } catch (fallbackErr) {
+    console.warn('[GeocodingFallback] Google Maps fallback failed:', fallbackErr.message);
+  }
+  return null;
 }
 
 export async function geocodeAddress(addressQuery) {

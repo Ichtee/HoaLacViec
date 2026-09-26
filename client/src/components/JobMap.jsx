@@ -9,14 +9,21 @@ import { SALARY_UNIT_LABELS } from '@/constants';
 // Default center of map: Hoa Lac Area
 export const DEFAULT_HOALAC_CENTER = [21.0128, 105.5255];
 
-// OpenStreetMap Layer Configuration (MVP Standard)
+// Google Maps Layer Configurations (100% Google Maps, fast and reliable in Vietnam)
 const MAP_LAYERS = {
-  osm: {
+  google_streets: {
     name: 'Bản đồ',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    subdomains: ['a', 'b', 'c'],
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    maxZoom: 20,
+    attribution: '&copy; Google Maps',
+  },
+  google_satellite: {
+    name: 'Vệ tinh',
+    url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+    maxZoom: 20,
+    attribution: '&copy; Google Maps',
   },
 };
 
@@ -77,7 +84,7 @@ export function JobMap({
   const resizeTimeoutRef = useRef(null);
 
   const [activeJob, setActiveJob] = useState(singleJob || null);
-  const [currentLayerKey, setCurrentLayerKey] = useState('osm');
+  const [currentLayerKey, setCurrentLayerKey] = useState('google_streets');
   const [tileError, setTileError] = useState(false);
 
   // Initialize Map and cleanup on unmount

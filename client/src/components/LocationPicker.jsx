@@ -167,10 +167,11 @@ export default function LocationPicker({
       attributionControl: true,
     });
 
-    // Valid OpenStreetMap Tile Layer (Requirement Phase 1 item 3)
-    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    // Google Maps Tile Layer (Fast, reliable and not blocked by Vietnamese ISPs)
+    const tileLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+      maxZoom: 20,
+      attribution: '&copy; Google Maps',
     });
 
     tileLayer.addTo(map);
