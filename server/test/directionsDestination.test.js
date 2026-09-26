@@ -5,6 +5,8 @@ import {
   hasConfirmedCoordinates,
   getGoogleMapsDestination,
   getGoogleMapsNavigationUrl,
+  getGoogleMapsDirectionsUrl,
+  getGoogleMapsSearchUrl,
 } from '../src/utils/geoHelper.js';
 
 test('Google Maps Directions & Navigation Destination Tests', async (t) => {
@@ -203,5 +205,101 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
     assert.equal(updatedWithRepin.locationStatus, 'confirmed');
     assert.equal(hasConfirmedCoordinates(updatedWithRepin), true);
     assert.equal(getGoogleMapsDestination(updatedWithRepin), '21.0201,105.5312');
+  });
+
+  // 8. Simplified address-based Google Maps Directions
+  await t.test('8. Đơn giản hóa toàn bộ nút Chỉ đường trên Google Maps', async (st) => {
+    // 1. job.address = "Số 15 Trục đường chính Tân Xã, Thạch Thất"
+    // URL phải chứa chính xác destination đã encode của chuỗi trên.
+    await st.test('1. URL chứa chính xác destination đã encode của job.address', () => {
+      const job = {
+        title: 'Phụ Quán',
+        address: 'Số 15 Trục đường chính Tân Xã, Thạch Thất',
+      };
+      const expectedUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
+      const actualUrl = getGoogleMapsDirectionsUrl(job);
+
+      assert.equal(actualUrl, expectedUrl);
+      assert.ok(actualUrl.includes('destination=' + encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')));
+    });
+
+    // 2. Dù job có confirmed coordinates, URL vẫn phải dùng address.
+    await st.test('2. Dù job có confirmed coordinates, URL vẫn phải dùng address', () => {
+      const confirmedJobWithCoords = {
+        title: 'Nhân viên pha chế',
+        address: 'Số 15 Trục đường chính Tân Xã, Thạch Thất',
+        location: { lat: 21.0185, lng: 105.521 },
+        locationStatus: 'confirmed',
+        geoPoint: { type: 'Point', coordinates: [105.521, 21.0185] },
+      };
+      const url = getGoogleMapsDirectionsUrl(confirmedJobWithCoords);
+
+      assert.equal(
+        url,
+        `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`
+      );
+      assert.ok(!url.includes('21.0185'), 'URL must NOT contain latitude');
+      assert.ok(!url.includes('105.521'), 'URL must NOT contain longitude');
+    });
+
+    // 3. Không dùng employer.address khi job.address rỗng.
+    await st.test('3. Không dùng employer.address khi job.address rỗng', () => {
+      const jobWithOnlyEmployerAddress = {
+        title: 'Thu ngân',
+        address: '',
+        employer: {
+          storeName: 'Quán Cà Phê Mộc',
+          address: 'Số 99 Đường Láng Hòa Lạc',
+        },
+      };
+      assert.equal(getGoogleMapsDirectionsUrl(jobWithOnlyEmployerAddress), null);
+
+      const jobWithNullAddress = {
+        title: 'Thu ngân',
+        address: null,
+        employer: {
+          address: 'Số 99 Đường Láng Hòa Lạc',
+        },
+      };
+      assert.equal(getGoogleMapsDirectionsUrl(jobWithNullAddress), null);
+    });
+
+    // 4. job.address rỗng thì helper trả null và không hiện nút.
+    await st.test('4. job.address rỗng thì helper trả null và không hiện nút', () => {
+      assert.equal(getGoogleMapsDirectionsUrl({ address: '' }), null);
+      assert.equal(getGoogleMapsDirectionsUrl({ address: '   ' }), null);
+      assert.equal(getGoogleMapsDirectionsUrl({ address: null }), null);
+      assert.equal(getGoogleMapsDirectionsUrl({ address: undefined }), null);
+      assert.equal(getGoogleMapsDirectionsUrl({}), null);
+      assert.equal(getGoogleMapsDirectionsUrl(null), null);
+      assert.equal(getGoogleMapsDirectionsUrl(undefined), null);
+    });
+
+    // 5. JobDetail, JobCard và JobMap phải tạo cùng một URL.
+    await st.test('5. JobDetail, JobCard và JobMap phải tạo cùng một URL', () => {
+      const job = {
+        _id: 'job-789',
+        title: 'Phụ Bếp Trưa',
+        storeName: 'Cơm Thố Tân Xã',
+        address: 'Số 15 Trục đường chính Tân Xã, Thạch Thất',
+        location: { lat: 21.0185, lng: 105.521 },
+        locationStatus: 'confirmed',
+      };
+
+      // JobDetailPage resolution:
+      const jobDetailDirectionsUrl = getGoogleMapsDirectionsUrl(job);
+      // JobCard resolution:
+      const jobCardDirectionsUrl = getGoogleMapsDirectionsUrl(job);
+      // JobMap resolution:
+      const jobMapDirectionsUrl = getGoogleMapsDirectionsUrl(job);
+
+      const expectedUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
+
+      assert.equal(jobDetailDirectionsUrl, expectedUrl);
+      assert.equal(jobCardDirectionsUrl, expectedUrl);
+      assert.equal(jobMapDirectionsUrl, expectedUrl);
+      assert.equal(jobDetailDirectionsUrl, jobCardDirectionsUrl);
+      assert.equal(jobCardDirectionsUrl, jobMapDirectionsUrl);
+    });
   });
 });

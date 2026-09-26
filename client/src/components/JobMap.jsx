@@ -7,7 +7,7 @@ import {
   formatVND,
   isValidCoordinate,
   hasConfirmedCoordinates,
-  getGoogleMapsDestination,
+  getGoogleMapsDirectionsUrl,
   haversineDistance,
 } from '@/utils';
 import { SALARY_UNIT_LABELS } from '@/constants';
@@ -566,22 +566,16 @@ export function JobMap({
               Xem chi tiết việc làm
             </Link>
             {(() => {
-              const lat = activeJob.location?.lat ?? activeJob.lat ?? activeJob.geoPoint?.coordinates?.[1];
-              const lng = activeJob.location?.lng ?? activeJob.lng ?? activeJob.geoPoint?.coordinates?.[0];
-              const hasCoords = isValidCoordinate(lat, lng);
-              const dest = hasCoords ? `${Number(lat)},${Number(lng)}` : getGoogleMapsDestination(activeJob);
-              if (!dest) return null;
-              const isConfirmed = hasConfirmedCoordinates(activeJob) || hasCoords;
-              const navUrl = isConfirmed
-                ? `https://www.google.com/maps/dir/?api=1&destination=${dest}`
-                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`;
+              const directionsUrl = getGoogleMapsDirectionsUrl(activeJob);
+              if (!directionsUrl) return null;
+
               return (
                 <a
-                  href={navUrl}
+                  href={directionsUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="p-2 rounded-xl border border-green-200 text-text-muted hover:text-green-dark hover:bg-green-50 text-xs transition-colors flex items-center gap-1"
-                  title="Chỉ đường trên Google Maps đến tọa độ chính xác của vị trí này"
+                  title="Chỉ đường trên Google Maps"
                 >
                   <Navigation className="w-4 h-4 text-blue-600" />
                 </a>

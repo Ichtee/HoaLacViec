@@ -15,7 +15,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Textarea } from '@/components/Form.jsx';
 import { LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS, DAYS_OF_WEEK } from '@/constants';
-import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDistance, hasConfirmedCoordinates, getGoogleMapsDestination } from '@/utils';
+import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDistance, getGoogleMapsDirectionsUrl } from '@/utils';
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -155,16 +155,13 @@ export default function JobDetailPage() {
   const unitLabel = SALARY_UNIT_LABELS[job.salaryUnit] || '';
   const contactPhone = job.contactPhone || emp?.contactPhone || emp?.phone || job.phone;
 
-  // Format address strictly: do not display employer.address over job.address if job has separate address
+  // Strictly format job address: no employer.address fallback
   const displayAddress = (job.address && job.address.trim())
     ? job.address.trim()
-    : (emp?.address && emp.address.trim())
-    ? emp.address.trim()
     : '';
 
-  // Canonical Google Maps destination determination
-  const isConfirmedLocation = hasConfirmedCoordinates(job);
-  const destination = getGoogleMapsDestination(job);
+  // Google Maps directions URL based strictly on job.address
+  const directionsUrl = getGoogleMapsDirectionsUrl(job);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -358,38 +355,19 @@ export default function JobDetailPage() {
                 </div>
               </div>
 
-              {/* Google Maps Actions: Confirmed coordinates vs Unconfirmed address */}
-              {isConfirmedLocation && destination ? (
+              {/* Google Maps Directions */}
+              {directionsUrl && (
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${destination}`}
+                  href={directionsUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
-                  title="Mở chỉ đường Google Maps từ vị trí của bạn đến tọa độ chính xác"
+                  title="Chỉ đường trên Google Maps"
                 >
                   <Navigation className="w-3.5 h-3.5" />
                   <span>Chỉ đường trên Google Maps</span>
                 </a>
-              ) : destination ? (
-                <div className="space-y-2">
-                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-amber-800 leading-relaxed">
-                      Địa điểm này chưa được nhà tuyển dụng xác nhận trên bản đồ. Kết quả tìm kiếm có thể không chính xác.
-                    </p>
-                  </div>
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-all"
-                    title="Tìm kiếm địa chỉ này trên Google Maps"
-                  >
-                    <Search className="w-3.5 h-3.5" />
-                    <span>Tìm địa chỉ trên Google Maps</span>
-                  </a>
-                </div>
-              ) : null}
+              )}
 
               {/* Direct Phone & Zalo */}
               {contactPhone && (

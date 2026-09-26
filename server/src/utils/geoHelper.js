@@ -102,6 +102,39 @@ export function getGoogleMapsDestination(entity) {
 }
 
 /**
+ * Canonical helper for Google Maps directions URL based strictly on job.address string.
+ * - Does not use location.lat/lng or geoPoint
+ * - Does not check locationStatus
+ * - Does not fallback to storeName, "Hòa Lạc", or employer.address
+ * - Does not use Google Place ID
+ * - If job.address is empty/whitespace, returns null
+ */
+export function getGoogleMapsDirectionsUrl(entity) {
+  const address =
+    typeof entity?.address === 'string'
+      ? entity.address.trim()
+      : '';
+
+  if (!address) return null;
+
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+}
+
+/**
+ * Helper for Google Maps search URL based strictly on entity.address string.
+ */
+export function getGoogleMapsSearchUrl(entity) {
+  const address =
+    typeof entity?.address === 'string'
+      ? entity.address.trim()
+      : '';
+
+  if (!address) return null;
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
+
+/**
  * Returns Google Maps directions URL for confirmed locations,
  * or Google Maps search URL for unconfirmed addresses.
  */
