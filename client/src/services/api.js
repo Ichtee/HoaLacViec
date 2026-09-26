@@ -260,8 +260,15 @@ export async function apiCreateTask(taskData) {
   });
 }
 
-export async function apiAcceptTask(id, payload) {
+export async function apiAcceptTask(id, payload = {}) {
   return request(`/tasks/${id}/accept`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiSubmitTaskCompletion(id, payload = {}) {
+  return request(`/tasks/${id}/submit-completion`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -269,6 +276,20 @@ export async function apiAcceptTask(id, payload) {
 
 export async function apiCompleteTask(id) {
   return request(`/tasks/${id}/complete`, { method: 'POST' });
+}
+
+export async function apiDisputeTask(id, payload = {}) {
+  return request(`/tasks/${id}/dispute`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiCancelTask(id, payload = {}) {
+  return request(`/tasks/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function apiDeleteTask(id) {

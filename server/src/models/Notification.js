@@ -19,7 +19,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['application', 'job', 'verification', 'shift', 'system'],
+    enum: ['application', 'job', 'verification', 'shift', 'system', 'task', 'report'],
     default: 'system',
   },
   link: {

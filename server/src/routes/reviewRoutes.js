@@ -97,20 +97,11 @@ router.post('/', authenticate, async (req, res, next) => {
       transactionId,
     } = req.body;
 
-    if (!targetId || !rating || !comment) {
+    if (!rating || !comment) {
       return res.status(400).json({
-        error: 'Vui lòng cung cấp đối tượng đánh giá, số sao và nhận xét.',
+        error: 'Vui lòng cung cấp số sao và nhận xét.',
         code: 'MISSING_FIELDS',
       });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(targetId)) {
-      return res.status(400).json({ error: 'Mã đối tượng đánh giá không hợp lệ.', code: 'INVALID_ID' });
-    }
-
-    // Anti self-review
-    if (targetId.toString() === req.user._id.toString()) {
-      return res.status(400).json({ error: 'Bạn không thể tự đánh giá chính mình.', code: 'SELF_REVIEW_FORBIDDEN' });
     }
 
     const numRating = Math.min(5, Math.max(1, Number(rating)));
@@ -130,6 +121,7 @@ router.post('/', authenticate, async (req, res, next) => {
       return res.status(400).json({ error: 'Mã giao dịch không hợp lệ.', code: 'INVALID_TRANSACTION_ID' });
     }
 
+    let finalTargetId = targetId;
     let finalStoreName = storeName || '';
 
     if (transactionType === 'shift') {
@@ -161,6 +153,11 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       finalStoreName = shift.storeName || finalStoreName;
+      if (!finalTargetId) {
+        finalTargetId = isStudentParticipant
+          ? (shift.employerUserId || shift.employerId)
+          : (shift.studentUserId || shift.studentId);
+      }
     } else if (transactionType === 'task') {
       const task = await MicroTask.findById(transactionId);
       if (!task) {
@@ -179,12 +176,30 @@ router.post('/', authenticate, async (req, res, next) => {
 
       if (!isRequester && !isAssignee && req.user.role !== 'admin') {
         return res.status(403).json({
-          error: 'Bạn không phải là người tham gia trong việc vặt này.',
+          error: 'Bạn không phải là người tham gia trong việc vặt này để đánh giá.',
           code: 'FORBIDDEN',
         });
       }
+
+      // Backend authoritatively deduces opposite participant as targetId
+      if (isRequester) {
+        finalTargetId = task.assigneeId;
+      } else if (isAssignee) {
+        finalTargetId = task.requesterId;
+      }
+
+      finalStoreName = `Việc vặt: ${task.title}`;
     } else {
       return res.status(400).json({ error: 'Loại giao dịch không hợp lệ (hỗ trợ: shift, task).', code: 'INVALID_TRANSACTION_TYPE' });
+    }
+
+    if (!finalTargetId || !mongoose.Types.ObjectId.isValid(finalTargetId)) {
+      return res.status(400).json({ error: 'Không xác định được đối tượng đánh giá hợp lệ.', code: 'INVALID_ID' });
+    }
+
+    // Anti self-review
+    if (finalTargetId.toString() === req.user._id.toString()) {
+      return res.status(400).json({ error: 'Bạn không thể tự đánh giá chính mình.', code: 'SELF_REVIEW_FORBIDDEN' });
     }
 
     // Check duplicate review on same transaction
@@ -204,7 +219,7 @@ router.post('/', authenticate, async (req, res, next) => {
       reviewerId: req.user._id,
       reviewerName: req.user.name || 'Người dùng',
       reviewerRole: req.user.role,
-      targetId,
+      targetId: finalTargetId,
       storeName: finalStoreName,
       transactionType,
       transactionId,
@@ -215,12 +230,12 @@ router.post('/', authenticate, async (req, res, next) => {
     });
 
     // Asynchronously recalculate target aggregate rating
-    await syncAggregateRating(targetId);
+    await syncAggregateRating(finalTargetId);
 
     // Send notification to target user
     try {
       await Notification.create({
-        userId: targetId,
+        userId: finalTargetId,
         title: 'Bạn nhận được đánh giá mới ⭐',
         message: `${req.user.name || 'Một thành viên'} đã đánh giá bạn ${numRating} sao: "${comment.trim().slice(0, 80)}..."`,
         type: 'system',
