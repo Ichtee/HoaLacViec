@@ -590,10 +590,10 @@ export default function LocationPicker({
       )}
 
       {/* Vietmap GL Map Canvas Container */}
-      <div className="relative rounded-2xl overflow-hidden border border-green-100 shadow-sm bg-gray-50">
+      <div style={{ minHeight: '320px' }} className="relative rounded-2xl overflow-hidden border border-green-100 shadow-sm bg-gray-50">
         <div
           ref={mapContainerRef}
-          style={{ width: '100%', height: '320px' }}
+          style={{ width: '100%', height: '320px', minHeight: '320px' }}
           className="relative z-0"
         />
 

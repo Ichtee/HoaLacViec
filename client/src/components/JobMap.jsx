@@ -382,9 +382,9 @@ export function JobMap({
   }, []);
 
   return (
-    <div className="relative rounded-3xl overflow-hidden border-2 border-green-200 shadow-card bg-cream">
+    <div style={{ minHeight: height }} className="relative rounded-3xl overflow-hidden border-2 border-green-200 shadow-card bg-cream">
       {/* Vietmap GL Map Canvas Container */}
-      <div ref={mapContainerRef} style={{ height }} className="w-full z-0" />
+      <div ref={mapContainerRef} style={{ height, minHeight: height }} className="w-full z-0" />
 
       {/* Fallback banner if missing tile key or 401/403 error */}
       {(!VIETMAP_API_KEY || tileLoadError) && (
