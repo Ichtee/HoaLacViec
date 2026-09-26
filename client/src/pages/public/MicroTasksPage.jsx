@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ShoppingBag, Utensils, Bike, Truck, Package, Printer, Plus, CheckCircle,
   Clock, MapPin, User, Search,
-  AlertTriangle, ShieldAlert, Star, ExternalLink, Send
+  AlertTriangle, ShieldAlert, Star, ExternalLink, Send,
+  Filter, ChevronDown, X
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
@@ -22,7 +23,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
 const TASK_CATEGORIES = [
-  { id: 'all', label: 'Tất cả việc vặt', icon: null },
+  { id: 'all', label: 'Tất cả danh mục', icon: null },
   { id: 'di_cho', label: 'Đi chợ / Mua cơm', icon: ShoppingBag, color: 'text-amber-600 bg-amber-50' },
   { id: 'nau_an', label: 'Nấu ăn hộ', icon: Utensils, color: 'text-orange-600 bg-orange-50' },
   { id: 'xe_om', label: 'Xe ôm sinh viên', icon: Bike, color: 'text-blue-600 bg-blue-50' },
@@ -32,9 +33,9 @@ const TASK_CATEGORIES = [
 ];
 
 const TASK_TABS = [
-  { id: 'open', label: 'Chợ việc vặt', icon: ShoppingBag },
-  { id: 'my_posted', label: 'Việc tôi nhờ', icon: null },
-  { id: 'my_accepted', label: 'Việc tôi nhận', icon: null },
+  { id: 'open', label: 'Chợ việc vặt (Đang tìm người)', icon: ShoppingBag },
+  { id: 'my_posted', label: 'Việc tôi nhờ (Đã đăng)', icon: null },
+  { id: 'my_accepted', label: 'Việc tôi nhận làm', icon: null },
   { id: 'awaiting_approval', label: 'Chờ nghiệm thu', icon: null },
   { id: 'completed', label: 'Đã hoàn thành', icon: null },
   { id: 'disputed', label: 'Cần hỗ trợ / Khiếu nại', icon: AlertTriangle },
@@ -434,86 +435,123 @@ export default function MicroTasksPage() {
         </div>
       )}
 
-      {/* Tab Navigation - Modern Segmented Control */}
-      <div className="bg-gray-100/90 p-1.5 rounded-2xl flex items-center gap-1 overflow-x-auto scrollbar-none border border-gray-200/60 max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        {TASK_TABS.map((tab) => {
-          const isActive = currentTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                isActive
-                  ? 'bg-white text-gray-900 shadow-sm font-bold'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-white/60'
-              }`}
+      {/* Dropdown Filter Bar */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          {/* 1. Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo khu vực, mô tả, tên việc..."
+              className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
+                title="Xóa tìm kiếm"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* 2. Dropdown: Chế độ xem / Trạng thái */}
+          <div className="relative min-w-[210px] sm:min-w-[230px]">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-orange-500">
+              <Filter className="w-4 h-4" />
+            </div>
+            <select
+              value={currentTab}
+              onChange={(e) => handleTabChange(e.target.value)}
+              className="w-full pl-9.5 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
             >
-              {tab.icon && (
-                <tab.icon
-                  className={`w-3.5 h-3.5 ${
-                    isActive
-                      ? tab.id === 'disputed'
-                        ? 'text-red-500'
-                        : 'text-orange-500'
-                      : 'text-gray-400'
-                  }`}
-                />
-              )}
-              {tab.label}
+              {TASK_TABS.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+              <ChevronDown className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* 3. Dropdown: Phân loại danh mục */}
+          <div className="relative min-w-[190px] sm:min-w-[210px]">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-orange-500">
+              <ShoppingBag className="w-4 h-4" />
+            </div>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full pl-9.5 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
+            >
+              {TASK_CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+              <ChevronDown className="w-4 h-4" />
+            </div>
+          </div>
+        </div>
+
+        {/* Active Filter Indicators & Reset button */}
+        {(currentTab !== 'open' || category !== 'all' || search) && (
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100 text-xs text-gray-500 flex-wrap">
+            <span className="font-medium text-gray-600">Đang lọc theo:</span>
+            {currentTab !== 'open' && (
+              <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-lg font-medium border border-orange-200/60">
+                {TASK_TABS.find((t) => t.id === currentTab)?.label || currentTab}
+              </span>
+            )}
+            {category !== 'all' && (
+              <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg font-medium border border-amber-200/60">
+                {TASK_CATEGORIES.find((c) => c.id === category)?.label || category}
+              </span>
+            )}
+            {search && (
+              <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg font-medium">
+                "{search}"
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                handleTabChange('open');
+                setCategory('all');
+                setSearch('');
+              }}
+              className="ml-auto text-orange-600 hover:text-orange-700 font-semibold cursor-pointer hover:underline text-xs"
+            >
+              Đặt lại mặc định
             </button>
-          );
-        })}
+          </div>
+        )}
       </div>
 
       {/* When in Disputed Tab: Explanatory Context Banner */}
       {currentTab === 'disputed' && (
-        <div className="bg-red-50/70 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-red-950 text-xs sm:text-sm animate-fade-in">
+        <div className="bg-red-50/80 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-red-950 text-xs sm:text-sm animate-fade-in shadow-xs">
           <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <div className="space-y-1">
-            <p className="font-bold text-red-900">Mục giải quyết khiếu nại & hỗ trợ sự cố:</p>
+            <p className="font-bold text-red-900">Mục khiếu nại & hỗ trợ giải quyết sự cố (Dispute):</p>
             <p className="text-xs text-red-800 leading-relaxed">
-              Đây là nơi theo dõi các công việc bạn tham gia (đăng việc hoặc nhận việc) đang phát sinh khiếu nại (bùng tiền, thiếu đồ, không liên lạc được).
-              Ban quản trị sẽ liên hệ hai bên, kiểm tra bằng chứng và đưa ra quyết định xử lý công bằng.
+              Trạng thái <strong>Tranh chấp (Disputed)</strong> diễn ra khi một trong hai bên (người nhờ hoặc người nhận) gặp sự cố trong quá trình thực hiện việc (ví dụ: bùng kèo, không trả tiền công, không liên lạc được, hàng hóa bị hư hỏng/thất lạc...).
+            </p>
+            <p className="text-xs text-red-800 leading-relaxed">
+              Khi bạn bấm <em>"Khiếu nại / Báo cáo sự cố"</em>, hệ thống sẽ tạm đóng băng việc này và tự động gửi hồ sơ đến Ban quản trị (Admin). Admin sẽ đối chiếu bằng chứng (hình ảnh/tin nhắn) và liên hệ hai bên để xử lý công bằng (hoàn tiền, phạt điểm uy tín, hoặc khóa tài khoản vi phạm).
             </p>
           </div>
         </div>
       )}
-
-      {/* Category Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-        {/* Categories Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 sm:pb-0 flex-nowrap sm:flex-wrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {TASK_CATEGORIES.map((cat) => {
-            const isCatActive = category === cat.id;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setCategory(cat.id)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                  isCatActive
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-gray-200/80'
-                }`}
-              >
-                {cat.icon && <cat.icon className="w-3.5 h-3.5" />}
-                {cat.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Search Input */}
-        <div className="relative shrink-0 w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo khu vực, tên việc..."
-            className="w-full pl-9 pr-4 py-2 rounded-full bg-white border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all shadow-2xs"
-          />
-        </div>
-      </div>
 
       {/* Task List Grid */}
       {loading ? (
