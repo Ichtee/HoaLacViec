@@ -282,7 +282,7 @@ export default function JobDetailPage() {
                   <div key={i} className="flex items-center gap-3 p-3 bg-green-50 rounded-2xl">
                     <Calendar className="w-4 h-4 text-green-main flex-shrink-0" />
                     <span className="font-medium text-text-main text-sm">
-                      {DAYS_OF_WEEK[s.dayOfWeek - 1]}
+                      {DAYS_OF_WEEK[s.dayOfWeek - 1] || `Thứ ${s.dayOfWeek}` || 'Linh hoạt'}
                     </span>
                     <span className="text-text-muted text-sm">
                       {s.startTime} – {s.endTime}
@@ -391,7 +391,7 @@ export default function JobDetailPage() {
                         <Phone className="w-3.5 h-3.5" /> Gọi ngay
                       </a>
                       <a
-                        href={`https://zalo.me/${contactPhone.replace(/\D/g, '')}`}
+                        href={`https://zalo.me/${String(contactPhone).replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
@@ -407,7 +407,7 @@ export default function JobDetailPage() {
               {emp?.ratingCount > 0 ? (
                 <p className="flex items-center gap-2 text-xs">
                   <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  <span className="font-bold text-text-main">{emp.rating?.toFixed(1) || '0.0'}</span>
+                  <span className="font-bold text-text-main">{Number(emp.rating || 0).toFixed(1)}</span>
                   <span className="text-text-muted">({emp.ratingCount} đánh giá)</span>
                 </p>
               ) : (

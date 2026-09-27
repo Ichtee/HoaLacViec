@@ -5,6 +5,7 @@ import { User } from '../models/User.js';
 import { StudentProfile } from '../models/StudentProfile.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { authenticate } from '../middlewares/auth.js';
+import { activatePendingUserWhenVerificationDisabled } from '../config/accountVerification.js';
 
 const router = express.Router();
 
@@ -31,6 +32,8 @@ function createToken(user) {
 }
 
 async function buildAuthResponse(user) {
+  await activatePendingUserWhenVerificationDisabled(user);
+
   let profile = null;
   if (user.role === 'student') {
     profile = await StudentProfile.findOne({ userId: user._id });
@@ -308,20 +311,8 @@ router.post('/register', async (req, res, next) => {
       status: 'pending',
     });
 
-    const token = createToken(newUser);
-    res.status(201).json({
-      token,
-      user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        phone: newUser.phone,
-        status: newUser.status,
-        profileId: null,
-        profile: null,
-      },
-    });
+    const authRes = await buildAuthResponse(newUser);
+    res.status(201).json(authRes);
   } catch (err) {
     next(err);
   }

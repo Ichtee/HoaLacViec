@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['pending', 'student', 'employer', 'admin'],
+      enum: ['pending', 'student', 'worker', 'freelancer', 'employer', 'admin'],
       default: 'pending',
     },
     phone: { type: String, default: '', trim: true },

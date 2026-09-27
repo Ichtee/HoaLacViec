@@ -56,7 +56,17 @@ const studentProfileSchema = new mongoose.Schema({
   reputationScore: { type: Number, default: 5.0 },
   reputationCount: { type: Number, default: 0 },
   profileComplete: { type: Boolean, default: true },
+  profileType: {
+    type: String,
+    enum: ['student', 'worker'],
+    default: 'student',
+  },
   studentCardPhoto: { type: String, default: '' },
+  // Worker (Lao động tự do) CCCD Verification fields
+  idCardNumber: { type: String, default: '' },
+  idCardFrontPhoto: { type: String, default: '' },
+  idCardBackPhoto: { type: String, default: '' },
+  profession: { type: String, default: '' },
   verified: { type: Boolean, default: false },
   verifiedAt: { type: Date, default: null },
   verificationStatus: {

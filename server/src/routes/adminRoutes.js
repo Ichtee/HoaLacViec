@@ -85,8 +85,8 @@ router.put('/users/:id/status', async (req, res) => {
 router.put('/users/:id/role', async (req, res) => {
   try {
     const { role } = req.body;
-    if (!['student', 'employer', 'admin'].includes(role)) {
-      return res.status(400).json({ error: 'Vai trò không hợp lệ (chỉ chấp nhận student, employer, admin)' });
+    if (!['student', 'worker', 'freelancer', 'employer', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Vai trò không hợp lệ (chấp nhận student, worker, freelancer, employer, admin)' });
     }
 
     const user = await User.findById(req.params.id);
@@ -104,6 +104,7 @@ router.put('/users/:id/role', async (req, res) => {
       if (!existingProfile) {
         await StudentProfile.create({
           userId: user._id,
+          profileType: 'student',
           university: 'Đại học FPT Hòa Lạc',
           major: 'Kỹ thuật phần mềm',
           studentCode: 'SE' + Math.floor(100000 + Math.random() * 900000),
@@ -114,6 +115,25 @@ router.put('/users/:id/role', async (req, res) => {
           locationSource: 'map_pin',
           verified: true,
         });
+      }
+    } else if (role === 'worker' || role === 'freelancer') {
+      const existingProfile = await StudentProfile.findOne({ userId: user._id });
+      if (!existingProfile) {
+        await StudentProfile.create({
+          userId: user._id,
+          profileType: 'worker',
+          profession: 'Lao động tự do',
+          idCardNumber: '00120' + Math.floor(1000000 + Math.random() * 9000000),
+          address: 'Khu CNC Hòa Lạc, Thạch Thất, Hà Nội',
+          location: { lat: 21.0135, lng: 105.5252 },
+          geoPoint: { type: 'Point', coordinates: [105.5252, 21.0135] },
+          locationStatus: 'confirmed',
+          locationSource: 'map_pin',
+          verified: true,
+        });
+      } else if (!existingProfile.profileType || existingProfile.profileType === 'student') {
+        existingProfile.profileType = 'worker';
+        await existingProfile.save();
       }
     } else if (role === 'employer') {
       const existingProfile = await EmployerProfile.findOne({ userId: user._id });
@@ -274,26 +294,37 @@ router.get('/verifications', async (req, res) => {
       }
     }
 
-    // 2. Fetch Student Verifications
-    if (!type || type === 'all' || type === 'student') {
+    // 2. Fetch Student & Worker Verifications
+    if (!type || type === 'all' || type === 'student' || type === 'worker') {
       const stuFilter = {};
       if (statusFilter) {
         stuFilter.verificationStatus = statusFilter;
       } else {
-        // Return students with pending, approved, or rejected status, or who uploaded a card photo
+        // Return records with pending, approved, or rejected status, or who uploaded a photo
         stuFilter.$or = [
           { verificationStatus: { $in: ['pending', 'approved', 'rejected'] } },
           { studentCardPhoto: { $ne: '' } },
+          { idCardFrontPhoto: { $ne: '' } },
         ];
       }
 
-      const studentProfiles = await StudentProfile.find(stuFilter)
+      const profiles = await StudentProfile.find(stuFilter)
         .populate('userId', 'name email phone avatar status role')
         .sort({ updatedAt: -1 });
 
-      for (const sp of studentProfiles) {
+      for (const sp of profiles) {
+        const isWorker = sp.profileType === 'worker' || (Boolean(sp.idCardFrontPhoto || sp.idCardNumber) && !sp.studentCode);
+        const verificationType = isWorker ? 'worker' : 'student';
+
+        // Filter by tab if selected
+        if (type && type !== 'all' && type !== verificationType) continue;
+
+        const hasPhoto = isWorker
+          ? Boolean(sp.idCardFrontPhoto || sp.idCardNumber)
+          : Boolean(sp.studentCardPhoto);
+
         const normalizedStatus = sp.verificationStatus === 'draft' 
-          ? (sp.studentCardPhoto ? 'pending' : 'draft') 
+          ? (hasPhoto ? 'pending' : 'draft')
           : (sp.verificationStatus || (sp.verified ? 'approved' : 'pending'));
 
         // Skip drafts without photos
@@ -302,12 +333,19 @@ router.get('/verifications', async (req, res) => {
         results.push({
           _id: sp._id,
           id: sp._id,
-          verificationType: 'student',
+          verificationType,
+          // Student fields
           studentCode: sp.studentCode,
           university: sp.university,
           major: sp.major,
-          transport: sp.transport,
           studentCardPhoto: sp.studentCardPhoto,
+          // Worker CCCD fields
+          idCardNumber: sp.idCardNumber,
+          idCardFrontPhoto: sp.idCardFrontPhoto,
+          idCardBackPhoto: sp.idCardBackPhoto,
+          profession: sp.profession,
+          // Shared fields
+          transport: sp.transport,
           status: normalizedStatus,
           verified: sp.verified,
           rejectionReason: sp.rejectionReason,
@@ -328,10 +366,10 @@ router.get('/verifications', async (req, res) => {
   }
 });
 
-// POST /api/admin/verifications/:id/approve (Duyệt xác minh doanh nghiệp hoặc sinh viên)
+// POST /api/admin/verifications/:id/approve (Duyệt xác minh doanh nghiệp, sinh viên hoặc người lao động)
 router.post('/verifications/:id/approve', async (req, res) => {
   try {
-    // 1. Check if ID matches StudentProfile
+    // 1. Check if ID matches StudentProfile (student or worker)
     const studentProfile = await StudentProfile.findById(req.params.id);
     if (studentProfile) {
       studentProfile.verified = true;
@@ -342,13 +380,19 @@ router.post('/verifications/:id/approve', async (req, res) => {
       studentProfile.verifiedAt = new Date();
       await studentProfile.save();
 
+      const isWorker = studentProfile.profileType === 'worker' || (Boolean(studentProfile.idCardFrontPhoto || studentProfile.idCardNumber) && !studentProfile.studentCode);
+      const targetRole = isWorker ? 'worker' : 'student';
+
       // Activate user account & set role
       await User.findByIdAndUpdate(studentProfile.userId, {
-        role: 'student',
+        role: targetRole,
         status: 'active',
       });
 
-      return res.json({ message: 'Đã duyệt thẻ sinh viên thành công!', profile: studentProfile });
+      return res.json({
+        message: isWorker ? 'Đã duyệt Căn cước công dân người lao động tự do thành công!' : 'Đã duyệt thẻ sinh viên thành công!',
+        profile: studentProfile
+      });
     }
 
     // 2. Try updating EmployerVerification

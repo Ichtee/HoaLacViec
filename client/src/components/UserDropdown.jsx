@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Building2,
   GraduationCap,
+  Briefcase,
   Clock,
   Sparkles,
   ArrowRight,
@@ -38,12 +39,14 @@ export function UserDropdown({ showWelcome = true, className = '' }) {
     ? '/verify-account'
     : {
         student: '/student',
+        worker: '/student',
+        freelancer: '/student',
         employer: '/employer',
         admin: '/admin',
       }[role] || '/';
 
   const accountPath =
-    role === 'student'
+    (role === 'student' || role === 'worker' || role === 'freelancer')
       ? '/student/account'
       : role === 'employer'
       ? '/employer/account'
@@ -52,7 +55,7 @@ export function UserDropdown({ showWelcome = true, className = '' }) {
       : '/account/profile';
 
   const passwordPath =
-    role === 'student'
+    (role === 'student' || role === 'worker' || role === 'freelancer')
       ? '/student/change-password'
       : role === 'employer'
       ? '/employer/change-password'
@@ -79,6 +82,13 @@ export function UserDropdown({ showWelcome = true, className = '' }) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
           <GraduationCap className="w-3 h-3" /> Sinh viên
+        </span>
+      );
+    }
+    if (role === 'worker' || role === 'freelancer') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+          <Briefcase className="w-3 h-3" /> Lao động tự do
         </span>
       );
     }
@@ -206,17 +216,17 @@ export function UserDropdown({ showWelcome = true, className = '' }) {
               </div>
             </Link>
 
-            {/* Role specific link: Student Profile */}
-            {role === 'student' && !isPending && (
+            {/* Role specific link: Student or Worker Profile */}
+            {(role === 'student' || role === 'worker' || role === 'freelancer') && !isPending && (
               <Link
                 to="/student/profile"
                 onClick={() => setIsOpen(false)}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-green-50 hover:text-green-dark transition-colors text-left"
               >
                 <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                  <GraduationCap className="w-4 h-4" />
+                  {role === 'worker' || role === 'freelancer' ? <Briefcase className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
                 </div>
-                <span className="flex-1">Hồ sơ sinh viên</span>
+                <span className="flex-1">{role === 'worker' || role === 'freelancer' ? 'Hồ sơ lao động' : 'Hồ sơ sinh viên'}</span>
               </Link>
             )}
 

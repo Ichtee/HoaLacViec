@@ -133,10 +133,18 @@ export default function StudentProfilePage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-text-main">{profile.name || user?.name}</h1>
-              <Badge variant="success" size="sm" icon={ShieldCheck}>Đã xác thực SV</Badge>
+              <Badge variant="success" size="sm" icon={ShieldCheck}>
+                {user?.role === 'worker' || user?.role === 'freelancer' ? 'Đã xác thực Lao động' : 'Đã xác thực SV'}
+              </Badge>
             </div>
             <p className="text-xs text-text-muted mt-1 flex items-center gap-2">
-              <span>🎓 {profile.university}</span> • <span>Mã SV: {profile.studentCode}</span>
+              {user?.role === 'worker' || user?.role === 'freelancer' ? (
+                <span>💼 Nghề nghiệp: {profile.profession || 'Lao động tự do'} {profile.idCardNumber ? `• CCCD: ${profile.idCardNumber.slice(0, 4)}****${profile.idCardNumber.slice(-3)}` : ''}</span>
+              ) : (
+                <>
+                  <span>🎓 {profile.university || 'Đại học FPT Hòa Lạc'}</span> • <span>Mã SV: {profile.studentCode || '---'}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -146,7 +154,7 @@ export default function StudentProfilePage() {
           disabled={saving}
           className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-green-main text-white font-semibold text-sm hover:bg-green-dark transition-all shadow-sm disabled:opacity-50"
         >
-          <Save className="w-4 h-4" /> {saving ? 'Đang lưu...' : 'Lưu hồ sơ rảnh ca'}
+          <Save className="w-4 h-4" /> {saving ? 'Đang lưu...' : user?.role === 'worker' || user?.role === 'freelancer' ? 'Lưu hồ sơ làm việc' : 'Lưu hồ sơ rảnh ca'}
         </button>
       </div>
 
@@ -270,7 +278,7 @@ export default function StudentProfilePage() {
             <div className="flex items-center justify-between border-b border-green-50 pb-4 mb-4">
               <div>
                 <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-green-main" /> Ma trận lịch rảnh học tập & làm việc
+                  <Calendar className="w-5 h-5 text-green-main" /> {user?.role === 'worker' || user?.role === 'freelancer' ? 'Ma trận lịch rảnh & nhận ca làm việc' : 'Ma trận lịch rảnh học tập & làm việc'}
                 </h2>
                 <p className="text-xs text-text-muted mt-1">
                   Chọn các ca bạn có thể đi làm. Hệ thống sẽ tự động ghép match các công việc trùng lịch rảnh của bạn.

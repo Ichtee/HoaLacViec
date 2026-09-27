@@ -329,6 +329,17 @@ export async function apiGetStudentVerification() {
   return request('/profiles/student-verification/me');
 }
 
+export async function apiSubmitWorkerVerification(data) {
+  return request('/profiles/worker-verification/submit', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiGetWorkerVerification() {
+  return request('/profiles/worker-verification/me');
+}
+
 export async function apiGetUniversities() {
   try {
     return await request('/universities');

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Building2,
   GraduationCap,
+  Briefcase,
   KeyRound,
   Clock,
   ArrowRight,
@@ -105,7 +106,7 @@ export default function AccountInfoPage() {
 
   const isPending = user?.status === 'pending' || role === 'pending';
   const passwordPath =
-    role === 'student'
+    (role === 'student' || role === 'worker' || role === 'freelancer')
       ? '/student/change-password'
       : role === 'employer'
       ? '/employer/change-password'
@@ -247,12 +248,15 @@ export default function AccountInfoPage() {
             <div className="px-3.5 py-2.5 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-semibold flex items-center justify-between">
               <span className="flex items-center gap-2">
                 {role === 'student' && <GraduationCap className="w-4 h-4 text-emerald-600" />}
+                {(role === 'worker' || role === 'freelancer') && <Briefcase className="w-4 h-4 text-blue-600" />}
                 {role === 'employer' && <Building2 className="w-4 h-4 text-purple-600" />}
                 {role === 'admin' && <ShieldCheck className="w-4 h-4 text-gray-800" />}
                 {isPending && <Clock className="w-4 h-4 text-amber-600" />}
                 <span>
                   {role === 'student'
                     ? 'Sinh viên tìm việc'
+                    : role === 'worker' || role === 'freelancer'
+                    ? 'Người lao động tự do'
                     : role === 'employer'
                     ? 'Nhà tuyển dụng / Cửa hàng'
                     : role === 'admin'

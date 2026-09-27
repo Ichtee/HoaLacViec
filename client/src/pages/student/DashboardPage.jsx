@@ -55,7 +55,7 @@ export default function StudentDashboard() {
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-3">
-            <ShieldCheck className="w-3.5 h-3.5" /> Sinh viên đã xác thực
+            <ShieldCheck className="w-3.5 h-3.5" /> {user?.role === 'worker' || user?.role === 'freelancer' ? 'Lao động tự do đã xác thực' : 'Sinh viên đã xác thực'}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Xin chào, {user?.name || 'Bạn'}! 👋

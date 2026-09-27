@@ -6,6 +6,7 @@ import {
   FileText,
   Building2,
   GraduationCap,
+  Briefcase,
   MapPin,
   Eye,
   X,
@@ -23,7 +24,7 @@ export default function AdminVerificationPage() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'student' | 'employer'
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'student' | 'worker' | 'employer'
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
   const [searchQuery, setSearchQuery] = useState('');
   const [previewImage, setPreviewImage] = useState(null);
@@ -50,6 +51,8 @@ export default function AdminVerificationPage() {
     if (status === 'rejected') {
       const defaultMsg = targetType === 'student'
         ? 'Ảnh thẻ sinh viên bị mờ hoặc thông tin mã số sinh viên không trùng khớp.'
+        : targetType === 'worker'
+        ? 'Ảnh chụp Căn cước công dân bị mờ, không rõ số hoặc thông tin không trùng khớp.'
         : 'Giấy tờ hoặc thông tin cửa hàng chưa đạt tiêu chuẩn quy định.';
       const userReason = prompt('Nhập lý do từ chối hồ sơ xác minh này:', defaultMsg);
       if (userReason === null) return;
@@ -66,18 +69,23 @@ export default function AdminVerificationPage() {
         )
       );
 
-      const isStudent = targetType === 'student';
       if (status === 'approved') {
         setToast({
           type: 'success',
-          message: isStudent
+          message: targetType === 'worker'
+            ? 'Đã duyệt Căn cước công dân và kích hoạt tài khoản Lao động tự do!'
+            : targetType === 'student'
             ? 'Đã duyệt thẻ sinh viên và kích hoạt tài khoản thành công!'
             : 'Đã phê duyệt và kích hoạt tài khoản Nhà tuyển dụng!',
         });
       } else {
         setToast({
           type: 'info',
-          message: isStudent ? 'Đã từ chối thẻ sinh viên.' : 'Đã từ chối hồ sơ doanh nghiệp.',
+          message: targetType === 'worker'
+            ? 'Đã từ chối hồ sơ Căn cước công dân.'
+            : targetType === 'student'
+            ? 'Đã từ chối thẻ sinh viên.'
+            : 'Đã từ chối hồ sơ doanh nghiệp.',
         });
       }
     } catch (err) {
@@ -88,8 +96,11 @@ export default function AdminVerificationPage() {
   // Filtered requests based on tab, status, and search query
   const filteredRequests = useMemo(() => {
     return requests.filter(req => {
-      // Type match
-      const reqType = req.verificationType || (req.studentCode ? 'student' : 'employer');
+      // Type match: 'all' | 'student' | 'worker' | 'employer'
+      const isWorker = req.verificationType === 'worker' || (!req.studentCode && Boolean(req.idCardFrontPhoto || req.idCardNumber));
+      const isStudent = !isWorker && (req.verificationType === 'student' || Boolean(req.studentCode));
+      const reqType = isWorker ? 'worker' : isStudent ? 'student' : 'employer';
+
       if (activeTab !== 'all' && reqType !== activeTab) return false;
 
       // Status match
@@ -108,6 +119,8 @@ export default function AdminVerificationPage() {
           req.storeName,
           req.legalName,
           req.studentCode,
+          req.idCardNumber,
+          req.profession,
           req.university,
           req.major,
           req.user?.name,
@@ -129,19 +142,22 @@ export default function AdminVerificationPage() {
   const counts = useMemo(() => {
     const total = requests.length;
     let student = 0;
+    let worker = 0;
     let employer = 0;
     let pending = 0;
 
     requests.forEach(r => {
-      const isStu = r.verificationType === 'student' || !!r.studentCode;
-      if (isStu) student++;
+      const isW = r.verificationType === 'worker' || (!r.studentCode && Boolean(r.idCardFrontPhoto || r.idCardNumber));
+      const isS = !isW && (r.verificationType === 'student' || Boolean(r.studentCode));
+      if (isW) worker++;
+      else if (isS) student++;
       else employer++;
 
       const isPend = r.status === 'pending' || (!r.verified && r.status !== 'rejected');
       if (isPend) pending++;
     });
 
-    return { total, student, employer, pending };
+    return { total, student, worker, employer, pending };
   }, [requests]);
 
   return (
@@ -197,6 +213,17 @@ export default function AdminVerificationPage() {
             )}
           >
             <GraduationCap className="w-4 h-4" /> Thẻ sinh viên ({counts.student})
+          </button>
+          <button
+            onClick={() => setActiveTab('worker')}
+            className={clsx(
+              'px-4 py-2 rounded-2xl text-xs font-bold transition-colors flex items-center gap-1.5',
+              activeTab === 'worker'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+            )}
+          >
+            <Briefcase className="w-4 h-4" /> Lao động tự do ({counts.worker})
           </button>
           <button
             onClick={() => setActiveTab('employer')}
@@ -264,7 +291,11 @@ export default function AdminVerificationPage() {
         <div className="space-y-4">
           {filteredRequests.map(req => {
             const targetId = req._id || req.id;
-            const isStudent = req.verificationType === 'student' || !!req.studentCode;
+            const isWorker = req.verificationType === 'worker' || (!req.studentCode && Boolean(req.idCardFrontPhoto || req.idCardNumber));
+            const isStudent = !isWorker && (req.verificationType === 'student' || Boolean(req.studentCode));
+            const isEmployer = !isWorker && !isStudent;
+            const targetType = isWorker ? 'worker' : isStudent ? 'student' : 'employer';
+
             const isApproved = req.status === 'approved' || req.verified === true;
             const isPending = req.status === 'pending' || (!req.verified && req.status !== 'rejected');
             const isRejected = req.status === 'rejected';
@@ -286,10 +317,18 @@ export default function AdminVerificationPage() {
                     <span
                       className={clsx(
                         'px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1',
-                        isStudent ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
+                        isWorker
+                          ? 'bg-blue-100 text-blue-800'
+                          : isStudent
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-purple-100 text-purple-800'
                       )}
                     >
-                      {isStudent ? (
+                      {isWorker ? (
+                        <>
+                          <Briefcase className="w-3.5 h-3.5" /> Lao Động Tự Do (CCCD)
+                        </>
+                      ) : isStudent ? (
                         <>
                           <GraduationCap className="w-3.5 h-3.5" /> Thẻ Sinh Viên
                         </>
@@ -320,12 +359,18 @@ export default function AdminVerificationPage() {
                   {/* Title & Core Subject */}
                   <div>
                     <h3 className="text-base font-bold text-gray-900">
-                      {isStudent
+                      {isWorker
+                        ? `${req.user?.name || 'Người lao động'} — CCCD: ${req.idCardNumber || 'Chưa có'}`
+                        : isStudent
                         ? `${req.user?.name || 'Sinh viên'} — MSSV: ${req.studentCode || 'Chưa có'}`
                         : req.storeName || 'Cửa hàng tuyển dụng'}
                     </h3>
                     <p className="text-gray-500 mt-0.5">
-                      {isStudent ? (
+                      {isWorker ? (
+                        <span>
+                          Nghề nghiệp / Lĩnh vực: <strong className="text-gray-800">{req.profession || 'Lao động tự do'}</strong>
+                        </span>
+                      ) : isStudent ? (
                         <span>
                           Trường: <strong className="text-gray-800">{req.university || 'Đại học FPT'}</strong> • Chuyên ngành: <strong className="text-gray-800">{req.major || 'Chưa cập nhật'}</strong>
                         </span>
@@ -345,7 +390,7 @@ export default function AdminVerificationPage() {
                     <p>
                       📞 SĐT: <strong className="text-gray-900">{req.contactPhone || req.user?.phone || 'Chưa có'}</strong>
                     </p>
-                    {isStudent ? (
+                    {isStudent || isWorker ? (
                       <p>
                         🛵 Phương tiện:{' '}
                         <strong className="text-gray-900">
@@ -389,7 +434,42 @@ export default function AdminVerificationPage() {
 
                 {/* Right: Photo Preview & Action Buttons */}
                 <div className="flex flex-col sm:items-end justify-between gap-3 shrink-0">
-                  {/* Photo thumbnail */}
+                  {/* Photo thumbnail(s) */}
+                  {isWorker && (
+                    <div className="flex items-center gap-2">
+                      {req.idCardFrontPhoto && (
+                        <div
+                          onClick={() => setPreviewImage({ url: req.idCardFrontPhoto, title: `CCCD Mặt trước: ${req.user?.name || req.idCardNumber}` })}
+                          className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
+                        >
+                          <img
+                            src={req.idCardFrontPhoto}
+                            alt="CCCD trước"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                            <Eye className="w-3 h-3" /> Trước
+                          </div>
+                        </div>
+                      )}
+                      {req.idCardBackPhoto && (
+                        <div
+                          onClick={() => setPreviewImage({ url: req.idCardBackPhoto, title: `CCCD Mặt sau: ${req.user?.name || req.idCardNumber}` })}
+                          className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
+                        >
+                          <img
+                            src={req.idCardBackPhoto}
+                            alt="CCCD sau"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                            <Eye className="w-3 h-3" /> Sau
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {isStudent && req.studentCardPhoto && (
                     <div
                       onClick={() => setPreviewImage({ url: req.studentCardPhoto, title: `Thẻ SV: ${req.user?.name || req.studentCode}` })}
@@ -406,7 +486,7 @@ export default function AdminVerificationPage() {
                     </div>
                   )}
 
-                  {!isStudent && req.documents?.[0]?.url && (
+                  {isEmployer && req.documents?.[0]?.url && (
                     <div
                       onClick={() => setPreviewImage({ url: req.documents[0].url, title: `Cơ sở: ${req.storeName}` })}
                       className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-32 h-20 shadow-sm"
@@ -426,21 +506,23 @@ export default function AdminVerificationPage() {
                   {isPending && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
-                        onClick={() => handleReview(targetId, 'rejected', isStudent ? 'student' : 'employer')}
+                        onClick={() => handleReview(targetId, 'rejected', targetType)}
                         className="px-3.5 py-2 rounded-xl bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 transition-colors"
                       >
                         Từ chối
                       </button>
                       <button
-                        onClick={() => handleReview(targetId, 'approved', isStudent ? 'student' : 'employer')}
+                        onClick={() => handleReview(targetId, 'approved', targetType)}
                         className={clsx(
                           'px-4 py-2 rounded-xl text-white font-bold text-xs shadow-sm transition-colors',
-                          isStudent
+                          isWorker
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : isStudent
                             ? 'bg-emerald-600 hover:bg-emerald-700'
                             : 'bg-purple-700 hover:bg-purple-800'
                         )}
                       >
-                        {isStudent ? '✓ Duyệt thẻ & Kích hoạt' : '✓ Phê duyệt đối tác'}
+                        {isWorker ? '✓ Duyệt CCCD & Kích hoạt' : isStudent ? '✓ Duyệt thẻ & Kích hoạt' : '✓ Phê duyệt đối tác'}
                       </button>
                     </div>
                   )}

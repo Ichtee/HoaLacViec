@@ -50,7 +50,7 @@ export default function ChangePasswordPage() {
   const hasExistingPassword = Boolean(user?.hasPassword);
 
   const accountPath =
-    role === 'student'
+    (role === 'student' || role === 'worker' || role === 'freelancer')
       ? '/student/account'
       : role === 'employer'
       ? '/employer/account'

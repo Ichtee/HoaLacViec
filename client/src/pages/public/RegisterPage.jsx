@@ -59,8 +59,20 @@ export default function RegisterPage() {
         phone: phone.trim(),
         password,
       };
-      await register(payload);
-      navigate('/verify-account');
+      const session = await register(payload);
+      const registeredUser = session?.user;
+
+      if (registeredUser?.status === 'pending' || registeredUser?.role === 'pending') {
+        navigate('/verify-account');
+        return;
+      }
+
+      const dashboards = {
+        student: '/student',
+        employer: '/employer',
+        admin: '/admin',
+      };
+      navigate(dashboards[registeredUser?.role] || '/student');
     } catch (err) {
       setErrors({ submit: err.message || 'Lỗi khi đăng ký tài khoản.' });
     } finally {

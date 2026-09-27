@@ -79,6 +79,8 @@ function toPublicStudentDTO(profile) {
     transport: profile.transport,
     reputationScore: profile.reputationScore,
     reputationCount: profile.reputationCount,
+    profileType: profile.profileType || 'student',
+    profession: profile.profession || '',
     verified: profile.verified,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
@@ -108,7 +110,12 @@ function toPrivateStudentDTO(profile) {
     reputationScore: profile.reputationScore,
     reputationCount: profile.reputationCount,
     profileComplete: profile.profileComplete,
+    profileType: profile.profileType || 'student',
     studentCardPhoto: profile.studentCardPhoto,
+    idCardNumber: profile.idCardNumber || '',
+    idCardFrontPhoto: profile.idCardFrontPhoto || '',
+    idCardBackPhoto: profile.idCardBackPhoto || '',
+    profession: profile.profession || '',
     verified: profile.verified,
     verifiedAt: profile.verifiedAt,
     verificationStatus: profile.verificationStatus,
@@ -449,6 +456,111 @@ router.post('/student-verification/submit', authenticate, async (req, res, next)
 
     res.json({
       message: 'Hồ sơ thẻ sinh viên đã được gửi thành công và đang chờ Ban Quản Trị xét duyệt.',
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        avatar: updatedUser.avatar,
+        status: updatedUser.status,
+        profileId: profile._id,
+        profile,
+      },
+      profile: toPrivateStudentDTO(profile),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/profiles/worker-verification/me (Kiểm tra trạng thái xác minh CCCD người lao động)
+router.get('/worker-verification/me', authenticate, async (req, res, next) => {
+  try {
+    const profile = await StudentProfile.findOne({ userId: req.user._id });
+    res.json({
+      status: profile?.verificationStatus || 'draft',
+      verificationStatus: profile?.verificationStatus || 'draft',
+      verified: profile?.verified || false,
+      verifiedAt: profile?.verifiedAt || null,
+      idCardNumber: profile?.idCardNumber || '',
+      idCardFrontPhoto: profile?.idCardFrontPhoto || '',
+      idCardBackPhoto: profile?.idCardBackPhoto || '',
+      profession: profile?.profession || '',
+      transport: profile?.transport || 'xe_may',
+      rejectionReason: profile?.rejectionReason || '',
+      profileType: profile?.profileType || 'worker',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/profiles/worker-verification/submit (Lao động tự do nộp CCCD để Admin duyệt)
+router.post('/worker-verification/submit', authenticate, async (req, res, next) => {
+  try {
+    const { idCardNumber, idCardFrontPhoto, idCardBackPhoto, profession, transport, bio, fullName, phone } = req.body;
+
+    if (!idCardNumber || !idCardNumber.trim()) {
+      return res.status(400).json({
+        error: 'Vui lòng nhập số Căn cước công dân (CCCD).',
+        code: 'MISSING_ID_CARD_NUMBER',
+      });
+    }
+
+    const cleanIdNumber = idCardNumber.trim().replace(/\s+/g, '');
+    if (!/^[0-9]{9,12}$/.test(cleanIdNumber)) {
+      return res.status(400).json({
+        error: 'Số CCCD không hợp lệ (phải gồm 9 đến 12 chữ số).',
+        code: 'INVALID_ID_CARD_NUMBER',
+      });
+    }
+
+    if (!idCardFrontPhoto) {
+      return res.status(400).json({
+        error: 'Vui lòng tải lên ảnh chụp mặt trước Căn cước công dân.',
+        code: 'MISSING_PHOTO',
+      });
+    }
+
+    const profile = await StudentProfile.findOneAndUpdate(
+      { userId: req.user._id },
+      {
+        $set: {
+          userId: req.user._id,
+          profileType: 'worker',
+          idCardNumber: cleanIdNumber,
+          idCardFrontPhoto,
+          idCardBackPhoto: idCardBackPhoto || '',
+          profession: (profession || 'Lao động tự do').trim(),
+          transport: transport || 'xe_may',
+          bio: (bio || '').trim(),
+          verified: false,
+          verificationStatus: 'pending',
+          rejectionReason: '',
+          reviewedBy: null,
+          reviewedAt: null,
+          profileComplete: true,
+        },
+      },
+      { new: true, upsert: true, runValidators: true }
+    );
+
+    const userUpdate = {
+      role: 'worker',
+      status: 'pending',
+    };
+    if (phone && phone.trim()) userUpdate.phone = phone.trim();
+    if (fullName && fullName.trim()) userUpdate.name = fullName.trim();
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      userUpdate,
+      { new: true }
+    ).select('-password');
+
+    res.json({
+      message: 'Hồ sơ Căn cước công dân đã được gửi thành công và đang chờ Ban Quản Trị xét duyệt.',
       user: {
         id: updatedUser._id,
         name: updatedUser.name,

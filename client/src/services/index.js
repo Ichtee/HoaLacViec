@@ -51,6 +51,8 @@ export {
   apiGetStudentProfile as getStudentProfile,
   apiSubmitStudentVerification as submitStudentVerification,
   apiGetStudentVerification as getStudentVerification,
+  apiSubmitWorkerVerification as submitWorkerVerification,
+  apiGetWorkerVerification as getWorkerVerification,
   apiGetUniversities as getUniversities,
   apiUpdateStudentProfile as updateStudentProfile,
   apiGetEmployerProfile as getEmployerProfile,

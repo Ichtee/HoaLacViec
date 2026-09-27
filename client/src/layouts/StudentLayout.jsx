@@ -55,7 +55,9 @@ export default function StudentLayout() {
 
       {/* User badge */}
       <div className="px-4 py-3 bg-green-50 mx-3 my-3 rounded-2xl border border-green-100/50">
-        <p className="text-[11px] font-semibold text-green-dark">Sinh viên Hòa Lạc</p>
+        <p className="text-[11px] font-semibold text-green-dark">
+          {user?.role === 'worker' || user?.role === 'freelancer' ? 'Lao động tự do Hòa Lạc' : 'Sinh viên Hòa Lạc'}
+        </p>
         <p className="font-bold text-text-main text-sm truncate mt-0.5">{user?.name}</p>
       </div>
 

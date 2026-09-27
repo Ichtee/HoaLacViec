@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Lock, Unlock, Search, ShieldCheck, UserCheck, Filter } from 'lucide-react';
+import { Users, Lock, Unlock } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getAllUsers, apiAdminUpdateUserStatus, apiAdminUpdateUserRole } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -14,10 +14,6 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
   async function loadUsers() {
     try {
       setLoading(true);
@@ -29,6 +25,10 @@ export default function AdminUsersPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   async function handleToggleLock(userId, currentStatus) {
     const newStatus = currentStatus === 'locked' ? 'active' : 'locked';
@@ -51,9 +51,16 @@ export default function AdminUsersPage() {
       if (currentUser?._id === userId || currentUser?.id === userId) {
         updateUser({ role: newRole });
       }
+      const roleNames = {
+        student: 'Sinh viên',
+        worker: 'Lao động tự do',
+        freelancer: 'Lao động tự do',
+        employer: 'Nhà tuyển dụng',
+        admin: 'Quản trị viên (Admin)'
+      };
       setToast({
         type: 'success',
-        message: `Đã đổi vai trò sang "${newRole === 'student' ? 'Sinh viên' : newRole === 'employer' ? 'Nhà tuyển dụng' : 'Quản trị viên (Admin)'}" thành công!`
+        message: `Đã đổi vai trò sang "${roleNames[newRole] || newRole}" thành công!`
       });
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi cập nhật vai trò người dùng.' });
@@ -62,9 +69,14 @@ export default function AdminUsersPage() {
 
   const filtered = users.filter(u => {
     const matchesSearch = u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    const matchesRole = roleFilter === 'all'
+      || (roleFilter === 'pending'
+        ? u.role === 'pending' || u.status === 'pending'
+        : u.role === roleFilter);
     return matchesSearch && matchesRole;
   });
+
+  const pendingCount = users.filter(u => u.role === 'pending' || u.status === 'pending').length;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-10">
@@ -84,7 +96,9 @@ export default function AdminUsersPage() {
           <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-2xl border border-gray-100">
             {[
               { id: 'all', label: 'Tất cả' },
+              { id: 'pending', label: `Chờ xác minh (${pendingCount})` },
               { id: 'student', label: 'Sinh viên' },
+              { id: 'worker', label: 'Lao động tự do' },
               { id: 'employer', label: 'Doanh nghiệp' },
               { id: 'admin', label: 'Admin' },
             ].map((tab) => (
@@ -124,7 +138,7 @@ export default function AdminUsersPage() {
               <div className="flex items-center gap-3">
                 <div className={clsx(
                   'w-10 h-10 rounded-2xl font-bold text-sm flex items-center justify-center text-white shrink-0',
-                  userItem.role === 'student' ? 'bg-green-dark' : userItem.role === 'employer' ? 'bg-pink-dark' : 'bg-purple-600'
+                  userItem.role === 'pending' ? 'bg-amber-500' : userItem.role === 'student' ? 'bg-green-dark' : userItem.role === 'worker' || userItem.role === 'freelancer' ? 'bg-blue-600' : userItem.role === 'employer' ? 'bg-pink-dark' : 'bg-purple-600'
                 )}>
                   {userItem.name?.charAt(0) || 'U'}
                 </div>
@@ -132,9 +146,12 @@ export default function AdminUsersPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="font-bold text-gray-900 text-sm">{userItem.name}</h4>
-                    <Badge variant={userItem.role === 'student' ? 'info' : userItem.role === 'employer' ? 'primary' : 'warning'} size="sm">
-                      {userItem.role === 'student' ? 'Sinh viên' : userItem.role === 'employer' ? 'Nhà tuyển dụng' : 'Admin'}
+                    <Badge variant={userItem.role === 'pending' ? 'warning' : userItem.role === 'student' ? 'info' : userItem.role === 'worker' || userItem.role === 'freelancer' ? 'secondary' : userItem.role === 'employer' ? 'primary' : 'warning'} size="sm">
+                      {userItem.role === 'pending' ? 'Chờ phân vai' : userItem.role === 'student' ? 'Sinh viên' : userItem.role === 'worker' || userItem.role === 'freelancer' ? 'Lao động tự do' : userItem.role === 'employer' ? 'Nhà tuyển dụng' : 'Admin'}
                     </Badge>
+                    {userItem.status === 'pending' && userItem.role !== 'pending' && (
+                      <Badge variant="warning" size="sm">Chờ xác minh</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">{userItem.email} • {userItem.phone || '098xxx'}</p>
                 </div>
@@ -149,7 +166,9 @@ export default function AdminUsersPage() {
                     onChange={(e) => handleRoleChange(userItem._id || userItem.id, e.target.value)}
                     className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-green-dark cursor-pointer transition-all"
                   >
+                    {userItem.role === 'pending' && <option value="pending" disabled>⏳ Chờ phân vai</option>}
                     <option value="student">🎓 Sinh viên</option>
+                    <option value="worker">💼 Lao động tự do</option>
                     <option value="employer">🏢 Nhà tuyển dụng</option>
                     <option value="admin">🛡️ Quản trị viên</option>
                   </select>

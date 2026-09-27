@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
+import { activatePendingUserWhenVerificationDisabled } from '../config/accountVerification.js';
 
 /**
  * Authentication middleware
@@ -54,6 +55,7 @@ export async function authenticate(req, res, next) {
       });
     }
 
+    await activatePendingUserWhenVerificationDisabled(user);
     req.user = user;
     next();
   } catch (err) {
@@ -117,6 +119,7 @@ export async function optionalAuthenticate(req, res, next) {
       return next();
     }
 
+    await activatePendingUserWhenVerificationDisabled(user);
     req.user = user;
     next();
   } catch (err) {
