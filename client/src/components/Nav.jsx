@@ -15,7 +15,7 @@ const NAV_PUBLIC = [
   { to: '/blogs', label: 'Blog Cẩm Nang' },
 ];
 
-export function Navbar() {
+export function Navbar({ hideNavLinks = false }) {
   const { user, role, logout, isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
@@ -29,6 +29,9 @@ export function Navbar() {
   }
 
   const isPending = user?.status === 'pending' || role === 'pending';
+  const isDetailPage = /^\/(?:student\/)?jobs\/[^/]+$/.test(location.pathname) || /^\/blogs\/[^/]+$/.test(location.pathname);
+  const shouldHideLinks = hideNavLinks || isDetailPage;
+
   const dashboardPath = isPending
     ? '/verify-account'
     : {
@@ -50,8 +53,8 @@ export function Navbar() {
             />
           </Link>
 
-          {/* Desktop nav (Ẩn khi tài khoản đang pending) */}
-          {!isPending && (
+          {/* Desktop nav (Ẩn khi tài khoản đang pending hoặc đang ở trang chi tiết) */}
+          {!isPending && !shouldHideLinks && (
             <div className="hidden md:flex items-center gap-1">
               {NAV_PUBLIC.map((n) => (
                 <Link
@@ -82,8 +85,8 @@ export function Navbar() {
               </div>
             )}
 
-            {/* Mobile menu toggle (Ẩn khi pending vì chỉ xem verify) */}
-            {!isPending && (
+            {/* Mobile menu toggle (Ẩn khi pending hoặc khi ở trang detail mà đã đăng nhập) */}
+            {!isPending && (!shouldHideLinks || !isAuthenticated) && (
               <button
                 className="md:hidden p-2 rounded-xl hover:bg-green-50 transition-colors"
                 onClick={() => setMenuOpen(!menuOpen)}
@@ -96,9 +99,9 @@ export function Navbar() {
         </div>
 
         {/* Mobile menu */}
-        {!isPending && menuOpen && (
+        {!isPending && menuOpen && (!shouldHideLinks || !isAuthenticated) && (
           <div className="md:hidden border-t border-green-50 py-3 flex flex-col gap-1">
-            {NAV_PUBLIC.map((n) => (
+            {!shouldHideLinks && NAV_PUBLIC.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
