@@ -93,13 +93,27 @@ export default function AdminVerificationPage() {
     }
   }
 
+function getVerificationTargetType(req) {
+  if (req.verificationType === 'employer' || req.storeName || req.businessAddress) {
+    return 'employer';
+  }
+  if (req.verificationType === 'worker') {
+    return 'worker';
+  }
+  if (req.verificationType === 'student' || req.studentCode) {
+    return 'student';
+  }
+  if (req.idCardFrontPhoto || req.profession) {
+    return 'worker';
+  }
+  return req.verificationType || 'employer';
+}
+
   // Filtered requests based on tab, status, and search query
   const filteredRequests = useMemo(() => {
     return requests.filter(req => {
       // Type match: 'all' | 'student' | 'worker' | 'employer'
-      const isWorker = req.verificationType === 'worker' || (!req.studentCode && Boolean(req.idCardFrontPhoto || req.idCardNumber));
-      const isStudent = !isWorker && (req.verificationType === 'student' || Boolean(req.studentCode));
-      const reqType = isWorker ? 'worker' : isStudent ? 'student' : 'employer';
+      const reqType = getVerificationTargetType(req);
 
       if (activeTab !== 'all' && reqType !== activeTab) return false;
 
@@ -147,10 +161,9 @@ export default function AdminVerificationPage() {
     let pending = 0;
 
     requests.forEach(r => {
-      const isW = r.verificationType === 'worker' || (!r.studentCode && Boolean(r.idCardFrontPhoto || r.idCardNumber));
-      const isS = !isW && (r.verificationType === 'student' || Boolean(r.studentCode));
-      if (isW) worker++;
-      else if (isS) student++;
+      const rType = getVerificationTargetType(r);
+      if (rType === 'worker') worker++;
+      else if (rType === 'student') student++;
       else employer++;
 
       const isAppr = r.status === 'approved' || r.verified === true;
@@ -293,10 +306,10 @@ export default function AdminVerificationPage() {
         <div className="space-y-4">
           {filteredRequests.map(req => {
             const targetId = req._id || req.id;
-            const isWorker = req.verificationType === 'worker' || (!req.studentCode && Boolean(req.idCardFrontPhoto || req.idCardNumber));
-            const isStudent = !isWorker && (req.verificationType === 'student' || Boolean(req.studentCode));
-            const isEmployer = !isWorker && !isStudent;
-            const targetType = isWorker ? 'worker' : isStudent ? 'student' : 'employer';
+            const targetType = getVerificationTargetType(req);
+            const isWorker = targetType === 'worker';
+            const isStudent = targetType === 'student';
+            const isEmployer = targetType === 'employer';
 
             const isApproved = req.status === 'approved' || req.verified === true;
             const isRejected = req.status === 'rejected';
@@ -500,20 +513,26 @@ export default function AdminVerificationPage() {
                     )
                   )}
 
-                  {isEmployer && req.documents?.[0]?.url && (
-                    <div
-                      onClick={() => setPreviewImage({ url: req.documents[0].url, title: `Cơ sở: ${req.storeName}` })}
-                      className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-32 h-20 shadow-sm"
-                    >
-                      <img
-                        src={req.documents[0].url}
-                        alt="Ảnh cửa hàng"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
-                        <Eye className="w-3.5 h-3.5" /> Xem to
+                  {isEmployer && (
+                    req.documents?.[0]?.url ? (
+                      <div
+                        onClick={() => setPreviewImage({ url: req.documents[0].url, title: `Cơ sở: ${req.storeName}` })}
+                        className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-32 h-20 shadow-sm"
+                      >
+                        <img
+                          src={req.documents[0].url}
+                          alt="Ảnh cửa hàng"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                          <Eye className="w-3.5 h-3.5" /> Xem to
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2.5 py-1.5 rounded-xl border border-purple-100">
+                        Cơ sở kinh doanh (Không kèm ảnh)
+                      </span>
+                    )
                   )}
 
                   {/* Actions */}
