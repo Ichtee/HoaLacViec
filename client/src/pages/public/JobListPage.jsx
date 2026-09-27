@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, Map, List, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -7,7 +7,7 @@ import { JobMap } from '@/components/JobMap.jsx';
 import { EmptyState, LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { Select } from '@/components/Form.jsx';
 import { useAsync, useDebounce, useGeolocation } from '@/hooks';
-import { getJobs, toggleSaveJob, getSavedJobs, apiVietmapMatrix } from '@/services';
+import { getJobs, toggleSaveJob, getSavedJobs, apiVietmapMatrix, geocodeAddress } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JOB_TYPE_LABELS, AREAS } from '@/constants';
 import { haversineDistance, isValidCoordinate } from '@/utils';
@@ -32,6 +32,8 @@ export default function JobListPage() {
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [matrixDistances, setMatrixDistances] = useState({});
   const [matrixStatus, setMatrixStatus] = useState('idle');
+  const [geocodedMapLocations, setGeocodedMapLocations] = useState({});
+  const geocodeAttemptedRef = useRef(new Set());
 
   useEffect(() => {
     setSearch(params.get('search') || '');
@@ -106,6 +108,45 @@ export default function JobListPage() {
     if (Array.isArray(jobData)) return jobData;
     return jobData?.items || jobData?.jobs || [];
   }, [jobData]);
+
+  // Older jobs may only contain a text address. Resolve a non-persistent,
+  // approximate map position so they can still be displayed as amber markers.
+  // Attendance and directions continue to require the stored confirmed location.
+  useEffect(() => {
+    let active = true;
+    const unresolvedJobs = allJobs.filter((job) => {
+      const id = String(job._id || job.id);
+      const lat = job.location?.lat ?? job.geoPoint?.coordinates?.[1];
+      const lng = job.location?.lng ?? job.geoPoint?.coordinates?.[0];
+      return !isValidCoordinate(lat, lng) && job.address && !geocodeAttemptedRef.current.has(id);
+    });
+
+    async function resolveMissingMapLocations() {
+      for (const job of unresolvedJobs) {
+        if (!active) return;
+        const id = String(job._id || job.id);
+        geocodeAttemptedRef.current.add(id);
+        try {
+          const result = await geocodeAddress(job.address);
+          if (active && result?.success && isValidCoordinate(result.lat, result.lng)) {
+            setGeocodedMapLocations(previous => ({
+              ...previous,
+              [id]: {
+                lat: Number(result.lat),
+                lng: Number(result.lng),
+                formattedAddress: result.formattedAddress || result.displayName || job.address,
+              },
+            }));
+          }
+        } catch {
+          // The job remains in the list and can be pinned manually by its owner.
+        }
+      }
+    }
+
+    resolveMissingMapLocations();
+    return () => { active = false; };
+  }, [allJobs]);
 
   const matrixDestinations = useMemo(() => (allJobs || [])
     .filter((job) => job.locationStatus === 'confirmed' && isValidCoordinate(job.location?.lat, job.location?.lng))
@@ -243,6 +284,14 @@ export default function JobListPage() {
     const dateA = new Date(a.createdAt || a.postedAt || 0).getTime();
     return dateB - dateA;
   });
+
+  const jobsForMap = useMemo(() => sorted.map((job) => {
+    const id = String(job._id || job.id);
+    const approximateLocation = geocodedMapLocations[id];
+    return approximateLocation
+      ? { ...job, mapDisplayLocation: approximateLocation }
+      : job;
+  }), [sorted, geocodedMapLocations]);
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -495,49 +544,28 @@ export default function JobListPage() {
 
       {/* MAP VIEW SECTION */}
       {viewMode === 'map' && (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)] gap-5 items-start">
-          <div className="space-y-3 lg:sticky lg:top-20">
-            <JobMap
-              jobs={sorted}
-              userLocation={userLocation}
-              selectedJobId={selectedJobId}
-              onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
-              height="620px"
-            />
-            {sorted.some(j => j.locationStatus !== 'confirmed' || !isValidCoordinate(j.location?.lat, j.location?.lng)) && (
-              <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200 p-2.5 rounded-2xl flex items-center gap-1.5">
-                <span>📍</span>
-                Tin chưa xác nhận tọa độ vẫn có trong danh sách nhưng chưa được đánh dấu trên bản đồ.
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-3 lg:max-h-[620px] lg:overflow-y-auto lg:pr-1 scrollbar-thin">
-            <p className="text-xs font-bold text-text-main px-1">
-              Rê chuột vào công việc để xem vị trí trên bản đồ
+        <div className="space-y-3">
+          <JobMap
+            jobs={jobsForMap}
+            userLocation={userLocation}
+            selectedJobId={selectedJobId}
+            onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
+            height="460px"
+          />
+          {jobsForMap.some(j => !isValidCoordinate(
+            j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,
+            j.location?.lng ?? j.geoPoint?.coordinates?.[0] ?? j.mapDisplayLocation?.lng
+          )) && (
+            <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200 p-2.5 rounded-2xl flex items-center gap-1.5">
+              <span>📍</span>
+              Một số tin chưa lưu tọa độ nên chưa thể đánh dấu trên bản đồ. Hãy chỉnh sửa tin và chọn vị trí trên bản đồ.
             </p>
-            {sorted.map((job) => (
-              <div
-                key={job._id || job.id}
-                onMouseEnter={() => setSelectedJobId(job._id || job.id)}
-                className={clsx(
-                  'rounded-3xl transition-all duration-200',
-                  String(selectedJobId) === String(job._id || job.id) && 'ring-2 ring-pink-300 shadow-card-hover'
-                )}
-              >
-                <JobCard
-                  job={job}
-                  isSaved={savedJobIds.has(job._id || job.id)}
-                  onSave={isAuthenticated ? handleSave : undefined}
-                />
-              </div>
-            ))}
-          </div>
+          )}
         </div>
       )}
 
       {/* Results Header */}
-      <div className={clsx('items-center justify-between pt-2', viewMode === 'list' ? 'flex' : 'hidden')}>
+      <div className="flex items-center justify-between pt-2">
         <h3 className="font-bold text-sm text-text-main flex items-center gap-2">
           <span>
             Danh sách công việc {userLocation && matrixStatus === 'success'
@@ -553,7 +581,6 @@ export default function JobListPage() {
       </div>
 
       {/* Results Grid */}
-      <div className={viewMode === 'list' ? 'block' : 'hidden'}>
       {loading && allJobs.length === 0 ? (
         <LoadingPage />
       ) : error && allJobs.length === 0 ? (
@@ -623,7 +650,6 @@ export default function JobListPage() {
           )}
         </>
       )}
-      </div>
     </div>
   );
 }

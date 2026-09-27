@@ -19,6 +19,13 @@ import { SALARY_UNIT_LABELS } from '@/constants';
 // Default center of map: Hoa Lac Area [lat, lng]
 export const DEFAULT_HOALAC_CENTER = [21.0128, 105.5255];
 
+function getJobMapCoordinates(job) {
+  return {
+    lat: job?.location?.lat ?? job?.lat ?? job?.geoPoint?.coordinates?.[1] ?? job?.mapDisplayLocation?.lat,
+    lng: job?.location?.lng ?? job?.lng ?? job?.geoPoint?.coordinates?.[0] ?? job?.mapDisplayLocation?.lng,
+  };
+}
+
 // Vietmap Style Configurations
 const MAP_LAYERS = {
   vietmap_streets: {
@@ -223,15 +230,9 @@ export function JobMap({
 
     jobsToRender.forEach((job) => {
       const id = String(job._id || job.id);
-      const lat = job.location?.lat ?? job.lat ?? job.geoPoint?.coordinates?.[1];
-      const lng = job.location?.lng ?? job.lng ?? job.geoPoint?.coordinates?.[0];
+      const { lat, lng } = getJobMapCoordinates(job);
 
       if (!isValidCoordinate(lat, lng)) {
-        return;
-      }
-
-      // Never place tentative or legacy coordinates on the public map.
-      if (job.locationStatus !== 'confirmed') {
         return;
       }
 
@@ -324,8 +325,7 @@ export function JobMap({
     if (!selectedJobId || !mapInstanceRef.current) return;
     const selectedJob = jobsToRender.find((j) => String(j._id || j.id) === String(selectedJobId));
     if (selectedJob) {
-      const lat = selectedJob.location?.lat ?? selectedJob.lat ?? selectedJob.geoPoint?.coordinates?.[1];
-      const lng = selectedJob.location?.lng ?? selectedJob.lng ?? selectedJob.geoPoint?.coordinates?.[0];
+      const { lat, lng } = getJobMapCoordinates(selectedJob);
       if (isValidCoordinate(lat, lng)) {
         mapInstanceRef.current.flyTo({ center: [Number(lng), Number(lat)], zoom: 16 });
         setActiveJob(selectedJob);
@@ -441,10 +441,20 @@ export function JobMap({
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-700 inline-block shadow-sm"></span>
           <span className="text-text-muted font-medium">
             {confirmedCount > 0
-              ? `${confirmedCount} việc làm đã ghim trên Vietmap`
+              ? `${confirmedCount} việc làm có vị trí trên Vietmap`
               : 'Chưa có điểm việc làm nào phù hợp bộ lọc'}
           </span>
         </div>
+
+        {jobsToRender.some(job => {
+          const { lat, lng } = getJobMapCoordinates(job);
+          return isValidCoordinate(lat, lng) && job.locationStatus !== 'confirmed';
+        }) && (
+          <div className="flex items-center gap-2 text-[10px] text-amber-700">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-600 inline-block shadow-sm"></span>
+            <span>Marker cam: tọa độ chưa được nhà tuyển dụng xác nhận</span>
+          </div>
+        )}
 
         {userDistToHoaLacKm !== null && userDistToHoaLacKm > 15 && (
           <div className="pt-1 border-t border-gray-100 text-[10px] text-amber-700 flex items-start gap-1">
