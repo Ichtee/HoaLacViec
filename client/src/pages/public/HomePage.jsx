@@ -57,7 +57,7 @@ export default function HomePage() {
   );
 
   const jobsList = Array.isArray(latestJobsData) ? latestJobsData : (latestJobsData?.jobs || []);
-  const featured = jobsList.slice(0, 4);
+  const featured = jobsList.slice(0, 8);
 
   function handleSearch(e) {
     e.preventDefault();

@@ -93,15 +93,18 @@ export default function EmployerJobsPage() {
   });
 
   const [editingJob, setEditingJob] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
 
   async function loadJobs() {
     try {
       setLoading(true);
+      setFetchError(null);
       const res = await getEmployerMyJobs();
       const list = Array.isArray(res) ? res : (res?.items || res?.jobs || []);
       setJobs(list);
     } catch (err) {
       console.error(err);
+      setFetchError(err.message || 'Không thể tải danh sách bài đăng từ máy chủ.');
     } finally {
       setLoading(false);
     }
@@ -473,6 +476,16 @@ export default function EmployerJobsPage() {
       {/* List */}
       {loading ? (
         <div className="text-center py-12 text-text-muted">Đang tải danh sách bài đăng...</div>
+      ) : fetchError ? (
+        <div className="bg-red-50 rounded-3xl p-8 text-center border border-red-100 shadow-card space-y-3">
+          <p className="text-sm font-semibold text-red-700">{fetchError}</p>
+          <button
+            onClick={loadJobs}
+            className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-sm"
+          >
+            Thử tải lại
+          </button>
+        </div>
       ) : jobs.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-green-50 shadow-card space-y-4">
           <Briefcase className="w-12 h-12 text-text-muted mx-auto opacity-40" />

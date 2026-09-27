@@ -24,7 +24,7 @@ export default function JobListPage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
-  const [viewMode, setViewMode] = useState('map'); // Default map view or list view
+  const [viewMode, setViewMode] = useState('list'); // Default list view so all jobs are immediately visible
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [savedJobIds, setSavedJobIds] = useState(new Set());
@@ -499,6 +499,12 @@ export default function JobListPage() {
             onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
             height="460px"
           />
+          {sorted.some(j => j.locationStatus !== 'confirmed' || !isValidCoordinate(j.location?.lat, j.location?.lng)) && (
+            <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200 p-2.5 rounded-2xl flex items-center gap-1.5">
+              <span>📍</span>
+              Một số tin tuyển dụng chưa ghim tọa độ chính xác nên không thể ghim trên bản đồ. Các tin này vẫn hiển thị đầy đủ ở danh sách ngay bên dưới.
+            </p>
+          )}
         </div>
       )}
 
