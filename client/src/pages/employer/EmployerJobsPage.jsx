@@ -427,6 +427,11 @@ export default function EmployerJobsPage() {
   }
 
   async function handleToggleStatus(job) {
+    const allowedStatuses = ['approved', 'paused', 'closed'];
+    if (!allowedStatuses.includes(job.status)) {
+      setToast({ type: 'error', message: 'Chỉ có thể tạm dừng hoặc mở lại tin đã được duyệt.' });
+      return;
+    }
     const newStatus = job.status === 'closed' ? 'approved' : 'closed';
     const targetId = job._id || job.id;
     await updateJob(targetId, { status: newStatus });
@@ -513,7 +518,12 @@ export default function EmployerJobsPage() {
                       </h3>
                     </div>
 
-                    {job.status === 'pending' ? (
+                    {job.status === 'draft' ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                        Bản nháp
+                      </span>
+                    ) : job.status === 'pending' ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
                         Chờ duyệt
@@ -542,6 +552,12 @@ export default function EmployerJobsPage() {
                     </div>
                   )}
 
+                  {job.status === 'draft' && (
+                    <div className="mt-2 p-2 bg-gray-50 text-gray-600 border border-gray-200 rounded-xl text-[11px]">
+                      Tin nháp — chưa gửi duyệt. Nhấn <strong>Sửa</strong> để hoàn thiện và gửi đăng.
+                    </div>
+                  )}
+
                   {job.status === 'pending' && (
                     <div className="mt-2 p-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-[11px]">
                       Tin tuyển dụng đang được Quản trị viên Hòa Lạc Việc kiểm duyệt trước khi hiển thị công khai.
@@ -565,6 +581,7 @@ export default function EmployerJobsPage() {
                 </div>
 
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs gap-2">
+                  {['approved', 'paused', 'closed'].includes(job.status) && (
                   <button
                     onClick={() => handleToggleStatus(job)}
                     className={clsx(
@@ -580,6 +597,7 @@ export default function EmployerJobsPage() {
                       <><PauseCircle className="w-4 h-4 text-amber-700" /> Tạm dừng tuyển</>
                     )}
                   </button>
+                  )}
 
                   <div className="flex items-center gap-1.5">
                     {(() => {

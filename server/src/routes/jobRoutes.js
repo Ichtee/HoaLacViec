@@ -484,19 +484,13 @@ router.post('/', authenticate, async (req, res, next) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Status: draft if requested, otherwise pending for admin approval; admin can directly approve
+    // Status: draft if explicitly requested, otherwise pending for admin approval; admin can directly approve
     if (req.user.role === 'admin') {
       data.status = data.status || 'approved';
     } else {
+      // All employers (verified or not) can post jobs for admin review (pending)
+      // Only explicitly passing status=draft saves as draft
       data.status = data.status === 'draft' ? 'draft' : 'pending';
-    }
-
-    // If employer wants to submit immediately to pending, check verified
-    if (data.status === 'pending' && req.user.role !== 'admin') {
-      if (!profile || !profile.verified) {
-        // Can only save as draft if not verified
-        data.status = 'draft';
-      }
     }
 
     // Normalize requirements & benefits
