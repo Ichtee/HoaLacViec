@@ -313,6 +313,19 @@ export async function apiCreateBlog(blogData) {
   });
 }
 
+export async function apiUpdateBlog(id, blogData) {
+  return request(`/blogs/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(blogData),
+  });
+}
+
+export async function apiDeleteBlog(id) {
+  return request(`/blogs/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 // ─── PROFILES & AVAILABILITY ──────────────────────────────────────
 export async function apiGetStudentProfile(userId) {
   return request(`/profiles/student/${userId}`);

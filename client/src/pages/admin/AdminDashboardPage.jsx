@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, Clock, AlertTriangle, CheckCircle
+  LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, Clock, AlertTriangle, CheckCircle, BookOpen
 } from 'lucide-react';
-import { getVerificationRequests, getReports, adminGetJobs, getAllUsers } from '@/services';
+import { getVerificationRequests, getReports, adminGetJobs, getAllUsers, getBlogs } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 
 export default function AdminDashboardPage() {
@@ -11,22 +11,25 @@ export default function AdminDashboardPage() {
   const [reports, setReports] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [users, setUsers] = useState([]);
+  const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadAdminData() {
       try {
         setLoading(true);
-        const [verRes, repRes, jobsRes, usersRes] = await Promise.all([
+        const [verRes, repRes, jobsRes, usersRes, blogsRes] = await Promise.all([
           getVerificationRequests(),
           getReports(),
           adminGetJobs(),
-          getAllUsers()
+          getAllUsers(),
+          getBlogs({ limit: 100 }),
         ]);
         setVerifications(verRes || []);
         setReports(repRes || []);
         setJobs(jobsRes?.jobs || []);
         setUsers(usersRes || []);
+        setBlogs(Array.isArray(blogsRes) ? blogsRes : []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -50,7 +53,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Doanh nghiệp chờ duyệt</span>
@@ -81,6 +84,17 @@ export default function AdminDashboardPage() {
           <div className="text-2xl font-bold text-gray-900 mt-2">{pendingReports.length}</div>
           <Link to="/admin/reports" className="text-xs text-red-500 font-semibold hover:underline mt-1 block">
             Xử lý báo cáo →
+          </Link>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500">Bài viết Blog</span>
+            <BookOpen className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div className="text-2xl font-bold text-gray-900 mt-2">{blogs.length}</div>
+          <Link to="/admin/blogs" className="text-xs text-emerald-600 font-semibold hover:underline mt-1 block">
+            Quản lý Blog →
           </Link>
         </div>
 

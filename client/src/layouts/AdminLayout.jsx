@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Leaf, LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, LogOut } from 'lucide-react';
+import { Leaf, LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, BookOpen, LogOut } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { UserDropdown } from '@/components/UserDropdown.jsx';
@@ -8,6 +8,7 @@ const ADMIN_NAV = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
   { to: '/admin/verification', label: 'Xác thực nhà TD', icon: ShieldCheck },
   { to: '/admin/jobs', label: 'Kiểm duyệt tin', icon: Briefcase },
+  { to: '/admin/blogs', label: 'Quản lý Blog', icon: BookOpen },
   { to: '/admin/reports', label: 'Báo cáo', icon: Flag },
   { to: '/admin/users', label: 'Tài khoản', icon: Users },
 ];

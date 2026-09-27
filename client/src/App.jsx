@@ -47,6 +47,7 @@ import EmployerShiftsPage from '@/pages/employer/EmployerShiftsPage.jsx';
 import AdminDashboardPage from '@/pages/admin/AdminDashboardPage.jsx';
 import AdminVerificationPage from '@/pages/admin/AdminVerificationPage.jsx';
 import AdminJobsPage from '@/pages/admin/AdminJobsPage.jsx';
+import AdminBlogsPage from '@/pages/admin/AdminBlogsPage.jsx';
 import AdminReportsPage from '@/pages/admin/AdminReportsPage.jsx';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage.jsx';
 
@@ -157,6 +158,7 @@ export default function App() {
           <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="verification" element={<AdminVerificationPage />} />
           <Route path="jobs" element={<AdminJobsPage />} />
+          <Route path="blogs" element={<AdminBlogsPage />} />
           <Route path="reports" element={<AdminReportsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
         </Route>

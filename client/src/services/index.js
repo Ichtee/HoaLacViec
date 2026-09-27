@@ -48,6 +48,8 @@ export {
   apiGetBlogs as getBlogs,
   apiGetBlog as getBlog,
   apiCreateBlog as createBlog,
+  apiUpdateBlog as updateBlog,
+  apiDeleteBlog as deleteBlog,
   apiGetStudentProfile as getStudentProfile,
   apiSubmitStudentVerification as submitStudentVerification,
   apiGetStudentVerification as getStudentVerification,
