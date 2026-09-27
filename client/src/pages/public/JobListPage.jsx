@@ -24,7 +24,7 @@ export default function JobListPage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
-  const [viewMode, setViewMode] = useState('list'); // Default list view so all jobs are immediately visible
+  const [viewMode, setViewMode] = useState('map'); // Keep map and hover-linked jobs visible by default
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [savedJobIds, setSavedJobIds] = useState(new Set());
@@ -495,25 +495,49 @@ export default function JobListPage() {
 
       {/* MAP VIEW SECTION */}
       {viewMode === 'map' && (
-        <div className="space-y-3">
-          <JobMap
-            jobs={sorted}
-            userLocation={userLocation}
-            selectedJobId={selectedJobId}
-            onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
-            height="460px"
-          />
-          {sorted.some(j => j.locationStatus !== 'confirmed' || !isValidCoordinate(j.location?.lat, j.location?.lng)) && (
-            <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200 p-2.5 rounded-2xl flex items-center gap-1.5">
-              <span>📍</span>
-              Một số tin tuyển dụng chưa ghim tọa độ chính xác nên không thể ghim trên bản đồ. Các tin này vẫn hiển thị đầy đủ ở danh sách ngay bên dưới.
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.55fr)] gap-5 items-start">
+          <div className="space-y-3 lg:sticky lg:top-20">
+            <JobMap
+              jobs={sorted}
+              userLocation={userLocation}
+              selectedJobId={selectedJobId}
+              onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
+              height="620px"
+            />
+            {sorted.some(j => j.locationStatus !== 'confirmed' || !isValidCoordinate(j.location?.lat, j.location?.lng)) && (
+              <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200 p-2.5 rounded-2xl flex items-center gap-1.5">
+                <span>📍</span>
+                Tin chưa xác nhận tọa độ vẫn có trong danh sách nhưng chưa được đánh dấu trên bản đồ.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-3 lg:max-h-[620px] lg:overflow-y-auto lg:pr-1 scrollbar-thin">
+            <p className="text-xs font-bold text-text-main px-1">
+              Rê chuột vào công việc để xem vị trí trên bản đồ
             </p>
-          )}
+            {sorted.map((job) => (
+              <div
+                key={job._id || job.id}
+                onMouseEnter={() => setSelectedJobId(job._id || job.id)}
+                className={clsx(
+                  'rounded-3xl transition-all duration-200',
+                  String(selectedJobId) === String(job._id || job.id) && 'ring-2 ring-pink-300 shadow-card-hover'
+                )}
+              >
+                <JobCard
+                  job={job}
+                  isSaved={savedJobIds.has(job._id || job.id)}
+                  onSave={isAuthenticated ? handleSave : undefined}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Results Header */}
-      <div className="flex items-center justify-between pt-2">
+      <div className={clsx('items-center justify-between pt-2', viewMode === 'list' ? 'flex' : 'hidden')}>
         <h3 className="font-bold text-sm text-text-main flex items-center gap-2">
           <span>
             Danh sách công việc {userLocation && matrixStatus === 'success'
@@ -529,6 +553,7 @@ export default function JobListPage() {
       </div>
 
       {/* Results Grid */}
+      <div className={viewMode === 'list' ? 'block' : 'hidden'}>
       {loading && allJobs.length === 0 ? (
         <LoadingPage />
       ) : error && allJobs.length === 0 ? (
@@ -598,6 +623,7 @@ export default function JobListPage() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

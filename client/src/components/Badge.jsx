@@ -71,9 +71,9 @@ export function SwapStatusBadge({ status }) {
   return <Badge variant={variant}>{label}</Badge>;
 }
 
-export function VerifiedBadge() {
+export function VerifiedBadge({ className }) {
   return (
-    <Badge variant="green" className="gap-1">
+    <Badge variant="green" className={clsx('gap-1', className)}>
       <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
         <path d="M5 8.5L2.5 6 3.5 5 5 6.5 8.5 3 9.5 4 5 8.5Z" fill="currentColor" />
         <circle cx="6" cy="6" r="5.5" stroke="currentColor" fill="none" />

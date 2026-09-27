@@ -42,9 +42,11 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
 
             <div className="flex-1 min-w-0">
               {/* Badges container with min-height for uniform alignment */}
-              <div className="min-h-[28px] flex flex-wrap items-center content-start gap-1.5 mb-1.5">
-                <Badge variant="green">{typeLabel}</Badge>
-                {employer?.verified && <VerifiedBadge />}
+              <div className="h-[28px] flex flex-nowrap items-center gap-1.5 mb-1.5 overflow-hidden">
+                <Badge variant="green" className="max-w-[8rem] truncate whitespace-nowrap block" title={typeLabel}>
+                  {typeLabel}
+                </Badge>
+                {employer?.verified && <VerifiedBadge className="shrink-0 whitespace-nowrap" />}
                 {job.matchScore && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
                     🎯 Khớp {job.matchScore}%
@@ -62,8 +64,8 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
                 )}
               </div>
 
-              {/* Title with line-clamp-2 and fixed min-h so 1-line and 2-line titles match heights */}
-              <h3 className="font-bold text-text-main text-base leading-snug line-clamp-2 min-h-[2.65rem] flex items-start group-hover:text-green-main transition-colors">
+              {/* Do not combine line-clamp with flex: flex overrides the clamp display mode. */}
+              <h3 className="font-bold text-text-main text-base leading-snug line-clamp-2 h-[2.65rem] overflow-hidden group-hover:text-green-main transition-colors" title={job.title}>
                 {job.title}
               </h3>
               <p className="text-text-muted text-sm mt-0.5 truncate min-h-[1.25rem]">
@@ -107,8 +109,8 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
 
         {/* Footer pinned to bottom with mt-auto */}
         <div className="flex items-center justify-between mt-auto pt-3 border-t border-green-50/80 min-h-[42px]">
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-text-light">Đăng {formatDate(job.postedAt)}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-xs text-text-light truncate">Đăng {formatDate(job.postedAt)}</p>
             {(() => {
               const directionsUrl = getGoogleMapsDirectionsUrl(job);
               if (!directionsUrl) return null;
