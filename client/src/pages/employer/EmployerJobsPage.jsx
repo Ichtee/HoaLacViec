@@ -197,7 +197,6 @@ export default function EmployerJobsPage() {
       locationStatus: 'unconfirmed',
       locationConfirmedAt: null,
     }));
-    setGeoCustomVerified(false);
 
     if (code) {
       setLoadingDistricts(true);
@@ -420,9 +419,6 @@ export default function EmployerJobsPage() {
       setIsModalOpen(false);
       setEditingJob(null);
       setDetailAddress('');
-      setMapLinkInput('');
-      setGeoCustomVerified(false);
-      setGeoError('');
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi lưu tin tuyển dụng.' });
     } finally {

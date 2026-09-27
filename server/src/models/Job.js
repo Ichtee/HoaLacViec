@@ -21,15 +21,11 @@ const jobSchema = new mongoose.Schema({
   },
   // GeoJSON Point for MongoDB 2dsphere queries
   geoPoint: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      default: 'Point',
-    },
-    coordinates: {
-      type: [Number], // [longitude, latitude]
-      default: undefined,
-    },
+    type: new mongoose.Schema({
+      type: { type: String, enum: ['Point'], required: true },
+      coordinates: { type: [Number], required: true }, // [longitude, latitude]
+    }, { _id: false }),
+    default: undefined,
   },
   locationStatus: {
     type: String,

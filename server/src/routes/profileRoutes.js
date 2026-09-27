@@ -619,6 +619,9 @@ router.post('/employer-verification/submit', authenticate, async (req, res, next
           description: (description || '').trim(),
           verified: false,
         },
+        // This submission has no coordinates. Also repairs legacy profiles
+        // created as the invalid GeoJSON value { type: 'Point' }.
+        $unset: { geoPoint: 1 },
       },
       { new: true, upsert: true, runValidators: true }
     );

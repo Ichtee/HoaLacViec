@@ -30,8 +30,11 @@ const microTaskSchema = new mongoose.Schema(
     },
     locationRefId: { type: String, default: null },
     geoPoint: {
-      type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], default: undefined },
+      type: new mongoose.Schema({
+        type: { type: String, enum: ['Point'], required: true },
+        coordinates: { type: [Number], required: true },
+      }, { _id: false }),
+      default: undefined,
     },
     pickupAddress: { type: String, default: '', trim: true }, // Điểm xuất phát (text)
     destinationAddress: { type: String, default: '', trim: true }, // Điểm đến (text)

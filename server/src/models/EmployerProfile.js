@@ -10,16 +10,15 @@ const employerProfileSchema = new mongoose.Schema({
     lat: { type: Number, default: null },
     lng: { type: Number, default: null },
   },
+  // Keep the whole GeoJSON value absent until coordinates exist. A default on
+  // geoPoint.type alone creates { type: 'Point' }, which a 2dsphere index
+  // rejects because it has no coordinates.
   geoPoint: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      default: 'Point',
-    },
-    coordinates: {
-      type: [Number], // [longitude, latitude]
-      default: undefined,
-    },
+    type: new mongoose.Schema({
+      type: { type: String, enum: ['Point'], required: true },
+      coordinates: { type: [Number], required: true }, // [longitude, latitude]
+    }, { _id: false }),
+    default: undefined,
   },
   locationStatus: {
     type: String,
