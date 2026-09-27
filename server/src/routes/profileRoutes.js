@@ -409,13 +409,6 @@ router.post('/student-verification/submit', authenticate, async (req, res, next)
   try {
     const { studentCardPhoto, university, studentCode, major, transport, bio } = req.body;
 
-    if (!studentCardPhoto) {
-      return res.status(400).json({
-        error: 'Vui lòng tải lên ảnh chụp thẻ sinh viên của bạn.',
-        code: 'MISSING_PHOTO',
-      });
-    }
-
     if (!studentCode || !studentCode.trim()) {
       return res.status(400).json({
         error: 'Vui lòng nhập mã số sinh viên của bạn.',
@@ -428,7 +421,7 @@ router.post('/student-verification/submit', authenticate, async (req, res, next)
       {
         $set: {
           userId: req.user._id,
-          studentCardPhoto,
+          studentCardPhoto: studentCardPhoto || '',
           university: (university || 'Đại học FPT Hòa Lạc').trim(),
           studentCode: studentCode.trim().toUpperCase(),
           major: (major || 'Kỹ thuật phần mềm').trim(),
@@ -516,13 +509,6 @@ router.post('/worker-verification/submit', authenticate, async (req, res, next) 
       });
     }
 
-    if (!idCardFrontPhoto) {
-      return res.status(400).json({
-        error: 'Vui lòng tải lên ảnh chụp mặt trước Căn cước công dân.',
-        code: 'MISSING_PHOTO',
-      });
-    }
-
     const profile = await StudentProfile.findOneAndUpdate(
       { userId: req.user._id },
       {
@@ -530,7 +516,7 @@ router.post('/worker-verification/submit', authenticate, async (req, res, next) 
           userId: req.user._id,
           profileType: 'worker',
           idCardNumber: cleanIdNumber,
-          idCardFrontPhoto,
+          idCardFrontPhoto: idCardFrontPhoto || '',
           idCardBackPhoto: idCardBackPhoto || '',
           profession: (profession || 'Lao động tự do').trim(),
           transport: transport || 'xe_may',

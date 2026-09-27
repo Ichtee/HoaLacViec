@@ -32,7 +32,10 @@ function createVietnameseRegex(query) {
     .split('')
     .map(char => {
       const lower = char.toLowerCase();
-      if (map[lower]) return map[lower];
+      const base = lower === 'đ'
+        ? 'd'
+        : lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (map[base]) return map[base];
       if (char === ' ' || char === '-') return '[\\s_\\-]';
       return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     })
@@ -186,6 +189,18 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
     const skip = (pageNum - 1) * limitNum;
+    const validTypes = new Set(['part_time', 'shift', 'hourly', 'event']);
+    const validSorts = new Set(['newest', 'oldest', 'salary_desc', 'salary_asc', 'featured', 'rating', 'nearest', 'match']);
+
+    if (type && !validTypes.has(type)) {
+      return res.status(400).json({ error: 'Hình thức việc làm không hợp lệ.', code: 'INVALID_JOB_TYPE' });
+    }
+    if (area && (typeof area !== 'string' || area.trim().length > 64)) {
+      return res.status(400).json({ error: 'Khu vực không hợp lệ.', code: 'INVALID_AREA' });
+    }
+    if (sort && !validSorts.has(sort)) {
+      return res.status(400).json({ error: 'Kiểu sắp xếp không hợp lệ.', code: 'INVALID_SORT' });
+    }
 
     const andConditions = [];
 
@@ -220,8 +235,15 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
     }
 
     // Minimum salary filter
-    if (minSalary && !isNaN(Number(minSalary))) {
-      andConditions.push({ salaryAmount: { $gte: Number(minSalary) } });
+    if (minSalary !== undefined && minSalary !== '') {
+      const salaryFloor = Number(minSalary);
+      if (!Number.isFinite(salaryFloor) || salaryFloor < 0 || salaryFloor > 100000000) {
+        return res.status(400).json({ error: 'Mức lương tối thiểu không hợp lệ.', code: 'INVALID_MIN_SALARY' });
+      }
+      andConditions.push({
+        salaryUnit: 'hour',
+        salaryAmount: { $gte: salaryFloor },
+      });
     }
 
     // Verified employer filter (real backend check)

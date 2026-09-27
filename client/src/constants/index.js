@@ -4,7 +4,6 @@ export const JOB_TYPES = {
   SHIFT: 'shift',
   HOURLY: 'hourly',
   EVENT: 'event',
-  INTERNSHIP: 'internship',
 };
 
 export const JOB_TYPE_LABELS = {
@@ -12,7 +11,6 @@ export const JOB_TYPE_LABELS = {
   [JOB_TYPES.PART_TIME]: 'Part-time cố định',
   [JOB_TYPES.HOURLY]: 'Theo giờ',
   [JOB_TYPES.EVENT]: 'Sự kiện / Tiệc',
-  [JOB_TYPES.INTERNSHIP]: 'Thực tập',
 };
 
 // Salary units
@@ -113,6 +111,7 @@ export const ROLES = {
 // Area zones in Hoa Lac
 export const AREAS = [
   { value: 'tan_xa', label: 'Xã Tân Xã (Hồ Tân Xã / Phố trọ FPT)' },
+  { value: 'ktx_dhqg', label: 'Ký túc xá ĐHQG Hòa Lạc' },
   { value: 'thach_hoa', label: 'Xã Thạch Hòa (Cổng 11 / KTX ĐHQG)' },
   { value: 'fpt_university', label: 'Khu CNC Hòa Lạc & ĐH FPT' },
   { value: 'binh_yen', label: 'Xã Bình Yên' },

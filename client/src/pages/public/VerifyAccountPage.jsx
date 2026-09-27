@@ -273,10 +273,6 @@ export default function VerifyAccountPage() {
       setError('Số CCCD không hợp lệ (phải gồm 9 đến 12 chữ số).');
       return;
     }
-    if (!workerIdCardFront) {
-      setError('Vui lòng tải lên ảnh chụp mặt trước Căn cước công dân của bạn.');
-      return;
-    }
 
     setLoading(true);
     setError('');
@@ -285,8 +281,8 @@ export default function VerifyAccountPage() {
     try {
       const res = await submitWorkerVerification({
         idCardNumber: cleanId,
-        idCardFrontPhoto: workerIdCardFront,
-        idCardBackPhoto: workerIdCardBack,
+        idCardFrontPhoto: workerIdCardFront || '',
+        idCardBackPhoto: workerIdCardBack || '',
         profession: workerProfession,
         transport: workerTransport,
         bio: workerBio.trim(),
@@ -297,7 +293,7 @@ export default function VerifyAccountPage() {
       updateUser(res.user);
       setExistingWorkerVerification(res.profile);
       setEditingWorker(false);
-      setSuccess('Hồ sơ Căn cước công dân đã được gửi thành công! Ban Quản Trị sẽ xét duyệt để kích hoạt tài khoản lao động tự do của bạn.');
+      setSuccess('Thông tin Căn cước công dân đã được gửi thành công! Ban Quản Trị sẽ xét duyệt để kích hoạt tài khoản lao động tự do của bạn.');
     } catch (err) {
       setError(err.message || 'Lỗi khi gửi hồ sơ xác minh lao động tự do. Vui lòng thử lại.');
     } finally {
@@ -344,10 +340,6 @@ export default function VerifyAccountPage() {
       setError('Vui lòng nhập mã số sinh viên.');
       return;
     }
-    if (!studentCardPhoto) {
-      setError('Vui lòng tải lên ảnh chụp thẻ sinh viên của bạn để xác minh.');
-      return;
-    }
 
     setLoading(true);
     setError('');
@@ -356,7 +348,7 @@ export default function VerifyAccountPage() {
     try {
       const selectedUni = (university || uniSearch || 'Đại học FPT Hòa Lạc').trim();
       const res = await submitStudentVerification({
-        studentCardPhoto,
+        studentCardPhoto: studentCardPhoto || '',
         university: selectedUni,
         studentCode: studentCode.trim().toUpperCase(),
         major: major.trim(),
@@ -616,10 +608,10 @@ export default function VerifyAccountPage() {
                 </div>
                 <div className="max-w-md mx-auto space-y-2">
                   <h3 className="text-xl font-bold text-text-main">
-                    Hồ sơ thẻ sinh viên đang chờ Admin duyệt
+                    Hồ sơ sinh viên đang chờ Admin duyệt
                   </h3>
                   <p className="text-xs text-text-muted leading-relaxed">
-                    Thông tin và ảnh chụp thẻ sinh viên của bạn đã được gửi tới Ban Quản Trị Hoa Lạc Việc. Chúng tôi sẽ phê duyệt tài khoản của bạn sớm nhất.
+                    Thông tin sinh viên của bạn đã được gửi tới Ban Quản Trị Hoa Lạc Việc. Chúng tôi sẽ phê duyệt tài khoản của bạn sớm nhất.
                   </p>
                 </div>
 
@@ -680,7 +672,7 @@ export default function VerifyAccountPage() {
                     onClick={() => setEditingStudent(true)}
                     className="text-xs text-green-dark"
                   >
-                    Thay đổi thông tin / Nộp lại thẻ
+                    Thay đổi thông tin sinh viên
                   </Button>
                 </div>
               </div>
@@ -690,7 +682,7 @@ export default function VerifyAccountPage() {
                 <div className="w-16 h-16 rounded-3xl bg-green-100 text-green-700 flex items-center justify-center mx-auto text-2xl shadow-sm">
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold text-green-dark">Thẻ sinh viên đã được phê duyệt!</h3>
+                <h3 className="text-xl font-bold text-green-dark">Tài khoản sinh viên đã được phê duyệt!</h3>
                 <p className="text-xs text-text-muted">
                   Tài khoản sinh viên của bạn đã được kích hoạt thành công.
                 </p>
@@ -713,7 +705,7 @@ export default function VerifyAccountPage() {
                       Xác minh thông tin sinh viên
                     </h2>
                     <p className="text-xs text-text-muted mt-0.5">
-                      Sau khi gửi thẻ, Ban Quản Trị sẽ xác thực và kích hoạt tài khoản sinh viên cho bạn.
+                      Sau khi gửi thông tin, Ban Quản Trị sẽ xác thực và kích hoạt tài khoản sinh viên cho bạn.
                     </p>
                   </div>
                   {editingStudent && (
@@ -733,10 +725,10 @@ export default function VerifyAccountPage() {
                   <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 space-y-1">
                     <p className="font-bold flex items-center gap-1.5">
                       <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                      Hồ sơ thẻ sinh viên trước đây bị từ chối:
+                      Hồ sơ sinh viên trước đây bị từ chối:
                     </p>
                     <p className="pl-5.5">
-                      {existingStudentVerification.rejectionReason || 'Ảnh thẻ mờ hoặc thông tin không trùng khớp. Vui lòng chụp rõ nét thẻ sinh viên và cập nhật lại.'}
+                      {existingStudentVerification.rejectionReason || 'Thông tin mã số sinh viên không trùng khớp hoặc không hợp lệ. Vui lòng cập nhật lại.'}
                     </p>
                   </div>
                 )}
@@ -876,49 +868,6 @@ export default function VerifyAccountPage() {
                   />
                 </div>
 
-                {/* Student Card Photo Upload */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-text-main">
-                    Ảnh chụp Thẻ sinh viên (Mặt trước) <span className="text-red-500">*</span>
-                  </label>
-
-                  {studentCardPhoto ? (
-                    <div className="relative rounded-2xl overflow-hidden border-2 border-green-200 bg-green-50/40 p-3 max-w-sm">
-                      <img
-                        src={studentCardPhoto}
-                        alt="Thẻ sinh viên"
-                        className="w-full h-44 object-cover rounded-xl shadow-sm"
-                      />
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-green-700 font-semibold flex items-center gap-1">
-                          <CheckCircle2 className="w-4 h-4" /> Đã chọn ảnh
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setStudentCardPhoto('')}
-                          className="text-xs text-red-600 hover:underline font-medium"
-                        >
-                          Đổi ảnh khác
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-green-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-green-50/30 transition-all group">
-                      <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-green-dark group-hover:scale-105 transition-all mb-2">
-                        <Camera className="w-6 h-6" />
-                      </div>
-                      <p className="text-xs font-semibold text-text-main">Bấm để tải ảnh hoặc chụp thẻ sinh viên</p>
-                      <p className="text-[11px] text-text-muted mt-1">Hỗ trợ định dạng JPG, PNG (tối đa 5MB)</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleStudentImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-
                 <div className="pt-2">
                   <Button
                     type="submit"
@@ -927,7 +876,7 @@ export default function VerifyAccountPage() {
                     loading={loading}
                     className="w-full sm:w-auto px-8 shadow-sm"
                   >
-                    Gửi hồ sơ thẻ SV đợi xét duyệt <ArrowRight className="w-4 h-4 ml-1" />
+                    Gửi thông tin xác minh SV <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </form>
@@ -946,7 +895,7 @@ export default function VerifyAccountPage() {
                       Hồ sơ Căn cước công dân đang chờ Admin duyệt
                     </h3>
                     <p className="text-xs text-text-muted leading-relaxed">
-                      Thông tin và ảnh chụp Căn cước công dân (CCCD) của bạn đã được gửi tới Ban Quản Trị Hoa Lạc Việc. Chúng tôi sẽ phê duyệt tài khoản lao động tự do của bạn trong thời gian sớm nhất.
+                      Thông tin Căn cước công dân (CCCD) của bạn đã được gửi tới Ban Quản Trị Hoa Lạc Việc. Chúng tôi sẽ phê duyệt tài khoản lao động tự do của bạn trong thời gian sớm nhất.
                     </p>
                   </div>
 
@@ -978,31 +927,33 @@ export default function VerifyAccountPage() {
                     </div>
 
                     {/* CCCD Photos */}
-                    <div className="pt-2 border-t border-gray-200 space-y-2">
-                      <p className="text-[11px] text-text-muted font-medium">Ảnh Căn cước công dân đã nộp:</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {existingWorkerVerification.idCardFrontPhoto && (
-                          <div className="rounded-xl overflow-hidden border border-gray-200 bg-white">
-                            <p className="text-[10px] text-gray-500 font-semibold px-2 py-1 bg-gray-50 border-b border-gray-100">Mặt trước</p>
-                            <img
-                              src={existingWorkerVerification.idCardFrontPhoto}
-                              alt="CCCD Mặt trước"
-                              className="w-full h-32 object-cover"
-                            />
-                          </div>
-                        )}
-                        {existingWorkerVerification.idCardBackPhoto && (
-                          <div className="rounded-xl overflow-hidden border border-gray-200 bg-white">
-                            <p className="text-[10px] text-gray-500 font-semibold px-2 py-1 bg-gray-50 border-b border-gray-100">Mặt sau</p>
-                            <img
-                              src={existingWorkerVerification.idCardBackPhoto}
-                              alt="CCCD Mặt sau"
-                              className="w-full h-32 object-cover"
-                            />
-                          </div>
-                        )}
+                    {(existingWorkerVerification.idCardFrontPhoto || existingWorkerVerification.idCardBackPhoto) && (
+                      <div className="pt-2 border-t border-gray-200 space-y-2">
+                        <p className="text-[11px] text-text-muted font-medium">Ảnh Căn cước công dân đã nộp:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {existingWorkerVerification.idCardFrontPhoto && (
+                            <div className="rounded-xl overflow-hidden border border-gray-200 bg-white">
+                              <p className="text-[10px] text-gray-500 font-semibold px-2 py-1 bg-gray-50 border-b border-gray-100">Mặt trước</p>
+                              <img
+                                src={existingWorkerVerification.idCardFrontPhoto}
+                                alt="CCCD Mặt trước"
+                                className="w-full h-32 object-cover"
+                              />
+                            </div>
+                          )}
+                          {existingWorkerVerification.idCardBackPhoto && (
+                            <div className="rounded-xl overflow-hidden border border-gray-200 bg-white">
+                              <p className="text-[10px] text-gray-500 font-semibold px-2 py-1 bg-gray-50 border-b border-gray-100">Mặt sau</p>
+                              <img
+                                src={existingWorkerVerification.idCardBackPhoto}
+                                alt="CCCD Mặt sau"
+                                className="w-full h-32 object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="pt-2 flex flex-wrap justify-center gap-3">
@@ -1021,7 +972,7 @@ export default function VerifyAccountPage() {
                       onClick={() => setEditingWorker(true)}
                       className="text-xs text-blue-600"
                     >
-                      Thay đổi thông tin / Nộp lại CCCD
+                      Thay đổi thông tin xác minh
                     </Button>
                   </div>
                 </div>
@@ -1031,7 +982,7 @@ export default function VerifyAccountPage() {
                   <div className="w-16 h-16 rounded-3xl bg-blue-100 text-blue-700 flex items-center justify-center mx-auto text-2xl shadow-sm">
                     <CheckCircle2 className="w-8 h-8" />
                   </div>
-                  <h3 className="text-xl font-bold text-blue-700">Căn cước công dân đã được phê duyệt!</h3>
+                  <h3 className="text-xl font-bold text-blue-700">Tài khoản lao động tự do đã được phê duyệt!</h3>
                   <p className="text-xs text-text-muted">
                     Tài khoản người lao động tự do của bạn đã được kích hoạt thành công.
                   </p>
@@ -1052,7 +1003,7 @@ export default function VerifyAccountPage() {
                     <div>
                       <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
                         <Briefcase className="w-5 h-5 text-blue-600" />
-                        Xác minh Căn cước công dân (Lao động tự do)
+                        Xác minh thông tin (Lao động tự do)
                       </h2>
                       <p className="text-xs text-text-muted mt-0.5">
                         Dành cho người lao động, thợ sửa chữa, shipper... nhận việc làm theo ca và nhận chợ việc vặt.
@@ -1075,10 +1026,10 @@ export default function VerifyAccountPage() {
                     <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 space-y-1">
                       <p className="font-bold flex items-center gap-1.5">
                         <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                        Hồ sơ CCCD trước đây bị từ chối:
+                        Hồ sơ xác minh trước đây bị từ chối:
                       </p>
                       <p className="pl-5.5">
-                        {existingWorkerVerification.rejectionReason || 'Ảnh chụp CCCD bị mờ, lóa sáng hoặc số CCCD không hợp lệ. Vui lòng chụp rõ nét và cập nhật lại.'}
+                        {existingWorkerVerification.rejectionReason || 'Số CCCD hoặc thông tin không trùng khớp. Vui lòng kiểm tra và cập nhật lại.'}
                       </p>
                     </div>
                   )}
@@ -1148,93 +1099,6 @@ export default function VerifyAccountPage() {
                     />
                   </div>
 
-                  {/* 2 CCCD Photo Uploads: Front and Back */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Front Photo */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-text-main">
-                        Ảnh chụp CCCD (Mặt trước) <span className="text-red-500">*</span>
-                      </label>
-                      {workerIdCardFront ? (
-                        <div className="relative rounded-2xl overflow-hidden border-2 border-blue-200 bg-blue-50/40 p-3">
-                          <img
-                            src={workerIdCardFront}
-                            alt="CCCD Mặt trước"
-                            className="w-full h-40 object-cover rounded-xl shadow-sm"
-                          />
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs text-blue-700 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-4 h-4" /> Đã chọn ảnh mặt trước
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setWorkerIdCardFront('')}
-                              className="text-xs text-red-600 hover:underline font-medium"
-                            >
-                              Đổi ảnh
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-blue-50/30 transition-all group">
-                          <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-blue-600 group-hover:scale-105 transition-all mb-2">
-                            <Camera className="w-6 h-6" />
-                          </div>
-                          <p className="text-xs font-semibold text-text-main">Tải ảnh CCCD (Mặt trước)</p>
-                          <p className="text-[11px] text-text-muted mt-1">Chụp rõ họ tên và số CCCD</p>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleWorkerFrontUpload}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                    </div>
-
-                    {/* Back Photo */}
-                    <div className="space-y-2">
-                      <label className="block text-xs font-bold text-text-main">
-                        Ảnh chụp CCCD (Mặt sau) <span className="text-xs text-text-muted font-normal">(Tùy chọn)</span>
-                      </label>
-                      {workerIdCardBack ? (
-                        <div className="relative rounded-2xl overflow-hidden border-2 border-blue-200 bg-blue-50/40 p-3">
-                          <img
-                            src={workerIdCardBack}
-                            alt="CCCD Mặt sau"
-                            className="w-full h-40 object-cover rounded-xl shadow-sm"
-                          />
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs text-blue-700 font-semibold flex items-center gap-1">
-                              <CheckCircle2 className="w-4 h-4" /> Đã chọn ảnh mặt sau
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => setWorkerIdCardBack('')}
-                              className="text-xs text-red-600 hover:underline font-medium"
-                            >
-                              Đổi ảnh
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-blue-50/30 transition-all group">
-                          <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-blue-600 group-hover:scale-105 transition-all mb-2">
-                            <Camera className="w-6 h-6" />
-                          </div>
-                          <p className="text-xs font-semibold text-text-main">Tải ảnh CCCD (Mặt sau)</p>
-                          <p className="text-[11px] text-text-muted mt-1">Chụp rõ phần chip và đặc điểm</p>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleWorkerBackUpload}
-                            className="hidden"
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-
                   <div className="pt-2">
                     <Button
                       type="submit"
@@ -1243,7 +1107,7 @@ export default function VerifyAccountPage() {
                       loading={loading}
                       className="w-full sm:w-auto px-8 shadow-sm bg-blue-600 hover:bg-blue-700"
                     >
-                      Gửi hồ sơ CCCD đợi xét duyệt <ArrowRight className="w-4 h-4 ml-1" />
+                      Gửi thông tin xác minh <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>
                   </div>
                 </form>

@@ -230,7 +230,8 @@ export function JobMap({
         return;
       }
 
-      if (job.locationStatus === 'unconfirmed') {
+      // Never place tentative or legacy coordinates on the public map.
+      if (job.locationStatus !== 'confirmed') {
         return;
       }
 

@@ -1,21 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronDown, Map, List, Navigation, MapPin, Compass, Loader2, CheckCircle } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Map, List, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { JobCard } from '@/components/JobCard.jsx';
 import { JobMap } from '@/components/JobMap.jsx';
 import { EmptyState, LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { Select } from '@/components/Form.jsx';
 import { useAsync, useDebounce, useGeolocation } from '@/hooks';
-import { getJobs, toggleSaveJob, isSavedJob, getSavedJobs, apiVietmapMatrix } from '@/services';
+import { getJobs, toggleSaveJob, getSavedJobs, apiVietmapMatrix } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { JOB_TYPES, JOB_TYPE_LABELS, AREAS } from '@/constants';
+import { JOB_TYPE_LABELS, AREAS } from '@/constants';
 import { haversineDistance, isValidCoordinate } from '@/utils';
 
 const PAGE_SIZE = 9;
 
 export default function JobListPage() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const { isAuthenticated } = useAuth();
 
   const [search, setSearch] = useState(params.get('search') || '');
@@ -43,9 +43,7 @@ export default function JobListPage() {
   const {
     status: geoStatus,
     coords: geoCoords,
-    error: geoError,
     requestLocation: requestGpsLocation,
-    clearLocation: clearGpsLocation,
   } = useGeolocation();
 
   const userLocation = useMemo(() => {
@@ -106,7 +104,7 @@ export default function JobListPage() {
   }, [jobData]);
 
   const matrixDestinations = useMemo(() => (allJobs || [])
-    .filter((job) => isValidCoordinate(job.location?.lat, job.location?.lng))
+    .filter((job) => job.locationStatus === 'confirmed' && isValidCoordinate(job.location?.lat, job.location?.lng))
     .map((job) => ({
       id: String(job._id || job.id),
       lat: Number(job.location.lat),
@@ -171,7 +169,11 @@ export default function JobListPage() {
       let distanceKm = null;
       let distanceSource = null;
       let durationSeconds = null;
-      if (userLocation && isValidCoordinate(job.location?.lat, job.location?.lng)) {
+      if (
+        userLocation &&
+        job.locationStatus === 'confirmed' &&
+        isValidCoordinate(job.location?.lat, job.location?.lng)
+      ) {
         distanceMeters = haversineDistance(
           userLocation.lat,
           userLocation.lng,
@@ -201,7 +203,7 @@ export default function JobListPage() {
 
   // Filter jobs by minimum salary & featuredOnly
   const filtered = jobsWithDistance.filter((j) => {
-    if (minSalary && (j.salaryAmount || 0) < Number(minSalary)) return false;
+    if (minSalary && (j.salaryUnit !== 'hour' || (j.salaryAmount || 0) < Number(minSalary))) return false;
     if (featuredOnly && !j.featured) return false;
     return true;
   });
@@ -389,7 +391,7 @@ export default function JobListPage() {
       {/* Expanded Filters Panel */}
       {filtersOpen && (
         <div className="card mb-2 animate-fade-in bg-white border border-green-100 p-5 rounded-3xl shadow-card space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <Select
               id="filter-salary"
               label="Mức lương tối thiểu"
@@ -404,6 +406,21 @@ export default function JobListPage() {
               <option value="25000">Từ 25.000đ/giờ</option>
               <option value="30000">Từ 30.000đ/giờ</option>
               <option value="35000">Từ 35.000đ/giờ</option>
+            </Select>
+
+            <Select
+              id="filter-area"
+              label="Khu vực"
+              value={area}
+              onChange={(e) => {
+                setArea(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Tất cả khu vực</option>
+              {AREAS.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
             </Select>
 
             <Select

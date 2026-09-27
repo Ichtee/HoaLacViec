@@ -50,9 +50,9 @@ export default function AdminVerificationPage() {
     let reason = '';
     if (status === 'rejected') {
       const defaultMsg = targetType === 'student'
-        ? 'Ảnh thẻ sinh viên bị mờ hoặc thông tin mã số sinh viên không trùng khớp.'
+        ? 'Thông tin mã số sinh viên không trùng khớp hoặc không hợp lệ.'
         : targetType === 'worker'
-        ? 'Ảnh chụp Căn cước công dân bị mờ, không rõ số hoặc thông tin không trùng khớp.'
+        ? 'Số Căn cước công dân hoặc thông tin không trùng khớp.'
         : 'Giấy tờ hoặc thông tin cửa hàng chưa đạt tiêu chuẩn quy định.';
       const userReason = prompt('Nhập lý do từ chối hồ sơ xác minh này:', defaultMsg);
       if (userReason === null) return;
@@ -73,18 +73,18 @@ export default function AdminVerificationPage() {
         setToast({
           type: 'success',
           message: targetType === 'worker'
-            ? 'Đã duyệt Căn cước công dân và kích hoạt tài khoản Lao động tự do!'
+            ? 'Đã duyệt hồ sơ và kích hoạt tài khoản Lao động tự do!'
             : targetType === 'student'
-            ? 'Đã duyệt thẻ sinh viên và kích hoạt tài khoản thành công!'
+            ? 'Đã duyệt hồ sơ và kích hoạt tài khoản Sinh viên!'
             : 'Đã phê duyệt và kích hoạt tài khoản Nhà tuyển dụng!',
         });
       } else {
         setToast({
           type: 'info',
           message: targetType === 'worker'
-            ? 'Đã từ chối hồ sơ Căn cước công dân.'
+            ? 'Đã từ chối hồ sơ Lao động tự do.'
             : targetType === 'student'
-            ? 'Đã từ chối thẻ sinh viên.'
+            ? 'Đã từ chối hồ sơ Sinh viên.'
             : 'Đã từ chối hồ sơ doanh nghiệp.',
         });
       }
@@ -173,10 +173,10 @@ export default function AdminVerificationPage() {
             </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-green-dark" /> Duyệt hồ sơ Thẻ sinh viên & Đối tác cửa hàng
+            <ShieldCheck className="w-6 h-6 text-green-dark" /> Duyệt hồ sơ Sinh viên, Lao động tự do & Cửa hàng
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Đối soát danh tính thẻ sinh viên và giấy phép đối tác trước khi kích hoạt tài khoản chính thức.
+            Đối soát danh tính sinh viên, người lao động và giấy phép đối tác trước khi kích hoạt tài khoản chính thức.
           </p>
         </div>
         <button
@@ -434,56 +434,68 @@ export default function AdminVerificationPage() {
 
                 {/* Right: Photo Preview & Action Buttons */}
                 <div className="flex flex-col sm:items-end justify-between gap-3 shrink-0">
-                  {/* Photo thumbnail(s) */}
+                  {/* Photo thumbnail(s) or Info badges */}
                   {isWorker && (
-                    <div className="flex items-center gap-2">
-                      {req.idCardFrontPhoto && (
-                        <div
-                          onClick={() => setPreviewImage({ url: req.idCardFrontPhoto, title: `CCCD Mặt trước: ${req.user?.name || req.idCardNumber}` })}
-                          className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
-                        >
-                          <img
-                            src={req.idCardFrontPhoto}
-                            alt="CCCD trước"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
-                            <Eye className="w-3 h-3" /> Trước
+                    req.idCardFrontPhoto || req.idCardBackPhoto ? (
+                      <div className="flex items-center gap-2">
+                        {req.idCardFrontPhoto && (
+                          <div
+                            onClick={() => setPreviewImage({ url: req.idCardFrontPhoto, title: `CCCD Mặt trước: ${req.user?.name || req.idCardNumber}` })}
+                            className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
+                          >
+                            <img
+                              src={req.idCardFrontPhoto}
+                              alt="CCCD trước"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                              <Eye className="w-3 h-3" /> Trước
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {req.idCardBackPhoto && (
-                        <div
-                          onClick={() => setPreviewImage({ url: req.idCardBackPhoto, title: `CCCD Mặt sau: ${req.user?.name || req.idCardNumber}` })}
-                          className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
-                        >
-                          <img
-                            src={req.idCardBackPhoto}
-                            alt="CCCD sau"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
-                            <Eye className="w-3 h-3" /> Sau
+                        )}
+                        {req.idCardBackPhoto && (
+                          <div
+                            onClick={() => setPreviewImage({ url: req.idCardBackPhoto, title: `CCCD Mặt sau: ${req.user?.name || req.idCardNumber}` })}
+                            className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
+                          >
+                            <img
+                              src={req.idCardBackPhoto}
+                              alt="CCCD sau"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                              <Eye className="w-3 h-3" /> Sau
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-xl border border-blue-100">
+                        Xác thực thông tin (Không kèm ảnh)
+                      </span>
+                    )
                   )}
 
-                  {isStudent && req.studentCardPhoto && (
-                    <div
-                      onClick={() => setPreviewImage({ url: req.studentCardPhoto, title: `Thẻ SV: ${req.user?.name || req.studentCode}` })}
-                      className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-32 h-20 shadow-sm"
-                    >
-                      <img
-                        src={req.studentCardPhoto}
-                        alt="Ảnh thẻ SV"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
-                        <Eye className="w-3.5 h-3.5" /> Xem to
+                  {isStudent && (
+                    req.studentCardPhoto ? (
+                      <div
+                        onClick={() => setPreviewImage({ url: req.studentCardPhoto, title: `Thẻ SV: ${req.user?.name || req.studentCode}` })}
+                        className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-32 h-20 shadow-sm"
+                      >
+                        <img
+                          src={req.studentCardPhoto}
+                          alt="Ảnh thẻ SV"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                          <Eye className="w-3.5 h-3.5" /> Xem to
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-100">
+                        Xác thực MSSV (Không kèm ảnh)
+                      </span>
+                    )
                   )}
 
                   {isEmployer && req.documents?.[0]?.url && (
@@ -522,7 +534,7 @@ export default function AdminVerificationPage() {
                             : 'bg-purple-700 hover:bg-purple-800'
                         )}
                       >
-                        {isWorker ? '✓ Duyệt CCCD & Kích hoạt' : isStudent ? '✓ Duyệt thẻ & Kích hoạt' : '✓ Phê duyệt đối tác'}
+                        {isWorker ? '✓ Duyệt hồ sơ & Kích hoạt' : isStudent ? '✓ Duyệt hồ sơ & Kích hoạt' : '✓ Phê duyệt đối tác'}
                       </button>
                     </div>
                   )}

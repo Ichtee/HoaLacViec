@@ -589,8 +589,7 @@ export default function EmployerJobsPage() {
                     {(() => {
                       const lat = job.location?.lat ?? job.lat ?? job.geoPoint?.coordinates?.[1];
                       const lng = job.location?.lng ?? job.lng ?? job.geoPoint?.coordinates?.[0];
-                      const hasCoords = isValidCoordinate(lat, lng);
-                      const isConfirmed = hasConfirmedCoordinates(job) || hasCoords;
+                      const isConfirmed = hasConfirmedCoordinates(job);
                       const navUrl = isConfirmed
                         ? `https://www.google.com/maps/dir/?api=1&destination=${Number(lat)},${Number(lng)}`
                         : (job.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}` : null);

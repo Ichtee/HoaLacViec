@@ -300,11 +300,13 @@ router.get('/verifications', async (req, res) => {
       if (statusFilter) {
         stuFilter.verificationStatus = statusFilter;
       } else {
-        // Return records with pending, approved, or rejected status, or who uploaded a photo
+        // Return records with pending, approved, or rejected status, or who provided code/id or uploaded a photo
         stuFilter.$or = [
           { verificationStatus: { $in: ['pending', 'approved', 'rejected'] } },
           { studentCardPhoto: { $ne: '' } },
           { idCardFrontPhoto: { $ne: '' } },
+          { idCardNumber: { $ne: '' } },
+          { studentCode: { $ne: '' } },
         ];
       }
 
@@ -319,15 +321,15 @@ router.get('/verifications', async (req, res) => {
         // Filter by tab if selected
         if (type && type !== 'all' && type !== verificationType) continue;
 
-        const hasPhoto = isWorker
+        const hasSubmission = isWorker
           ? Boolean(sp.idCardFrontPhoto || sp.idCardNumber)
-          : Boolean(sp.studentCardPhoto);
+          : Boolean(sp.studentCardPhoto || sp.studentCode);
 
         const normalizedStatus = sp.verificationStatus === 'draft' 
-          ? (hasPhoto ? 'pending' : 'draft')
+          ? (hasSubmission ? 'pending' : 'draft')
           : (sp.verificationStatus || (sp.verified ? 'approved' : 'pending'));
 
-        // Skip drafts without photos
+        // Skip drafts without submissions
         if (normalizedStatus === 'draft') continue;
 
         results.push({
