@@ -95,6 +95,7 @@ export function JobMap({
   const userMarkerRef = useRef(null);
   const jobsBoundsRef = useRef(null);
   const hasInitialFitRef = useRef(false);
+  const fitTimerRef = useRef(null);
 
   const [activeJob, setActiveJob] = useState(singleJob || null);
   const [currentLayerKey, setCurrentLayerKey] = useState('vietmap_streets');
@@ -162,22 +163,46 @@ export function JobMap({
     let resizeObserver = null;
     if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
       resizeObserver = new ResizeObserver(() => {
-        map.resize();
+        try {
+          if (mapInstanceRef.current && mapContainerRef.current) {
+            mapInstanceRef.current.resize();
+          }
+        } catch {
+          // ignore layout change / unmount resize error
+        }
       });
       resizeObserver.observe(mapContainerRef.current);
     }
 
     return () => {
       if (resizeObserver) {
-        resizeObserver.disconnect();
+        try {
+          resizeObserver.disconnect();
+        } catch {}
+        resizeObserver = null;
       }
-      markersMapRef.current.forEach((marker) => marker.remove());
+      if (fitTimerRef.current) {
+        clearTimeout(fitTimerRef.current);
+        fitTimerRef.current = null;
+      }
+      markersMapRef.current.forEach((item) => {
+        try {
+          const marker = item?.marker || item;
+          if (marker && typeof marker.remove === 'function') {
+            marker.remove();
+          }
+        } catch {}
+      });
       markersMapRef.current.clear();
       if (userMarkerRef.current) {
-        userMarkerRef.current.remove();
+        try {
+          userMarkerRef.current.remove();
+        } catch {}
         userMarkerRef.current = null;
       }
-      map.remove();
+      try {
+        map.remove();
+      } catch {}
       mapInstanceRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -246,14 +271,18 @@ export function JobMap({
       const existing = currentMarkersMap.get(id);
 
       if (existing) {
-        existing.marker.remove();
+        try {
+          existing.marker?.remove?.();
+        } catch {}
       }
 
       const el = createJobMarkerElement(job, isSelected);
       el.addEventListener('click', () => {
         setActiveJob(job);
         onSelectJob?.(job);
-        map.flyTo({ center: [nLng, nLat], zoom: 16 });
+        try {
+          map.flyTo({ center: [nLng, nLat], zoom: 16 });
+        } catch {}
       });
 
       const marker = new vietmapgl.Marker({ element: el })
@@ -266,7 +295,9 @@ export function JobMap({
     // Remove markers that are no longer in jobsToRender
     for (const [id, item] of currentMarkersMap.entries()) {
       if (!nextJobIds.has(id)) {
-        item.marker.remove();
+        try {
+          item.marker?.remove?.();
+        } catch {}
         currentMarkersMap.delete(id);
       }
     }
@@ -280,42 +311,47 @@ export function JobMap({
         const sjLat = singleJob.location?.lat ?? singleJob.lat ?? singleJob.geoPoint?.coordinates?.[1];
         const sjLng = singleJob.location?.lng ?? singleJob.lng ?? singleJob.geoPoint?.coordinates?.[0];
         if (isValidCoordinate(sjLat, sjLng)) {
-          map.flyTo({ center: [Number(sjLng), Number(sjLat)], zoom: 16 });
+          try {
+            map.flyTo({ center: [Number(sjLng), Number(sjLat)], zoom: 16 });
+          } catch {}
         }
       } else if (!hasInitialFitRef.current) {
         hasInitialFitRef.current = true;
 
         const performFit = () => {
-          if (!mapInstanceRef.current || bounds.isEmpty()) return;
-          mapInstanceRef.current.resize();
+          try {
+            if (!mapInstanceRef.current || bounds.isEmpty()) return;
+            mapInstanceRef.current.resize();
 
-          let shouldIncludeUser = false;
-          if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
-            const distToCenterM = haversineDistance(
-              userLocation.lat,
-              userLocation.lng,
-              DEFAULT_HOALAC_CENTER[0],
-              DEFAULT_HOALAC_CENTER[1]
-            );
-            if (distToCenterM !== null && distToCenterM <= 15000) {
-              shouldIncludeUser = true;
+            let shouldIncludeUser = false;
+            if (isValidCoordinate(userLocation?.lat, userLocation?.lng)) {
+              const distToCenterM = haversineDistance(
+                userLocation.lat,
+                userLocation.lng,
+                DEFAULT_HOALAC_CENTER[0],
+                DEFAULT_HOALAC_CENTER[1]
+              );
+              if (distToCenterM !== null && distToCenterM <= 15000) {
+                shouldIncludeUser = true;
+              }
             }
-          }
 
-          if (shouldIncludeUser) {
-            const fitBounds = new vietmapgl.LngLatBounds(
-              bounds.getSouthWest(),
-              bounds.getNorthEast()
-            );
-            fitBounds.extend([Number(userLocation.lng), Number(userLocation.lat)]);
-            mapInstanceRef.current.fitBounds(fitBounds, { padding: 45, maxZoom: 15 });
-          } else {
-            mapInstanceRef.current.fitBounds(bounds, { padding: 45, maxZoom: 15 });
-          }
+            if (shouldIncludeUser) {
+              const fitBounds = new vietmapgl.LngLatBounds(
+                bounds.getSouthWest(),
+                bounds.getNorthEast()
+              );
+              fitBounds.extend([Number(userLocation.lng), Number(userLocation.lat)]);
+              mapInstanceRef.current.fitBounds(fitBounds, { padding: 45, maxZoom: 15 });
+            } else {
+              mapInstanceRef.current.fitBounds(bounds, { padding: 45, maxZoom: 15 });
+            }
+          } catch {}
         };
 
         performFit();
-        setTimeout(performFit, 200);
+        if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+        fitTimerRef.current = setTimeout(performFit, 200);
       }
     }
   }, [jobsToRender, selectedJobId, onSelectJob, singleJob, userLocation]);
@@ -327,7 +363,9 @@ export function JobMap({
     if (selectedJob) {
       const { lat, lng } = getJobMapCoordinates(selectedJob);
       if (isValidCoordinate(lat, lng)) {
-        mapInstanceRef.current.flyTo({ center: [Number(lng), Number(lat)], zoom: 16 });
+        try {
+          mapInstanceRef.current.flyTo({ center: [Number(lng), Number(lat)], zoom: 16 });
+        } catch {}
         setActiveJob(selectedJob);
       }
     }

@@ -304,20 +304,31 @@ export default function LocationPicker({
     let resizeObserver = null;
     if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
       resizeObserver = new ResizeObserver(() => {
-        map.resize();
+        try {
+          if (mapInstanceRef.current && mapContainerRef.current) {
+            map.resize();
+          }
+        } catch {}
       });
       resizeObserver.observe(mapContainerRef.current);
     }
 
     return () => {
       if (resizeObserver) {
-        resizeObserver.disconnect();
+        try {
+          resizeObserver.disconnect();
+        } catch {}
+        resizeObserver = null;
       }
       if (markerRef.current) {
-        markerRef.current.remove();
+        try {
+          markerRef.current.remove();
+        } catch {}
         markerRef.current = null;
       }
-      map.remove();
+      try {
+        map.remove();
+      } catch {}
       mapInstanceRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

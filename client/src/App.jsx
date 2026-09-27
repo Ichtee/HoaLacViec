@@ -57,74 +57,77 @@ import ChangePasswordPage from '@/pages/common/ChangePasswordPage.jsx';
 
 // Geolocation Bootstrap
 import { LocationPermissionBootstrap } from '@/components/LocationPermissionBootstrap.jsx';
+import { ErrorBoundary } from '@/components/ErrorBoundary.jsx';
 
 export default function App() {
   return (
     <Router>
       <LocationPermissionBootstrap />
       <PendingRouteEnforcer />
-      <Routes>
-        {/* Public Routes */}
-        <Route element={<PublicLayout />}>
-          <Route
-            path="/"
-            element={
-              <RedirectIfAuthenticated>
-                <HomePage />
-              </RedirectIfAuthenticated>
-            }
-          />
-          <Route path="/jobs" element={<JobListPage />} />
-          <Route path="/jobs/:id" element={<JobDetailPage />} />
-          <Route path="/tasks" element={<MicroTasksPage />} />
-          <Route path="/blogs" element={<BlogListPage />} />
-          <Route path="/blogs/:id" element={<BlogDetailPage />} />
-          <Route
-            path="/login"
-            element={
-              <RedirectIfAuthenticated>
-                <LoginPage />
-              </RedirectIfAuthenticated>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <RedirectIfAuthenticated>
-                <RegisterPage />
-              </RedirectIfAuthenticated>
-            }
-          />
-          <Route
-            path="/verify-account"
-            element={
-              <RequirePending>
-                <VerifyAccountPage />
-              </RequirePending>
-            }
-          />
-        </Route>
+      <ErrorBoundary>
+        <Routes>
+          {/* Public Routes */}
+          <Route element={<PublicLayout />}>
+            <Route
+              path="/"
+              element={
+                <RedirectIfAuthenticated>
+                  <HomePage />
+                </RedirectIfAuthenticated>
+              }
+            />
+            <Route path="/jobs" element={<JobListPage />} />
+            <Route path="/jobs/:id" element={<JobDetailPage />} />
+            <Route path="/tasks" element={<MicroTasksPage />} />
+            <Route path="/blogs" element={<BlogListPage />} />
+            <Route path="/blogs/:id" element={<BlogDetailPage />} />
+            <Route
+              path="/login"
+              element={
+                <RedirectIfAuthenticated>
+                  <LoginPage />
+                </RedirectIfAuthenticated>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <RedirectIfAuthenticated>
+                  <RegisterPage />
+                </RedirectIfAuthenticated>
+              }
+            />
+            <Route
+              path="/verify-account"
+              element={
+                <RequirePending>
+                  <VerifyAccountPage />
+                </RequirePending>
+              }
+            />
+          </Route>
 
-        {/* Student Portal */}
-        <Route
-          path="/student"
-          element={
-            <RequireRole role="student">
-              <StudentLayout />
-            </RequireRole>
-          }
-        >
-          <Route index element={<StudentDashboard />} />
-          <Route path="profile" element={<StudentProfilePage />} />
-          <Route path="account" element={<AccountInfoPage />} />
-          <Route path="change-password" element={<ChangePasswordPage />} />
-          <Route path="jobs" element={<JobListPage />} />
-          <Route path="tasks" element={<MicroTasksPage />} />
-          <Route path="saved" element={<SavedJobsPage />} />
-          <Route path="applications" element={<ApplicationsPage />} />
-          <Route path="shifts" element={<StudentShiftsPage />} />
-          <Route path="reviews" element={<StudentReviewsPage />} />
-        </Route>
+          {/* Student Portal */}
+          <Route
+            path="/student"
+            element={
+              <RequireRole role="student">
+                <StudentLayout />
+              </RequireRole>
+            }
+          >
+            <Route index element={<StudentDashboard />} />
+            <Route path="profile" element={<StudentProfilePage />} />
+            <Route path="account" element={<AccountInfoPage />} />
+            <Route path="change-password" element={<ChangePasswordPage />} />
+            <Route path="jobs" element={<JobListPage />} />
+            <Route path="jobs/:id" element={<JobDetailPage />} />
+            <Route path="tasks" element={<MicroTasksPage />} />
+            <Route path="saved" element={<SavedJobsPage />} />
+            <Route path="applications" element={<ApplicationsPage />} />
+            <Route path="shifts" element={<StudentShiftsPage />} />
+            <Route path="reviews" element={<StudentReviewsPage />} />
+          </Route>
 
         {/* Employer Portal */}
         <Route
@@ -166,6 +169,7 @@ export default function App() {
         {/* Fallback 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </ErrorBoundary>
     </Router>
   );
 }
