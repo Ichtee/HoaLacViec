@@ -340,6 +340,24 @@ export default function MicroTasksPage() {
       return;
     }
 
+    // Quick client-side check if user already has 2 active tasks in current state
+    const currentUserId = user?._id || user?.id;
+    const activeTasksCount = tasks.filter((t) => {
+      const assId = t.assigneeId?._id || t.assigneeId;
+      return (
+        String(assId) === String(currentUserId) &&
+        ['accepted', 'submitted_for_completion', 'disputed'].includes(t.status)
+      );
+    }).length;
+
+    if (activeTasksCount >= 2) {
+      setToast({
+        type: 'warning',
+        message: 'Bạn đang nhận 2 việc vặt. Mỗi người chỉ được làm tối đa 2 việc cùng một lúc. Vui lòng hoàn thành việc trước khi nhận thêm.',
+      });
+      return;
+    }
+
     setAcceptModalTask(task);
     setAcceptPhone(user?.phone || '');
     setAcceptNote('');
@@ -636,7 +654,7 @@ export default function MicroTasksPage() {
             <select
               value={currentTab}
               onChange={(e) => handleTabChange(e.target.value)}
-              className="w-full pl-9.5 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
+              className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
             >
               {TASK_TABS.map((tab) => (
                 <option key={tab.id} value={tab.id}>
@@ -657,7 +675,7 @@ export default function MicroTasksPage() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full pl-9.5 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
+              className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
             >
               {TASK_CATEGORIES.map((cat) => (
                 <option key={cat.id} value={cat.id}>
@@ -1357,6 +1375,13 @@ export default function MicroTasksPage() {
                 onChange={(e) => setAcceptNote(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
+            </div>
+
+            <div className="p-3 bg-blue-50/80 border border-blue-200/70 rounded-2xl text-xs text-blue-900 flex items-start gap-2.5">
+              <span className="text-base shrink-0">🛡️</span>
+              <p className="leading-relaxed">
+                <strong>Quy định:</strong> Mỗi bạn sinh viên chỉ được nhận tối đa <strong>2 việc vặt cùng một lúc</strong> để đảm bảo hoàn thành chất lượng và đúng hạn.
+              </p>
             </div>
 
             <div className="pt-2 flex justify-end gap-2">

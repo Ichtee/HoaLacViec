@@ -415,6 +415,26 @@ router.post('/:id/accept', authenticate, requireActiveUser, async (req, res, nex
       });
     }
 
+    // Limit rule: Each student can only have at most 2 active tasks at a time
+    const activeTasksCount = await MicroTask.countDocuments({
+      assigneeId: req.user._id,
+      isDeleted: false,
+      status: {
+        $in: [
+          TASK_STATUSES.ACCEPTED,
+          TASK_STATUSES.SUBMITTED_FOR_COMPLETION,
+          TASK_STATUSES.DISPUTED,
+        ],
+      },
+    });
+
+    if (activeTasksCount >= 2) {
+      return res.status(400).json({
+        error: 'Mỗi sinh viên chỉ được làm tối đa 2 việc vặt cùng một lúc. Vui lòng hoàn thành công việc hiện tại trước khi nhận thêm.',
+        code: 'MAX_ACTIVE_TASKS_REACHED',
+      });
+    }
+
     // Validate phone for assignee
     const candidatePhone = assigneePhone || req.user.phone || '';
     if (!isValidPhoneNumber(candidatePhone)) {

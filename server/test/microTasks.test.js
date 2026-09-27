@@ -374,4 +374,36 @@ test('Phase 10 — MicroTasks State Machine & Business Rules', async (t) => {
     const subDTOForAss = toTaskDTO(submittedTask, assId, 'student');
     assert.equal(subDTOForAss.canComplete, false, 'Assignee cannot self-complete task');
   });
+
+  await t.test('17. Limit active tasks: each student is restricted to at most 2 active tasks simultaneously', () => {
+    const studentId = new mongoose.Types.ObjectId();
+    const tasks = [
+      { assigneeId: studentId, status: 'accepted', isDeleted: false },
+      { assigneeId: studentId, status: 'submitted_for_completion', isDeleted: false },
+    ];
+
+    const activeCount = tasks.filter(
+      (t) =>
+        t.assigneeId.toString() === studentId.toString() &&
+        !t.isDeleted &&
+        ['accepted', 'submitted_for_completion', 'disputed'].includes(t.status)
+    ).length;
+
+    assert.equal(activeCount, 2);
+    const canAcceptThird = activeCount < 2;
+    assert.equal(canAcceptThird, false, 'Student with 2 active tasks must be blocked from accepting a 3rd task');
+
+    // When one task is completed
+    tasks[0].status = 'completed';
+    const updatedActiveCount = tasks.filter(
+      (t) =>
+        t.assigneeId.toString() === studentId.toString() &&
+        !t.isDeleted &&
+        ['accepted', 'submitted_for_completion', 'disputed'].includes(t.status)
+    ).length;
+
+    assert.equal(updatedActiveCount, 1);
+    const canAcceptAfterCompletion = updatedActiveCount < 2;
+    assert.equal(canAcceptAfterCompletion, true, 'Student with 1 active task is permitted to accept another task');
+  });
 });
