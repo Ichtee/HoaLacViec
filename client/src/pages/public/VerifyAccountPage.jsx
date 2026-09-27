@@ -17,7 +17,15 @@ import {
   ChevronDown,
   Check,
   IdCard,
+  Lock,
 } from 'lucide-react';
+
+function getRoleLabel(role) {
+  if (role === 'student') return 'Sinh viên';
+  if (role === 'worker') return 'Lao động tự do';
+  if (role === 'employer') return 'Nhà tuyển dụng';
+  return '';
+}
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
@@ -172,7 +180,9 @@ export default function VerifyAccountPage() {
         if (empRes.status === 'fulfilled' && empRes.value && empRes.value.status && empRes.value.status !== 'draft') {
           const empData = empRes.value;
           setExistingVerification(empData);
-          hasEmployer = true;
+          if (['pending', 'approved'].includes(empData.status) || empData.verified) {
+            hasEmployer = true;
+          }
           if (empData.storeName) setStoreName(empData.storeName);
           if (empData.legalName) setLegalName(empData.legalName);
           if (empData.businessAddress) setBusinessAddress(empData.businessAddress);
@@ -184,9 +194,11 @@ export default function VerifyAccountPage() {
         if (stuRes.status === 'fulfilled' && stuRes.value) {
           const stuData = stuRes.value;
           const status = stuData.verificationStatus || stuData.status;
-          if (status !== 'draft' || stuData.studentCardPhoto) {
+          if (status && status !== 'draft') {
             setExistingStudentVerification(stuData);
-            hasStudent = true;
+            if (['pending', 'approved'].includes(status) || stuData.verified) {
+              hasStudent = true;
+            }
             if (stuData.university) {
               setUniversity(stuData.university);
               setUniSearch(stuData.university);
@@ -201,9 +213,11 @@ export default function VerifyAccountPage() {
         if (wrkRes.status === 'fulfilled' && wrkRes.value) {
           const wrkData = wrkRes.value;
           const status = wrkData.verificationStatus || wrkData.status;
-          if (status !== 'draft' || wrkData.idCardFrontPhoto || wrkData.idCardNumber) {
+          if (status && status !== 'draft') {
             setExistingWorkerVerification(wrkData);
-            hasWorker = true;
+            if (['pending', 'approved'].includes(status) || wrkData.verified) {
+              hasWorker = true;
+            }
             if (wrkData.idCardNumber) setWorkerIdCardNumber(wrkData.idCardNumber);
             if (wrkData.profession) setWorkerProfession(wrkData.profession);
             if (wrkData.transport) setWorkerTransport(wrkData.transport);
@@ -213,9 +227,15 @@ export default function VerifyAccountPage() {
         }
 
         // Auto select tab based on existing submission or user role
-        if (user?.role === 'worker' || user?.role === 'freelancer' || (hasWorker && !hasStudent && !hasEmployer)) {
+        if (hasWorker && !hasStudent && !hasEmployer) {
           setActiveTab('worker');
         } else if (hasEmployer && !hasStudent && !hasWorker) {
+          setActiveTab('employer');
+        } else if (hasStudent) {
+          setActiveTab('student');
+        } else if (user?.role === 'worker' || user?.role === 'freelancer') {
+          setActiveTab('worker');
+        } else if (user?.role === 'employer') {
           setActiveTab('employer');
         } else {
           setActiveTab('student');
@@ -228,6 +248,52 @@ export default function VerifyAccountPage() {
     }
     checkVerification();
   }, []);
+
+  // Compute if any role has already been submitted (pending or approved)
+  const isStudentSubmitted = Boolean(
+    existingStudentVerification && (
+      ['pending', 'approved'].includes(existingStudentVerification.verificationStatus) ||
+      ['pending', 'approved'].includes(existingStudentVerification.status) ||
+      existingStudentVerification.verified
+    )
+  );
+
+  const isWorkerSubmitted = Boolean(
+    existingWorkerVerification && (
+      ['pending', 'approved'].includes(existingWorkerVerification.verificationStatus) ||
+      ['pending', 'approved'].includes(existingWorkerVerification.status) ||
+      existingWorkerVerification.verified
+    )
+  );
+
+  const isEmployerSubmitted = Boolean(
+    existingVerification && (
+      ['pending', 'approved'].includes(existingVerification.status) ||
+      existingVerification.verified
+    )
+  );
+
+  // If one role is submitted, only that role is allowed and others are locked
+  const lockedRole = isStudentSubmitted
+    ? 'student'
+    : isWorkerSubmitted
+    ? 'worker'
+    : isEmployerSubmitted
+    ? 'employer'
+    : (user?.role === 'student' && isStudentSubmitted)
+    ? 'student'
+    : (user?.role === 'worker' && isWorkerSubmitted)
+    ? 'worker'
+    : (user?.role === 'employer' && isEmployerSubmitted)
+    ? 'employer'
+    : null;
+
+  // Keep activeTab locked to submitted role so user cannot navigate to others
+  useEffect(() => {
+    if (lockedRole && activeTab !== lockedRole) {
+      setActiveTab(lockedRole);
+    }
+  }, [lockedRole]);
 
   // Handle worker ID card front upload
   function handleWorkerFrontUpload(e) {
@@ -264,6 +330,10 @@ export default function VerifyAccountPage() {
   // Submit worker verification
   async function handleSubmitWorker(e) {
     e.preventDefault();
+    if (lockedRole && lockedRole !== 'worker') {
+      setError(`Bạn đã nộp hồ sơ xác minh cho vai trò ${getRoleLabel(lockedRole)}. Không thể nộp thêm vai trò Lao động tự do.`);
+      return;
+    }
     const cleanId = (workerIdCardNumber || '').trim().replace(/\s+/g, '');
     if (!cleanId) {
       setError('Vui lòng nhập số Căn cước công dân (CCCD).');
@@ -293,6 +363,7 @@ export default function VerifyAccountPage() {
       updateUser(res.user);
       setExistingWorkerVerification(res.profile);
       setEditingWorker(false);
+      setActiveTab('worker');
       setSuccess('Thông tin Căn cước công dân đã được gửi thành công! Ban Quản Trị sẽ xét duyệt để kích hoạt tài khoản lao động tự do của bạn.');
     } catch (err) {
       setError(err.message || 'Lỗi khi gửi hồ sơ xác minh lao động tự do. Vui lòng thử lại.');
@@ -336,6 +407,10 @@ export default function VerifyAccountPage() {
   // Submit student verification
   async function handleSubmitStudent(e) {
     e.preventDefault();
+    if (lockedRole && lockedRole !== 'student') {
+      setError(`Bạn đã nộp hồ sơ xác minh cho vai trò ${getRoleLabel(lockedRole)}. Không thể nộp thêm vai trò Sinh viên.`);
+      return;
+    }
     if (!studentCode.trim()) {
       setError('Vui lòng nhập mã số sinh viên.');
       return;
@@ -358,6 +433,7 @@ export default function VerifyAccountPage() {
       updateUser(res.user);
       setExistingStudentVerification(res.profile);
       setEditingStudent(false);
+      setActiveTab('student');
       setSuccess('Hồ sơ thẻ sinh viên đã được gửi thành công! Ban Quản Trị sẽ xét duyệt để kích hoạt tài khoản của bạn.');
     } catch (err) {
       setError(err.message || 'Lỗi khi gửi hồ sơ xác minh sinh viên. Vui lòng thử lại.');
@@ -369,6 +445,10 @@ export default function VerifyAccountPage() {
   // Submit employer verification
   async function handleSubmitEmployer(e) {
     e.preventDefault();
+    if (lockedRole && lockedRole !== 'employer') {
+      setError(`Bạn đã nộp hồ sơ xác minh cho vai trò ${getRoleLabel(lockedRole)}. Không thể nộp thêm vai trò Nhà tuyển dụng.`);
+      return;
+    }
     if (!storeName.trim()) {
       setError('Vui lòng nhập tên cửa hàng / cơ sở.');
       return;
@@ -465,136 +545,236 @@ export default function VerifyAccountPage() {
           </div>
         )}
 
+        {/* Single-Role Verification Policy Banner */}
+        {lockedRole ? (
+          <div className="p-4 bg-blue-50/90 rounded-2xl border border-blue-200 text-xs text-blue-900 flex items-start gap-3 shadow-xs animate-fade-in">
+            <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 font-bold">
+              <Lock className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5">
+              <p className="font-bold text-sm text-blue-900">
+                Hồ sơ đã gửi cho vai trò: <span className="underline font-extrabold">{getRoleLabel(lockedRole)}</span>
+              </p>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                Theo quy định của hệ thống Hoa Lạc Việc, mỗi tài khoản chỉ được đăng ký xác minh <strong>1 vai trò duy nhất</strong>. Hai vai trò còn lại đã được khóa tự động để bảo đảm tính nhất quán dữ liệu của bạn.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-amber-50/90 rounded-2xl border border-amber-200 text-xs text-amber-900 flex items-start gap-3 shadow-xs">
+            <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertCircle className="w-4 h-4 text-amber-700" />
+            </div>
+            <div className="space-y-0.5">
+              <p className="font-bold text-sm text-amber-900">
+                Quy định xác minh tài khoản:
+              </p>
+              <p className="text-xs text-amber-800 leading-relaxed">
+                Vui lòng chọn <strong>1 trong 3 vai trò</strong> bên dưới để nhập thông tin xác minh. <strong>Lưu ý:</strong> Sau khi đã gửi hồ sơ cho một vai trò, bạn sẽ <em>không thể chọn để gửi 2 vai trò còn lại</em>.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Selection Cards / Tabs */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Student Tab Card */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('student');
-              setError('');
-            }}
-            className={clsx(
-              'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
-              activeTab === 'student'
-                ? 'bg-white border-green-main shadow-md ring-2 ring-green-100'
-                : 'bg-white/80 border-gray-200 hover:border-green-200 hover:bg-white'
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-green-100 text-green-700 flex items-center justify-center text-xl font-bold mb-3">
-                <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <span className={clsx(
-                "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-                existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
-                  ? "bg-amber-100 text-amber-800"
-                  : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
-                  ? "bg-green-100 text-green-800"
-                  : existingStudentVerification?.verificationStatus === 'rejected'
-                  ? "bg-red-100 text-red-800"
-                  : "bg-green-50 text-green-700"
-              )}>
-                {existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
-                  ? '⏳ Chờ duyệt'
-                  : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
-                  ? '✓ Đã duyệt'
-                  : existingStudentVerification?.verificationStatus === 'rejected'
-                  ? '✕ Bị từ chối'
-                  : 'Xác minh SV'}
-              </span>
-            </div>
-            <h3 className="text-sm sm:text-base font-bold text-text-main">Tôi là Sinh viên</h3>
-            <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-              Nhập mã sinh viên và trường học để kích hoạt tài khoản sinh viên Hòa Lạc.
-            </p>
-          </button>
+          {(() => {
+            const isLockedOut = Boolean(lockedRole && lockedRole !== 'student');
+            return (
+              <button
+                type="button"
+                disabled={isLockedOut}
+                onClick={() => {
+                  if (isLockedOut) return;
+                  setActiveTab('student');
+                  setError('');
+                }}
+                className={clsx(
+                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
+                  isLockedOut
+                    ? 'bg-gray-50/70 border-dashed border-gray-200 opacity-60 cursor-not-allowed select-none'
+                    : activeTab === 'student'
+                    ? 'bg-white border-green-main shadow-md ring-2 ring-green-100'
+                    : 'bg-white/80 border-gray-200 hover:border-green-200 hover:bg-white'
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <div className={clsx(
+                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
+                    isLockedOut ? "bg-gray-100 text-gray-400" : "bg-green-100 text-green-700"
+                  )}>
+                    <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  {isLockedOut ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Đã khóa
+                    </span>
+                  ) : (
+                    <span className={clsx(
+                      "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                      existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
+                        ? "bg-amber-100 text-amber-800"
+                        : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
+                        ? "bg-green-100 text-green-800"
+                        : existingStudentVerification?.verificationStatus === 'rejected'
+                        ? "bg-red-100 text-red-800"
+                        : "bg-green-50 text-green-700"
+                    )}>
+                      {existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
+                        ? '⏳ Chờ duyệt'
+                        : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
+                        ? '✓ Đã duyệt'
+                        : existingStudentVerification?.verificationStatus === 'rejected'
+                        ? '✕ Bị từ chối'
+                        : 'Xác minh SV'}
+                    </span>
+                  )}
+                </div>
+                <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Sinh viên</h3>
+                <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
+                  Nhập mã sinh viên và trường học để kích hoạt tài khoản sinh viên Hòa Lạc.
+                </p>
+                {isLockedOut && (
+                  <p className="text-[10px] text-amber-700 font-semibold mt-2 flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" /> Không thể chọn (đã nộp {getRoleLabel(lockedRole)})
+                  </p>
+                )}
+              </button>
+            );
+          })()}
 
           {/* Worker Tab Card */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('worker');
-              setError('');
-            }}
-            className={clsx(
-              'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
-              activeTab === 'worker'
-                ? 'bg-white border-blue-600 shadow-md ring-2 ring-blue-100'
-                : 'bg-white/80 border-gray-200 hover:border-blue-200 hover:bg-white'
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center text-xl font-bold mb-3">
-                <Briefcase className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <span className={clsx(
-                "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-                existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
-                  ? "bg-amber-100 text-amber-800"
-                  : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
-                  ? "bg-blue-100 text-blue-800"
-                  : existingWorkerVerification?.verificationStatus === 'rejected'
-                  ? "bg-red-100 text-red-800"
-                  : "bg-blue-50 text-blue-700"
-              )}>
-                {existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
-                  ? '⏳ Chờ duyệt'
-                  : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
-                  ? '✓ Đã duyệt'
-                  : existingWorkerVerification?.verificationStatus === 'rejected'
-                  ? '✕ Bị từ chối'
-                  : 'Xác minh CCCD'}
-              </span>
-            </div>
-            <h3 className="text-sm sm:text-base font-bold text-text-main">Tôi là Lao động tự do</h3>
-            <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-              Nhập số Căn cước công dân để nhận ca làm part-time và việc vặt.
-            </p>
-          </button>
+          {(() => {
+            const isLockedOut = Boolean(lockedRole && lockedRole !== 'worker');
+            return (
+              <button
+                type="button"
+                disabled={isLockedOut}
+                onClick={() => {
+                  if (isLockedOut) return;
+                  setActiveTab('worker');
+                  setError('');
+                }}
+                className={clsx(
+                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
+                  isLockedOut
+                    ? 'bg-gray-50/70 border-dashed border-gray-200 opacity-60 cursor-not-allowed select-none'
+                    : activeTab === 'worker'
+                    ? 'bg-white border-blue-600 shadow-md ring-2 ring-blue-100'
+                    : 'bg-white/80 border-gray-200 hover:border-blue-200 hover:bg-white'
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <div className={clsx(
+                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
+                    isLockedOut ? "bg-gray-100 text-gray-400" : "bg-blue-100 text-blue-700"
+                  )}>
+                    <Briefcase className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  {isLockedOut ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Đã khóa
+                    </span>
+                  ) : (
+                    <span className={clsx(
+                      "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                      existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
+                        ? "bg-amber-100 text-amber-800"
+                        : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
+                        ? "bg-blue-100 text-blue-800"
+                        : existingWorkerVerification?.verificationStatus === 'rejected'
+                        ? "bg-red-100 text-red-800"
+                        : "bg-blue-50 text-blue-700"
+                    )}>
+                      {existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
+                        ? '⏳ Chờ duyệt'
+                        : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
+                        ? '✓ Đã duyệt'
+                        : existingWorkerVerification?.verificationStatus === 'rejected'
+                        ? '✕ Bị từ chối'
+                        : 'Xác minh CCCD'}
+                    </span>
+                  )}
+                </div>
+                <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Lao động tự do</h3>
+                <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
+                  Nhập số Căn cước công dân để nhận ca làm part-time và việc vặt.
+                </p>
+                {isLockedOut && (
+                  <p className="text-[10px] text-amber-700 font-semibold mt-2 flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" /> Không thể chọn (đã nộp {getRoleLabel(lockedRole)})
+                  </p>
+                )}
+              </button>
+            );
+          })()}
 
           {/* Employer Tab Card */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('employer');
-              setError('');
-            }}
-            className={clsx(
-              'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
-              activeTab === 'employer'
-                ? 'bg-white border-purple-600 shadow-md ring-2 ring-purple-100'
-                : 'bg-white/80 border-gray-200 hover:border-purple-200 hover:bg-white'
-            )}
-          >
-            <div className="flex items-start justify-between">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center text-xl font-bold mb-3">
-                <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
-              <span className={clsx(
-                "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-                existingVerification?.status === 'pending'
-                  ? "bg-amber-100 text-amber-800"
-                  : existingVerification?.status === 'approved'
-                  ? "bg-purple-100 text-purple-800"
-                  : existingVerification?.status === 'rejected'
-                  ? "bg-red-100 text-red-800"
-                  : "bg-purple-50 text-purple-700"
-              )}>
-                {existingVerification?.status === 'pending'
-                  ? '⏳ Chờ duyệt'
-                  : existingVerification?.status === 'approved'
-                  ? '✓ Đã duyệt'
-                  : existingVerification?.status === 'rejected'
-                  ? '✕ Bị từ chối'
-                  : 'Duyệt quán'}
-              </span>
-            </div>
-            <h3 className="text-sm sm:text-base font-bold text-text-main">Tôi là Nhà tuyển dụng</h3>
-            <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-              Đăng ký đối tác cửa hàng tại Hòa Lạc để đăng tin tuyển dụng ca part-time.
-            </p>
-          </button>
+          {(() => {
+            const isLockedOut = Boolean(lockedRole && lockedRole !== 'employer');
+            return (
+              <button
+                type="button"
+                disabled={isLockedOut}
+                onClick={() => {
+                  if (isLockedOut) return;
+                  setActiveTab('employer');
+                  setError('');
+                }}
+                className={clsx(
+                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
+                  isLockedOut
+                    ? 'bg-gray-50/70 border-dashed border-gray-200 opacity-60 cursor-not-allowed select-none'
+                    : activeTab === 'employer'
+                    ? 'bg-white border-purple-600 shadow-md ring-2 ring-purple-100'
+                    : 'bg-white/80 border-gray-200 hover:border-purple-200 hover:bg-white'
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <div className={clsx(
+                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
+                    isLockedOut ? "bg-gray-100 text-gray-400" : "bg-purple-100 text-purple-700"
+                  )}>
+                    <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  {isLockedOut ? (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Đã khóa
+                    </span>
+                  ) : (
+                    <span className={clsx(
+                      "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                      existingVerification?.status === 'pending'
+                        ? "bg-amber-100 text-amber-800"
+                        : existingVerification?.status === 'approved'
+                        ? "bg-purple-100 text-purple-800"
+                        : existingVerification?.status === 'rejected'
+                        ? "bg-red-100 text-red-800"
+                        : "bg-purple-50 text-purple-700"
+                    )}>
+                      {existingVerification?.status === 'pending'
+                        ? '⏳ Chờ duyệt'
+                        : existingVerification?.status === 'approved'
+                        ? '✓ Đã duyệt'
+                        : existingVerification?.status === 'rejected'
+                        ? '✕ Bị từ chối'
+                        : 'Duyệt quán'}
+                    </span>
+                  )}
+                </div>
+                <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Nhà tuyển dụng</h3>
+                <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
+                  Đăng ký đối tác cửa hàng tại Hòa Lạc để đăng tin tuyển dụng ca part-time.
+                </p>
+                {isLockedOut && (
+                  <p className="text-[10px] text-amber-700 font-semibold mt-2 flex items-center gap-1">
+                    <Lock className="w-3 h-3 shrink-0" /> Không thể chọn (đã nộp {getRoleLabel(lockedRole)})
+                  </p>
+                )}
+              </button>
+            );
+          })()}
         </div>
 
         {/* Content Box */}

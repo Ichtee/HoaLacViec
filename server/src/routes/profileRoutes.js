@@ -383,10 +383,44 @@ router.post('/employer/me/location/confirm', authenticate, async (req, res, next
   }
 });
 
+// Helper: get existing active verification role (pending or approved)
+export async function getExistingActiveVerificationRole(userId) {
+  const studentProfile = await StudentProfile.findOne({ userId });
+  if (studentProfile && ['pending', 'approved'].includes(studentProfile.verificationStatus)) {
+    return studentProfile.profileType === 'worker' ? 'worker' : 'student';
+  }
+
+  const employerVerification = await EmployerVerification.findOne({ employerUserId: userId });
+  if (employerVerification && ['pending', 'approved'].includes(employerVerification.status)) {
+    return 'employer';
+  }
+
+  const employerProfile = await EmployerProfile.findOne({ userId });
+  if (employerProfile && employerProfile.verified) {
+    return 'employer';
+  }
+
+  return null;
+}
+
 // GET /api/profiles/student-verification/me (Kiểm tra trạng thái xác minh sinh viên)
 router.get('/student-verification/me', authenticate, async (req, res, next) => {
   try {
     const profile = await StudentProfile.findOne({ userId: req.user._id });
+    if (!profile || profile.profileType === 'worker') {
+      return res.json({
+        status: 'draft',
+        verificationStatus: 'draft',
+        verified: false,
+        verifiedAt: null,
+        studentCardPhoto: '',
+        studentCode: '',
+        university: '',
+        major: '',
+        transport: 'xe_may',
+        rejectionReason: '',
+      });
+    }
     res.json({
       status: profile?.verificationStatus || 'draft',
       verificationStatus: profile?.verificationStatus || 'draft',
@@ -407,6 +441,15 @@ router.get('/student-verification/me', authenticate, async (req, res, next) => {
 // POST /api/profiles/student-verification/submit (Sinh viên nộp thẻ SV để Admin duyệt)
 router.post('/student-verification/submit', authenticate, async (req, res, next) => {
   try {
+    const activeRole = await getExistingActiveVerificationRole(req.user._id);
+    if (activeRole && activeRole !== 'student') {
+      const roleLabel = activeRole === 'worker' ? 'Lao động tự do' : 'Nhà tuyển dụng';
+      return res.status(400).json({
+        error: `Bạn đã nộp hồ sơ xác minh cho vai trò ${roleLabel}. Mỗi tài khoản chỉ được nộp xác minh 1 vai trò duy nhất.`,
+        code: 'SINGLE_ROLE_VERIFICATION_ONLY',
+      });
+    }
+
     const { studentCardPhoto, university, studentCode, major, transport, bio } = req.body;
 
     if (!studentCode || !studentCode.trim()) {
@@ -421,6 +464,7 @@ router.post('/student-verification/submit', authenticate, async (req, res, next)
       {
         $set: {
           userId: req.user._id,
+          profileType: 'student',
           studentCardPhoto: studentCardPhoto || '',
           university: (university || 'Đại học FPT Hòa Lạc').trim(),
           studentCode: studentCode.trim().toUpperCase(),
@@ -471,6 +515,21 @@ router.post('/student-verification/submit', authenticate, async (req, res, next)
 router.get('/worker-verification/me', authenticate, async (req, res, next) => {
   try {
     const profile = await StudentProfile.findOne({ userId: req.user._id });
+    if (!profile || profile.profileType !== 'worker') {
+      return res.json({
+        status: 'draft',
+        verificationStatus: 'draft',
+        verified: false,
+        verifiedAt: null,
+        idCardNumber: '',
+        idCardFrontPhoto: '',
+        idCardBackPhoto: '',
+        profession: '',
+        transport: 'xe_may',
+        rejectionReason: '',
+        profileType: 'worker',
+      });
+    }
     res.json({
       status: profile?.verificationStatus || 'draft',
       verificationStatus: profile?.verificationStatus || 'draft',
@@ -482,7 +541,7 @@ router.get('/worker-verification/me', authenticate, async (req, res, next) => {
       profession: profile?.profession || '',
       transport: profile?.transport || 'xe_may',
       rejectionReason: profile?.rejectionReason || '',
-      profileType: profile?.profileType || 'worker',
+      profileType: 'worker',
     });
   } catch (err) {
     next(err);
@@ -492,6 +551,15 @@ router.get('/worker-verification/me', authenticate, async (req, res, next) => {
 // POST /api/profiles/worker-verification/submit (Lao động tự do nộp CCCD để Admin duyệt)
 router.post('/worker-verification/submit', authenticate, async (req, res, next) => {
   try {
+    const activeRole = await getExistingActiveVerificationRole(req.user._id);
+    if (activeRole && activeRole !== 'worker') {
+      const roleLabel = activeRole === 'student' ? 'Sinh viên' : 'Nhà tuyển dụng';
+      return res.status(400).json({
+        error: `Bạn đã nộp hồ sơ xác minh cho vai trò ${roleLabel}. Mỗi tài khoản chỉ được nộp xác minh 1 vai trò duy nhất.`,
+        code: 'SINGLE_ROLE_VERIFICATION_ONLY',
+      });
+    }
+
     const { idCardNumber, idCardFrontPhoto, idCardBackPhoto, profession, transport, bio, fullName, phone } = req.body;
 
     if (!idCardNumber || !idCardNumber.trim()) {
@@ -592,6 +660,15 @@ router.get('/employer-verification/me', authenticate, async (req, res, next) => 
 // POST /api/profiles/employer-verification/submit (NTD nộp hồ sơ xác minh để Admin duyệt)
 router.post('/employer-verification/submit', authenticate, async (req, res, next) => {
   try {
+    const activeRole = await getExistingActiveVerificationRole(req.user._id);
+    if (activeRole && activeRole !== 'employer') {
+      const roleLabel = activeRole === 'worker' ? 'Lao động tự do' : 'Sinh viên';
+      return res.status(400).json({
+        error: `Bạn đã nộp hồ sơ xác minh cho vai trò ${roleLabel}. Mỗi tài khoản chỉ được nộp xác minh 1 vai trò duy nhất.`,
+        code: 'SINGLE_ROLE_VERIFICATION_ONLY',
+      });
+    }
+
     const allowedRoles = ['pending', 'employer', 'admin'];
     if (!allowedRoles.includes(req.user.role) && req.user.status !== 'pending') {
       return res.status(403).json({

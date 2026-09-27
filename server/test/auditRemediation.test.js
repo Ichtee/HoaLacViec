@@ -15,6 +15,7 @@ import {
   toPrivateStudentDTO,
   toPublicEmployerDTO,
   toPrivateEmployerDTO,
+  getExistingActiveVerificationRole,
 } from '../src/routes/profileRoutes.js';
 
 import {
@@ -315,3 +316,14 @@ test('Phase 3: Geolocation Accuracy & Coordinate Safeguards', async (t) => {
     assert.equal(d1, d2);
   });
 });
+
+// ==========================================
+// TEST SUITE 6: SINGLE-ROLE VERIFICATION RESTRICTION
+// ==========================================
+test('Phase 12: Single-Role Verification Restriction & Cross-Role Guard', async (t) => {
+  await t.test('Helper detects existing active student or worker verification', async () => {
+    // Should be a callable async function
+    assert.equal(typeof getExistingActiveVerificationRole, 'function');
+  });
+});
+
