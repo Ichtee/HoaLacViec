@@ -501,12 +501,12 @@ export default function VerifyAccountPage() {
                   ? '✓ Đã duyệt'
                   : existingStudentVerification?.verificationStatus === 'rejected'
                   ? '✕ Bị từ chối'
-                  : 'Duyệt thẻ SV'}
+                  : 'Xác minh SV'}
               </span>
             </div>
             <h3 className="text-sm sm:text-base font-bold text-text-main">Tôi là Sinh viên</h3>
             <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-              Tải thẻ sinh viên hoặc học viên để kích hoạt tài khoản sinh viên Hòa Lạc.
+              Nhập mã sinh viên và trường học để kích hoạt tài khoản sinh viên Hòa Lạc.
             </p>
           </button>
 
@@ -544,12 +544,12 @@ export default function VerifyAccountPage() {
                   ? '✓ Đã duyệt'
                   : existingWorkerVerification?.verificationStatus === 'rejected'
                   ? '✕ Bị từ chối'
-                  : 'Duyệt CCCD'}
+                  : 'Xác minh CCCD'}
               </span>
             </div>
             <h3 className="text-sm sm:text-base font-bold text-text-main">Tôi là Lao động tự do</h3>
             <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-              Xác minh bằng CCCD để nhận ca làm part-time và chợ việc vặt sinh viên.
+              Nhập số Căn cước công dân để nhận ca làm part-time và việc vặt.
             </p>
           </button>
 
