@@ -569,7 +569,21 @@ router.post('/worker-verification/submit', authenticate, async (req, res, next) 
 router.get('/employer-verification/me', authenticate, async (req, res, next) => {
   try {
     const verification = await EmployerVerification.findOne({ employerUserId: req.user._id });
-    res.json(verification || { status: 'draft' });
+    if (verification) {
+      return res.json(verification);
+    }
+    const profile = await EmployerProfile.findOne({ userId: req.user._id });
+    if (profile) {
+      return res.json({
+        status: profile.verified ? 'approved' : 'pending',
+        verified: Boolean(profile.verified),
+        storeName: profile.storeName,
+        legalName: profile.contactName,
+        businessAddress: profile.address,
+        contactPhone: profile.contactPhone,
+      });
+    }
+    res.json({ status: 'draft' });
   } catch (err) {
     next(err);
   }

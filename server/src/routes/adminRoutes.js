@@ -251,7 +251,14 @@ router.get('/verifications', async (req, res) => {
         .populate('employerUserId', 'name email phone avatar')
         .sort({ createdAt: -1 });
 
+      const seenEmployerUserIds = new Set();
+
       for (const ev of employerVerifications) {
+        if (ev.employerUserId?._id) {
+          seenEmployerUserIds.add(String(ev.employerUserId._id));
+        } else if (ev.employerUserId) {
+          seenEmployerUserIds.add(String(ev.employerUserId));
+        }
         results.push({
           _id: ev._id,
           id: ev._id,
@@ -264,6 +271,7 @@ router.get('/verifications', async (req, res) => {
           contactPhone: ev.contactPhone,
           documents: ev.documents,
           status: ev.status,
+          verified: ev.status === 'approved',
           rejectionReason: ev.rejectionReason,
           reviewedBy: ev.reviewedBy,
           reviewedAt: ev.reviewedAt,
@@ -272,25 +280,35 @@ router.get('/verifications', async (req, res) => {
         });
       }
 
-      // Fallback: If no EmployerVerification records exist yet, also check unverified EmployerProfiles
-      if (employerVerifications.length === 0 && (!statusFilter || statusFilter === 'pending')) {
-        const stores = await EmployerProfile.find({ verified: false }).populate('userId', 'name email phone avatar');
-        for (const st of stores) {
-          results.push({
-            _id: st._id,
-            id: st._id,
-            verificationType: 'employer',
-            storeName: st.storeName,
-            legalName: st.contactName,
-            businessAddress: st.address,
-            contactPhone: st.contactPhone,
-            documents: [],
-            status: 'pending',
-            rejectionReason: '',
-            createdAt: st.createdAt,
-            user: st.userId,
-          });
+      // Check EmployerProfiles that don't have an EmployerVerification record yet
+      const storeFilter = {};
+      if (statusFilter === 'approved') {
+        storeFilter.verified = true;
+      } else if (statusFilter === 'pending') {
+        storeFilter.verified = false;
+      }
+      const stores = await EmployerProfile.find(storeFilter).populate('userId', 'name email phone avatar');
+      for (const st of stores) {
+        const uId = st.userId?._id ? String(st.userId._id) : String(st.userId || '');
+        if (uId && seenEmployerUserIds.has(uId)) {
+          // Already included from EmployerVerification
+          continue;
         }
+        results.push({
+          _id: st._id,
+          id: st._id,
+          verificationType: 'employer',
+          storeName: st.storeName,
+          legalName: st.contactName,
+          businessAddress: st.address,
+          contactPhone: st.contactPhone,
+          documents: [],
+          status: st.verified ? 'approved' : 'pending',
+          verified: Boolean(st.verified),
+          rejectionReason: '',
+          createdAt: st.createdAt,
+          user: st.userId,
+        });
       }
     }
 
@@ -409,7 +427,15 @@ router.post('/verifications/:id/approve', async (req, res) => {
       // Update employer profile
       await EmployerProfile.findOneAndUpdate(
         { userId: verification.employerUserId },
-        { verified: true, verifiedAt: new Date() }
+        {
+          verified: true,
+          verifiedAt: new Date(),
+          storeName: verification.storeName,
+          address: verification.businessAddress,
+          contactPhone: verification.contactPhone,
+          contactName: verification.legalName,
+        },
+        { upsert: true }
       );
 
       // Activate user account
@@ -418,7 +444,12 @@ router.post('/verifications/:id/approve', async (req, res) => {
         status: 'active',
       });
 
-      return res.json({ message: 'Đã duyệt xác minh doanh nghiệp thành công!', verification });
+      return res.json({
+        message: 'Đã duyệt xác minh doanh nghiệp thành công!',
+        verification,
+        verified: true,
+        status: 'approved',
+      });
     }
 
     // 3. Fallback if ID is an EmployerProfile
@@ -431,7 +462,16 @@ router.post('/verifications/:id/approve', async (req, res) => {
 
     await EmployerVerification.findOneAndUpdate(
       { employerUserId: store.userId },
-      { status: 'approved', reviewedBy: req.user._id, reviewedAt: new Date() },
+      {
+        employerUserId: store.userId,
+        storeName: store.storeName || 'Cửa hàng',
+        legalName: store.contactName || store.storeName || 'Đại diện',
+        businessAddress: store.address || 'Hòa Lạc',
+        contactPhone: store.contactPhone || '',
+        status: 'approved',
+        reviewedBy: req.user._id,
+        reviewedAt: new Date(),
+      },
       { upsert: true }
     );
 
@@ -441,7 +481,12 @@ router.post('/verifications/:id/approve', async (req, res) => {
       status: 'active',
     });
 
-    res.json(store);
+    res.json({
+      message: 'Đã duyệt xác minh doanh nghiệp thành công!',
+      store,
+      verified: true,
+      status: 'approved',
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -481,7 +526,12 @@ router.post('/verifications/:id/reject', async (req, res) => {
         { verified: false }
       );
 
-      return res.json({ message: 'Đã từ chối xác minh doanh nghiệp', verification });
+      return res.json({
+        message: 'Đã từ chối xác minh doanh nghiệp',
+        verification,
+        verified: false,
+        status: 'rejected',
+      });
     }
 
     // 3. Fallback if ID is an EmployerProfile
@@ -492,7 +542,28 @@ router.post('/verifications/:id/reject', async (req, res) => {
     );
     if (!store) return res.status(404).json({ error: 'Không tìm thấy hồ sơ' });
 
-    res.json(store);
+    await EmployerVerification.findOneAndUpdate(
+      { employerUserId: store.userId },
+      {
+        employerUserId: store.userId,
+        storeName: store.storeName || 'Cửa hàng',
+        legalName: store.contactName || store.storeName || 'Đại diện',
+        businessAddress: store.address || 'Hòa Lạc',
+        contactPhone: store.contactPhone || '',
+        status: 'rejected',
+        rejectionReason: defaultReason,
+        reviewedBy: req.user._id,
+        reviewedAt: new Date(),
+      },
+      { upsert: true }
+    );
+
+    res.json({
+      message: 'Đã từ chối xác minh doanh nghiệp',
+      store,
+      verified: false,
+      status: 'rejected',
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

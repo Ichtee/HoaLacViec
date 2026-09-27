@@ -106,7 +106,7 @@ export default function AdminVerificationPage() {
       // Status match
       const isApproved = req.status === 'approved' || req.verified === true;
       const isRejected = req.status === 'rejected';
-      const isPending = req.status === 'pending' || (!req.verified && !isRejected);
+      const isPending = !isApproved && !isRejected;
 
       if (statusFilter === 'pending' && !isPending) return false;
       if (statusFilter === 'approved' && !isApproved) return false;
@@ -153,7 +153,9 @@ export default function AdminVerificationPage() {
       else if (isS) student++;
       else employer++;
 
-      const isPend = r.status === 'pending' || (!r.verified && r.status !== 'rejected');
+      const isAppr = r.status === 'approved' || r.verified === true;
+      const isRej = r.status === 'rejected';
+      const isPend = !isAppr && !isRej;
       if (isPend) pending++;
     });
 
@@ -297,8 +299,8 @@ export default function AdminVerificationPage() {
             const targetType = isWorker ? 'worker' : isStudent ? 'student' : 'employer';
 
             const isApproved = req.status === 'approved' || req.verified === true;
-            const isPending = req.status === 'pending' || (!req.verified && req.status !== 'rejected');
             const isRejected = req.status === 'rejected';
+            const isPending = !isApproved && !isRejected;
 
             return (
               <div
