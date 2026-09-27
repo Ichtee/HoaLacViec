@@ -26,6 +26,7 @@ import NotFoundPage from '@/pages/public/NotFoundPage.jsx';
 import BlogListPage from '@/pages/public/BlogListPage.jsx';
 import BlogDetailPage from '@/pages/public/BlogDetailPage.jsx';
 import MicroTasksPage from '@/pages/public/MicroTasksPage.jsx';
+import CreateMicroTaskPage from '@/pages/public/CreateMicroTaskPage.jsx';
 import VerifyAccountPage from '@/pages/public/VerifyAccountPage.jsx';
 
 // Student Pages
@@ -79,6 +80,14 @@ export default function App() {
             <Route path="/jobs" element={<JobListPage />} />
             <Route path="/jobs/:id" element={<JobDetailPage />} />
             <Route path="/tasks" element={<MicroTasksPage />} />
+            <Route
+              path="/tasks/create"
+              element={
+                <RequireAuth>
+                  <CreateMicroTaskPage />
+                </RequireAuth>
+              }
+            />
             <Route path="/blogs" element={<BlogListPage />} />
             <Route path="/blogs/:id" element={<BlogDetailPage />} />
             <Route
@@ -123,6 +132,7 @@ export default function App() {
             <Route path="jobs" element={<JobListPage />} />
             <Route path="jobs/:id" element={<JobDetailPage />} />
             <Route path="tasks" element={<MicroTasksPage />} />
+            <Route path="tasks/create" element={<CreateMicroTaskPage />} />
             <Route path="saved" element={<SavedJobsPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="shifts" element={<StudentShiftsPage />} />
