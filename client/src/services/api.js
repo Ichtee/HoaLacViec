@@ -16,6 +16,23 @@ function getAuthHeaders() {
   };
 }
 
+export function buildQueryString(params = {}) {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== '' &&
+      value !== 'undefined' &&
+      value !== 'null'
+    ) {
+      searchParams.set(key, String(value));
+    }
+  }
+  const str = searchParams.toString();
+  return str ? `?${str}` : '';
+}
+
 async function request(endpoint, options = {}) {
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -98,8 +115,7 @@ export async function apiChangePassword(passwordData) {
 
 // ─── JOBS ─────────────────────────────────────────────────────────
 export async function apiGetJobs(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  const data = await request(`/jobs${query ? `?${query}` : ''}`);
+  const data = await request(`/jobs${buildQueryString(params)}`);
   return data.jobs || data;
 }
 
@@ -137,8 +153,7 @@ export async function apiGeocodeAddress(address) {
 }
 
 export async function apiGetEmployerMyJobs(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/jobs/employer/my-jobs${query ? `?${query}` : ''}`);
+  return request(`/jobs/employer/my-jobs${buildQueryString(params)}`);
 }
 
 export async function apiSubmitJobForReview(id) {
@@ -188,8 +203,7 @@ export async function apiApply(studentId, jobId, note, candidateData = {}) {
 }
 
 export async function apiGetApplications(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/applications${query ? `?${query}` : ''}`);
+  return request(`/applications${buildQueryString(params)}`);
 }
 
 export async function apiUpdateApplication(id, updates) {
@@ -207,8 +221,7 @@ export async function apiWithdrawApplication(id) {
 
 // ─── SHIFTS ───────────────────────────────────────────────────────
 export async function apiGetShifts(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/shifts${query ? `?${query}` : ''}`);
+  return request(`/shifts${buildQueryString(params)}`);
 }
 
 export async function apiCreateShift(shiftData) {
@@ -245,8 +258,7 @@ export async function apiDisputeShift(shiftId, reason) {
 
 // ─── MICRO-TASKS (VIỆC VẶT SINH VIÊN) ─────────────────────────────
 export async function apiGetTasks(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/tasks${query ? `?${query}` : ''}`);
+  return request(`/tasks${buildQueryString(params)}`);
 }
 
 export async function apiGetTask(id) {
@@ -298,8 +310,7 @@ export async function apiDeleteTask(id) {
 
 // ─── BLOGS ────────────────────────────────────────────────────────
 export async function apiGetBlogs(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/blogs${query ? `?${query}` : ''}`);
+  return request(`/blogs${buildQueryString(params)}`);
 }
 
 export async function apiGetBlog(idOrSlug) {
@@ -437,8 +448,7 @@ export async function apiAdminUpdateUserRole(userId, role) {
 }
 
 export async function apiAdminGetJobs(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/admin/jobs${query ? `?${query}` : ''}`);
+  return request(`/admin/jobs${buildQueryString(params)}`);
 }
 
 export async function apiApproveJob(id) {
@@ -462,8 +472,7 @@ export async function apiAdminUpdateJob(id, data) {
 }
 
 export async function apiGetVerificationRequests(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/admin/verifications${query ? `?${query}` : ''}`);
+  return request(`/admin/verifications${buildQueryString(params)}`);
 }
 
 export async function apiApproveVerification(id) {
@@ -492,8 +501,7 @@ export async function apiSubmitEmployerVerification(verificationData) {
 
 // ─── REVIEWS ──────────────────────────────────────────────────────
 export async function apiGetReviews(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/reviews${query ? `?${query}` : ''}`);
+  return request(`/reviews${buildQueryString(params)}`);
 }
 
 export async function apiCreateReview(reviewData) {
@@ -526,8 +534,7 @@ export async function apiToggleSaveJob(jobId) {
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────
 export async function apiGetNotifications(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/notifications${query ? `?${query}` : ''}`);
+  return request(`/notifications${buildQueryString(params)}`);
 }
 
 export async function apiGetUnreadNotificationCount() {
@@ -548,8 +555,7 @@ export async function apiDeleteNotification(id) {
 
 // ─── REPORTS ──────────────────────────────────────────────────────
 export async function apiGetReports(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return request(`/reports${query ? `?${query}` : ''}`);
+  return request(`/reports${buildQueryString(params)}`);
 }
 
 export async function apiCreateReport(reportData) {

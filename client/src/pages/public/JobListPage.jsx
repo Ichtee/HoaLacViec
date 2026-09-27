@@ -83,17 +83,21 @@ export default function JobListPage() {
   const dSearch = useDebounce(search, 350);
 
   const { data: jobData, loading, error, run } = useAsync(
-    () => getJobs({
-      public: true,
-      search: dSearch,
-      type,
-      area,
-      verified: verifiedOnly || undefined,
-      featured: featuredOnly ? 'true' : undefined,
-      minSalary: minSalary || undefined,
-      limit: 100,
-      sort: sort !== 'nearest' ? sort : undefined,
-    }),
+    () => {
+      const queryParams = {
+        public: true,
+        limit: 100,
+      };
+      if (dSearch) queryParams.search = dSearch;
+      if (type) queryParams.type = type;
+      if (area) queryParams.area = area;
+      if (verifiedOnly) queryParams.verified = 'true';
+      if (featuredOnly) queryParams.featured = 'true';
+      if (minSalary && Number(minSalary) > 0) queryParams.minSalary = minSalary;
+      if (sort && sort !== 'nearest') queryParams.sort = sort;
+
+      return getJobs(queryParams);
+    },
     [dSearch, type, area, verifiedOnly, featuredOnly, minSalary, sort],
     { initialData: [] }
   );

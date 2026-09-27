@@ -192,13 +192,18 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
     const validTypes = new Set(['part_time', 'shift', 'hourly', 'event']);
     const validSorts = new Set(['newest', 'oldest', 'salary_desc', 'salary_asc', 'featured', 'rating', 'nearest', 'match']);
 
-    if (type && !validTypes.has(type)) {
+    const cleanType = (type && type !== 'undefined' && type !== 'null') ? String(type).trim() : null;
+    const cleanArea = (area && area !== 'undefined' && area !== 'null') ? String(area).trim() : null;
+    const cleanSort = (sort && sort !== 'undefined' && sort !== 'null') ? String(sort).trim() : null;
+    const cleanMinSalary = (minSalary !== undefined && minSalary !== null && minSalary !== '' && minSalary !== 'undefined' && minSalary !== 'null') ? minSalary : null;
+
+    if (cleanType && !validTypes.has(cleanType)) {
       return res.status(400).json({ error: 'Hình thức việc làm không hợp lệ.', code: 'INVALID_JOB_TYPE' });
     }
-    if (area && (typeof area !== 'string' || area.trim().length > 64)) {
+    if (cleanArea && cleanArea.length > 64) {
       return res.status(400).json({ error: 'Khu vực không hợp lệ.', code: 'INVALID_AREA' });
     }
-    if (sort && !validSorts.has(sort)) {
+    if (cleanSort && !validSorts.has(cleanSort)) {
       return res.status(400).json({ error: 'Kiểu sắp xếp không hợp lệ.', code: 'INVALID_SORT' });
     }
 
@@ -226,8 +231,8 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
     }
 
     // Type and Area filters
-    if (type) andConditions.push({ type });
-    if (area) andConditions.push({ area });
+    if (cleanType) andConditions.push({ type: cleanType });
+    if (cleanArea) andConditions.push({ area: cleanArea });
 
     // Featured filter
     if (featured === 'true') {
@@ -235,8 +240,8 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
     }
 
     // Minimum salary filter
-    if (minSalary !== undefined && minSalary !== '') {
-      const salaryFloor = Number(minSalary);
+    if (cleanMinSalary) {
+      const salaryFloor = Number(cleanMinSalary);
       if (!Number.isFinite(salaryFloor) || salaryFloor < 0 || salaryFloor > 100000000) {
         return res.status(400).json({ error: 'Mức lương tối thiểu không hợp lệ.', code: 'INVALID_MIN_SALARY' });
       }
@@ -281,13 +286,13 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
 
     // Sorting
     let sortObj = { createdAt: -1 };
-    if (sort === 'oldest') {
+    if (cleanSort === 'oldest') {
       sortObj = { createdAt: 1 };
-    } else if (sort === 'salary_desc') {
+    } else if (cleanSort === 'salary_desc') {
       sortObj = { salaryAmount: -1, createdAt: -1 };
-    } else if (sort === 'salary_asc') {
+    } else if (cleanSort === 'salary_asc') {
       sortObj = { salaryAmount: 1, createdAt: -1 };
-    } else if (sort === 'featured' || featured === 'true') {
+    } else if (cleanSort === 'featured' || featured === 'true') {
       sortObj = { featured: -1, createdAt: -1 };
     }
 
