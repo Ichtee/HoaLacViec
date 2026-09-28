@@ -36,6 +36,8 @@ export {
   apiCheckOut as checkOut,
   apiApproveAttendance as approveAttendance,
   apiDisputeShift as disputeShift,
+  apiDeleteShift as deleteShift,
+  apiCancelShift as cancelShift,
   apiGetTasks as getTasks,
   apiGetTask as getTask,
   apiCreateTask as createTask,

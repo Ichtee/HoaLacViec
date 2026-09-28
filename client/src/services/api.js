@@ -258,6 +258,17 @@ export async function apiDisputeShift(shiftId, reason) {
   });
 }
 
+export async function apiDeleteShift(shiftId) {
+  return request(`/shifts/${shiftId}`, { method: 'DELETE' });
+}
+
+export async function apiCancelShift(shiftId, reason = '') {
+  return request(`/shifts/${shiftId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
 // ─── MICRO-TASKS (VIỆC VẶT SINH VIÊN) ─────────────────────────────
 export async function apiGetTasks(params = {}) {
   return request(`/tasks${buildQueryString(params)}`);
