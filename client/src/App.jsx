@@ -43,6 +43,7 @@ import StoreProfilePage from '@/pages/employer/StoreProfilePage.jsx';
 import EmployerJobsPage from '@/pages/employer/EmployerJobsPage.jsx';
 import EmployerJobFormPage from '@/pages/employer/EmployerJobFormPage.jsx';
 import EmployerApplicationsPage from '@/pages/employer/EmployerApplicationsPage.jsx';
+import EmployerEmployeesPage from '@/pages/employer/EmployerEmployeesPage.jsx';
 import EmployerShiftsPage from '@/pages/employer/EmployerShiftsPage.jsx';
 
 // Admin Pages
@@ -157,6 +158,7 @@ export default function App() {
           <Route path="jobs/create" element={<EmployerJobFormPage />} />
           <Route path="jobs/:id/edit" element={<EmployerJobFormPage />} />
           <Route path="applications" element={<EmployerApplicationsPage />} />
+          <Route path="employees" element={<EmployerEmployeesPage />} />
           <Route path="shifts" element={<EmployerShiftsPage />} />
         </Route>
 

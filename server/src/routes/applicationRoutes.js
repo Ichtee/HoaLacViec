@@ -13,16 +13,15 @@ router.use(authenticate);
 
 // State machine definition
 const VALID_TRANSITIONS = {
-  pending: ['reviewing', 'withdrawn'],
-  reviewing: ['shortlisted', 'interview', 'rejected', 'withdrawn'],
+  pending: ['reviewing', 'interview', 'hired', 'rejected', 'withdrawn'],
+  reviewing: ['shortlisted', 'interview', 'hired', 'rejected', 'withdrawn'],
   shortlisted: ['interview', 'hired', 'rejected', 'withdrawn'],
   interview: ['hired', 'rejected', 'withdrawn'],
-  // Terminal states (no transitions allowed)
-  hired: [],
-  rejected: [],
+  hired: ['rejected', 'reviewing'], // Cho phép kết thúc hợp đồng / chuyển trạng thái
+  rejected: ['reviewing', 'pending'], // Cho phép xem xét lại
   withdrawn: [],
-  accepted: [], // legacy alias for hired
-  approved: [], // legacy alias for hired
+  accepted: ['rejected', 'reviewing'], // legacy alias for hired
+  approved: ['rejected', 'reviewing'], // legacy alias for hired
 };
 
 function getStatusLabel(status) {

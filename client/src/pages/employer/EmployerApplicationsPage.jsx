@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Users, CheckCircle, XCircle, Clock, Eye, Calendar, Sparkles, MapPin,
   Building2, MessageSquare, ShieldCheck, Phone, MessageCircle, FileText,
-  UserCheck, AlertCircle
+  UserCheck, AlertCircle, ArrowRight
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -12,11 +13,10 @@ import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
 const PIPELINE_TABS = [
-  { id: 'all', label: 'Tất cả' },
+  { id: 'all', label: 'Tất cả ứng viên' },
   { id: 'pending', label: 'Mới nộp' },
   { id: 'reviewing', label: 'Đang xem xét' },
   { id: 'interview', label: 'Phỏng vấn' },
-  { id: 'hired', label: 'Trúng tuyển' },
   { id: 'rejected', label: 'Từ chối' },
 ];
 
@@ -73,6 +73,15 @@ export default function EmployerApplicationsPage() {
     }
   }
 
+  // Separate active candidates from hired staff
+  const candidates = useMemo(() => {
+    return applications.filter((a) => !['hired', 'accepted', 'approved'].includes(a.status));
+  }, [applications]);
+
+  const employees = useMemo(() => {
+    return applications.filter((a) => ['hired', 'accepted', 'approved'].includes(a.status));
+  }, [applications]);
+
   function openDetailModal(app) {
     setSelectedApp(app);
     setCandidateFeedback(app.candidateFeedback || app.employerNote || app.note || '');
@@ -96,10 +105,17 @@ export default function EmployerApplicationsPage() {
         prev.map((a) => ((a._id || a.id) === appId ? { ...a, ...updated, status: targetStatus, candidateFeedback, internalNote } : a))
       );
 
-      setToast({
-        type: 'success',
-        message: `Đã chuyển trạng thái ứng viên thành "${getStatusBadge(targetStatus).label}".`,
-      });
+      if (targetStatus === 'hired') {
+        setToast({
+          type: 'success',
+          message: `🎉 Đã duyệt ứng viên ${selectedApp.studentName} thành Nhân viên chính thức! Ứng viên đã được chuyển sang tab Nhân viên.`,
+        });
+      } else {
+        setToast({
+          type: 'success',
+          message: `Đã chuyển trạng thái ứng viên thành "${getStatusBadge(targetStatus).label}".`,
+        });
+      }
       setSelectedApp(null);
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi cập nhật trạng thái đơn.' });
@@ -108,11 +124,10 @@ export default function EmployerApplicationsPage() {
     }
   }
 
-  const filtered = applications.filter((a) => {
+  const filtered = candidates.filter((a) => {
     if (activeTab === 'pending') return a.status === 'pending' || !a.status;
     if (activeTab === 'reviewing') return a.status === 'reviewing' || a.status === 'shortlisted';
     if (activeTab === 'interview') return a.status === 'interview';
-    if (activeTab === 'hired') return a.status === 'hired' || a.status === 'approved' || a.status === 'accepted';
     if (activeTab === 'rejected') return a.status === 'rejected';
     return true;
   });
@@ -121,6 +136,53 @@ export default function EmployerApplicationsPage() {
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
+      {/* TOP PRIMARY TABS: ỨNG VIÊN vs NHÂN VIÊN */}
+      <div className="flex items-center gap-2 border-b border-gray-200 pb-3">
+        <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold bg-pink-main text-white shadow-sm">
+          <Users className="w-4 h-4" />
+          <span>Ứng viên tuyển dụng</span>
+          <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-black">
+            {candidates.length}
+          </span>
+        </div>
+
+        <Link
+          to="/employer/employees"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all text-gray-500 hover:text-gray-900 hover:bg-gray-100"
+        >
+          <UserCheck className="w-4 h-4" />
+          <span>Nhân viên chính thức</span>
+          <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 text-[10px] font-black">
+            {employees.length}
+          </span>
+        </Link>
+      </div>
+
+      {/* EMPLOYEES BANNER NOTIFICATION */}
+      {employees.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+              ✓
+            </div>
+            <div>
+              <p className="text-xs font-bold text-emerald-950">
+                Quán đang có <span className="text-emerald-700 font-black">{employees.length} nhân viên chính thức</span> (đã duyệt trúng tuyển)
+              </p>
+              <p className="text-[11px] text-emerald-700 mt-0.5">
+                Các ứng viên trúng tuyển đã được chuyển vào <strong>Tab Nhân viên</strong> để quản lý danh sách và phân ca làm.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/employer/employees"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors shrink-0 self-start sm:self-auto"
+          >
+            Đến tab Nhân viên ({employees.length}) <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -128,19 +190,18 @@ export default function EmployerApplicationsPage() {
             <Users className="w-6 h-6 text-green-dark" /> Quản lý ứng viên tuyển dụng
           </h1>
           <p className="text-xs text-text-muted mt-1">
-            Quy trình tuyển dụng chuyên nghiệp: Tiếp nhận hồ sơ ➔ Xem xét ➔ Phỏng vấn ➔ Tiếp nhận trúng tuyển.
+            Quy trình tuyển dụng: Tiếp nhận hồ sơ ➔ Xem xét ➔ Mời phỏng vấn ➔ Duyệt trúng tuyển thành nhân viên.
           </p>
         </div>
 
         {/* Pipeline Tabs */}
         <div className="flex items-center gap-1 p-1.5 bg-cream/80 rounded-2xl border border-green-50 overflow-x-auto max-w-full">
           {PIPELINE_TABS.map((tab) => {
-            const count = applications.filter((a) => {
+            const count = candidates.filter((a) => {
               if (tab.id === 'all') return true;
               if (tab.id === 'pending') return a.status === 'pending' || !a.status;
               if (tab.id === 'reviewing') return a.status === 'reviewing' || a.status === 'shortlisted';
               if (tab.id === 'interview') return a.status === 'interview';
-              if (tab.id === 'hired') return a.status === 'hired' || a.status === 'approved' || a.status === 'accepted';
               if (tab.id === 'rejected') return a.status === 'rejected';
               return false;
             }).length;
@@ -150,7 +211,7 @@ export default function EmployerApplicationsPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={clsx(
-                  'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5',
+                  'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer',
                   activeTab === tab.id
                     ? 'bg-white text-green-dark shadow-sm'
                     : 'text-text-muted hover:text-text-main'
@@ -171,7 +232,7 @@ export default function EmployerApplicationsPage() {
         </div>
       </div>
 
-      {/* List */}
+      {/* Candidate List */}
       {loading ? (
         <div className="text-center py-12 text-text-muted">Đang tải danh sách ứng viên...</div>
       ) : filtered.length === 0 ? (
@@ -179,7 +240,7 @@ export default function EmployerApplicationsPage() {
           <Users className="w-12 h-12 text-text-muted mx-auto opacity-40" />
           <h3 className="text-base font-bold text-text-main">Không có ứng viên trong giai đoạn này</h3>
           <p className="text-xs text-text-muted">
-            Khi sinh viên nộp đơn ứng tuyển, thông tin hồ sơ sẽ tự động xuất hiện tại đây.
+            Khi sinh viên nộp đơn ứng tuyển, hồ sơ sẽ xuất hiện tại đây để bạn xét duyệt.
           </p>
         </div>
       ) : (
@@ -273,9 +334,9 @@ export default function EmployerApplicationsPage() {
 
                   <button
                     onClick={() => openDetailModal(app)}
-                    className="px-4 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                   >
-                    <UserCheck className="w-3.5 h-3.5" /> Quản lý ứng viên
+                    <UserCheck className="w-3.5 h-3.5" /> Xét duyệt hồ sơ
                   </button>
                 </div>
               </div>
@@ -289,7 +350,7 @@ export default function EmployerApplicationsPage() {
         <Modal
           isOpen={true}
           onClose={() => setSelectedApp(null)}
-          title={`Hồ sơ & Quy trình: ${selectedApp.studentName || 'Sinh viên'}`}
+          title={`Hồ sơ & Quy trình xét duyệt: ${selectedApp.studentName || 'Sinh viên'}`}
         >
           <div className="space-y-4 text-xs">
             {/* Candidate Summary */}
@@ -354,14 +415,14 @@ export default function EmployerApplicationsPage() {
 
             {/* Pipeline Stage Transitions */}
             <div className="pt-2 border-t border-green-50">
-              <p className="font-bold text-text-main mb-2">Chuyển giai đoạn tuyển dụng:</p>
+              <p className="font-bold text-text-main mb-2">Chuyển trạng thái tuyển dụng:</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   disabled={submitting}
                   onClick={() => handleStatusChange('reviewing')}
                   className={clsx(
-                    'px-3 py-2 rounded-xl text-xs font-semibold border transition-all',
+                    'px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer',
                     selectedApp.status === 'reviewing'
                       ? 'bg-blue-50 text-blue-700 border-blue-300 ring-2 ring-blue-200'
                       : 'bg-white hover:bg-blue-50 text-blue-600 border-blue-200'
@@ -375,7 +436,7 @@ export default function EmployerApplicationsPage() {
                   disabled={submitting}
                   onClick={() => handleStatusChange('interview')}
                   className={clsx(
-                    'px-3 py-2 rounded-xl text-xs font-semibold border transition-all',
+                    'px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer',
                     selectedApp.status === 'interview'
                       ? 'bg-purple-50 text-purple-700 border-purple-300 ring-2 ring-purple-200'
                       : 'bg-white hover:bg-purple-50 text-purple-600 border-purple-200'
@@ -388,16 +449,16 @@ export default function EmployerApplicationsPage() {
                   type="button"
                   disabled={submitting}
                   onClick={() => handleStatusChange('hired')}
-                  className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
+                  className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all flex items-center justify-center gap-1 cursor-pointer"
                 >
-                  Trúng tuyển 🎉
+                  <UserCheck className="w-3.5 h-3.5" /> Duyệt thành nhân viên 🎉
                 </button>
 
                 <button
                   type="button"
                   disabled={submitting}
                   onClick={() => handleStatusChange('rejected')}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-all"
+                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-all cursor-pointer"
                 >
                   Từ chối hồ sơ
                 </button>
