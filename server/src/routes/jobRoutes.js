@@ -6,6 +6,7 @@ import { Availability } from '../models/Availability.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Application } from '../models/Application.js';
 import { Shift } from '../models/Shift.js';
+import { Notification } from '../models/Notification.js';
 import { resolveGoogleMapInput } from '../utils/parseMapLink.js';
 import { vietmapAutocomplete } from '../services/vietmapService.js';
 import { authenticate, authorize, optionalAuthenticate } from '../middlewares/auth.js';
@@ -638,6 +639,26 @@ router.post('/:id/approve', authenticate, authorize('admin'), async (req, res, n
     job.rejectionReason = '';
     await job.save();
 
+    // Notify employer
+    let employerUserId = job.employerUserId;
+    if (!employerUserId && job.employerId) {
+      const empProf = await EmployerProfile.findById(job.employerId);
+      if (empProf) employerUserId = empProf.userId;
+    }
+    if (employerUserId) {
+      try {
+        await Notification.create({
+          userId: employerUserId,
+          title: 'Tin tuyển dụng đã được duyệt! 🎉',
+          message: `Tin tuyển dụng "${job.title}" của bạn đã được Quản trị viên phê duyệt và hiển thị công khai trên Hòa Lạc Việc.`,
+          type: 'job',
+          link: `/jobs/${job._id}`,
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send job approval notification:', notifErr.message);
+      }
+    }
+
     res.json({ message: 'Đã phê duyệt tin tuyển dụng thành công.', job });
   } catch (err) {
     next(err);
@@ -656,6 +677,26 @@ router.post('/:id/reject', authenticate, authorize('admin'), async (req, res, ne
     job.moderatedAt = new Date();
     job.rejectionReason = reason || 'Thông tin tin tuyển dụng chưa đáp ứng quy chuẩn.';
     await job.save();
+
+    // Notify employer
+    let employerUserId = job.employerUserId;
+    if (!employerUserId && job.employerId) {
+      const empProf = await EmployerProfile.findById(job.employerId);
+      if (empProf) employerUserId = empProf.userId;
+    }
+    if (employerUserId) {
+      try {
+        await Notification.create({
+          userId: employerUserId,
+          title: 'Tin tuyển dụng chưa được duyệt ⚠️',
+          message: `Tin tuyển dụng "${job.title}" chưa được phê duyệt: "${job.rejectionReason}". Vui lòng kiểm tra và cập nhật lại.`,
+          type: 'job',
+          link: '/employer/jobs',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send job rejection notification:', notifErr.message);
+      }
+    }
 
     res.json({ message: 'Đã từ chối tin tuyển dụng.', job });
   } catch (err) {

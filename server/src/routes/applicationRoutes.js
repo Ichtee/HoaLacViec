@@ -1,5 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import { User } from '../models/User.js';
 import { Application } from '../models/Application.js';
 import { Job } from '../models/Job.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
@@ -202,14 +203,24 @@ router.post('/', async (req, res, next) => {
       }],
     });
 
-    // Notify employer
-    const targetEmployerUser = job.employerUserId || job.employerId;
+    // Notify employer (resolve to User._id)
+    let targetEmployerUser = job.employerUserId;
+    if (!targetEmployerUser && job.employerId) {
+      const empUser = await User.findById(job.employerId);
+      if (empUser) {
+        targetEmployerUser = empUser._id;
+      } else {
+        const empProf = await EmployerProfile.findById(job.employerId);
+        if (empProf) targetEmployerUser = empProf.userId;
+      }
+    }
+
     if (targetEmployerUser) {
       try {
         await Notification.create({
           userId: targetEmployerUser,
           title: 'Ứng viên mới nộp đơn! 🎉',
-          message: `${finalName} vừa nộp đơn ứng tuyển vị trí "${job.title}".`,
+          message: `${finalName} vừa nộp đơn ứng tuyển vị trí "${job.title}"${finalPos ? ` (${finalPos})` : ''}.`,
           type: 'application',
           link: '/employer/applications',
         });
@@ -329,6 +340,9 @@ router.put('/:id', async (req, res, next) => {
         } else if (status === 'hired') {
           notifTitle = 'Chúc mừng! Bạn đã trúng tuyển 🎉';
           notifMsg = `Cửa hàng ${job.storeName || ''} đã tiếp nhận bạn vào làm việc cho vị trí "${job.title}".`;
+        } else if (status === 'shortlisted') {
+          notifTitle = 'Hồ sơ vào vòng sơ tuyển! ✨';
+          notifMsg = `Hồ sơ của bạn cho vị trí "${job.title}" tại ${job.storeName || 'quán'} đã đạt tiêu chuẩn vòng sơ loại.`;
         } else if (status === 'rejected') {
           notifTitle = 'Thông báo kết quả ứng tuyển';
           notifMsg = `Hồ sơ của bạn cho vị trí "${job.title}" tại ${job.storeName || 'quán'} chưa phù hợp ở thời điểm hiện tại.`;
@@ -380,6 +394,35 @@ router.put('/:id/withdraw', async (req, res, next) => {
       note: 'Sinh viên chủ động rút đơn ứng tuyển',
     });
     await application.save();
+
+    // Notify employer about withdrawal
+    try {
+      let targetEmployerUser = null;
+      const job = await Job.findById(application.jobId);
+      if (job) {
+        targetEmployerUser = job.employerUserId;
+        if (!targetEmployerUser && job.employerId) {
+          const empUser = await User.findById(job.employerId);
+          if (empUser) {
+            targetEmployerUser = empUser._id;
+          } else {
+            const empProf = await EmployerProfile.findById(job.employerId);
+            if (empProf) targetEmployerUser = empProf.userId;
+          }
+        }
+      }
+      if (targetEmployerUser) {
+        await Notification.create({
+          userId: targetEmployerUser,
+          title: 'Ứng viên đã rút đơn ứng tuyển',
+          message: `Ứng viên ${application.studentName || 'Một ứng viên'} đã rút đơn ứng tuyển vị trí "${job?.title || 'việc làm'}".`,
+          type: 'application',
+          link: '/employer/applications',
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to notify employer on application withdraw:', notifErr.message);
+    }
 
     res.json({ message: 'Rút đơn ứng tuyển thành công', application });
   } catch (err) {

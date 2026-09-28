@@ -13,6 +13,20 @@ const router = express.Router();
 
 router.use(authenticate);
 
+async function resolveEmployerUserId(shift) {
+  let employerTarget = shift.employerUserId;
+  if (!employerTarget && shift.employerId) {
+    const empUser = await User.findById(shift.employerId);
+    if (empUser) {
+      employerTarget = empUser._id;
+    } else {
+      const empProf = await EmployerProfile.findById(shift.employerId);
+      if (empProf) employerTarget = empProf.userId;
+    }
+  }
+  return employerTarget;
+}
+
 // GET /api/shifts
 router.get('/', async (req, res, next) => {
   try {
@@ -331,7 +345,7 @@ router.post('/:id/checkin', async (req, res, next) => {
 
     // Notify employer
     try {
-      const employerTarget = shift.employerUserId || shift.employerId;
+      const employerTarget = await resolveEmployerUserId(shift);
       if (employerTarget) {
         await Notification.create({
           userId: employerTarget,
@@ -450,6 +464,22 @@ router.post('/:id/checkout', async (req, res, next) => {
     });
 
     await shift.save();
+
+    // Notify employer
+    try {
+      const employerTarget = await resolveEmployerUserId(shift);
+      if (employerTarget) {
+        await Notification.create({
+          userId: employerTarget,
+          title: `Sinh viên ${shift.studentName || ''} đã check-out ra ca`,
+          message: `Ca ngày ${shift.date} (${shift.startTime} - ${shift.endTime}) đã hoàn thành (${workedMinutes} phút). Vui lòng kiểm tra và duyệt công.`,
+          type: 'shift',
+          link: '/employer/shifts',
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Shift checkout notification error:', notifErr.message);
+    }
 
     res.json({
       message: evaluation.message || 'Check-out ra ca thành công! Ca làm đã được gửi cho nhà tuyển dụng để duyệt công.',
@@ -622,6 +652,22 @@ router.post('/:id/reschedule', async (req, res, next) => {
 
     await shift.save();
 
+    // Notify student
+    try {
+      const studentTarget = shift.studentUserId || shift.studentId;
+      if (studentTarget) {
+        await Notification.create({
+          userId: studentTarget,
+          title: 'Thay đổi lịch ca làm việc 📅',
+          message: `Quán ${shift.storeName || ''} đã đổi lịch ca làm sang ngày ${date} (${startTime} - ${endTime}).`,
+          type: 'shift',
+          link: '/student/shifts',
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Shift reschedule notification error:', notifErr.message);
+    }
+
     res.json({ message: 'Đã đổi lịch ca làm thành công.', shift });
   } catch (err) {
     next(err);
@@ -657,6 +703,22 @@ router.post('/:id/cancel', async (req, res, next) => {
     });
 
     await shift.save();
+
+    // Notify student
+    try {
+      const studentTarget = shift.studentUserId || shift.studentId;
+      if (studentTarget) {
+        await Notification.create({
+          userId: studentTarget,
+          title: 'Ca làm việc đã bị hủy ⚠️',
+          message: `Ca làm ngày ${shift.date} (${shift.startTime} - ${shift.endTime}) tại quán ${shift.storeName || ''} đã bị hủy: "${reason || 'Nhà tuyển dụng điều chỉnh lịch'}".`,
+          type: 'shift',
+          link: '/student/shifts',
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Shift cancel notification error:', notifErr.message);
+    }
 
     res.json({ message: 'Đã hủy ca làm việc.', shift });
   } catch (err) {

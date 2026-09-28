@@ -5,6 +5,7 @@ import { EmployerProfile } from '../models/EmployerProfile.js';
 import { EmployerVerification } from '../models/EmployerVerification.js';
 import { StudentProfile } from '../models/StudentProfile.js';
 import { Application } from '../models/Application.js';
+import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 
 const router = express.Router();
@@ -189,6 +190,26 @@ router.post('/jobs/:id/approve', async (req, res) => {
       { new: true }
     );
     if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+
+    let employerUserId = job.employerUserId;
+    if (!employerUserId && (job.employerProfileId || job.employerId)) {
+      const profile = await EmployerProfile.findById(job.employerProfileId || job.employerId);
+      if (profile?.userId) employerUserId = profile.userId;
+    }
+    if (employerUserId) {
+      try {
+        await Notification.create({
+          userId: employerUserId,
+          title: 'Tin tuyển dụng đã được duyệt! 🎉',
+          message: `Tin tuyển dụng "${job.title}" của bạn đã được quản trị viên duyệt và hiển thị công khai.`,
+          type: 'job',
+          link: `/jobs/${job._id}`,
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send job approval notification:', notifErr.message);
+      }
+    }
+
     res.json({ message: 'Đã phê duyệt tin tuyển dụng', job });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -199,17 +220,38 @@ router.post('/jobs/:id/approve', async (req, res) => {
 router.post('/jobs/:id/reject', async (req, res) => {
   try {
     const { reason } = req.body;
+    const defaultReason = reason || 'Nội dung tin tuyển dụng chưa đáp ứng tiêu chuẩn cộng đồng.';
     const job = await Job.findByIdAndUpdate(
       req.params.id,
       {
         status: 'rejected',
         moderatedBy: req.user._id,
         moderatedAt: new Date(),
-        rejectionReason: reason || 'Nội dung tin tuyển dụng chưa đáp ứng tiêu chuẩn cộng đồng.',
+        rejectionReason: defaultReason,
       },
       { new: true }
     );
     if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+
+    let employerUserId = job.employerUserId;
+    if (!employerUserId && (job.employerProfileId || job.employerId)) {
+      const profile = await EmployerProfile.findById(job.employerProfileId || job.employerId);
+      if (profile?.userId) employerUserId = profile.userId;
+    }
+    if (employerUserId) {
+      try {
+        await Notification.create({
+          userId: employerUserId,
+          title: 'Tin tuyển dụng chưa được duyệt ⚠️',
+          message: `Tin tuyển dụng "${job.title}" chưa được phê duyệt: "${defaultReason}". Vui lòng kiểm tra và cập nhật lại.`,
+          type: 'job',
+          link: '/employer/jobs',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send job rejection notification:', notifErr.message);
+      }
+    }
+
     res.json({ message: 'Đã từ chối tin tuyển dụng', job });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -409,6 +451,20 @@ router.post('/verifications/:id/approve', async (req, res) => {
         status: 'active',
       });
 
+      try {
+        await Notification.create({
+          userId: studentProfile.userId,
+          title: isWorker ? 'Xác thực CCCD thành công! 🎉' : 'Xác thực thẻ sinh viên thành công! 🎉',
+          message: isWorker
+            ? 'Hồ sơ Căn cước công dân người lao động tự do của bạn đã được quản trị viên phê duyệt.'
+            : 'Hồ sơ thẻ sinh viên của bạn đã được quản trị viên phê duyệt. Bạn có thể sử dụng đầy đủ tính năng.',
+          type: 'verification',
+          link: '/student/profile',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send verification approval notification:', notifErr.message);
+      }
+
       return res.json({
         message: isWorker ? 'Đã duyệt Căn cước công dân người lao động tự do thành công!' : 'Đã duyệt thẻ sinh viên thành công!',
         profile: studentProfile
@@ -443,6 +499,18 @@ router.post('/verifications/:id/approve', async (req, res) => {
         role: 'employer',
         status: 'active',
       });
+
+      try {
+        await Notification.create({
+          userId: verification.employerUserId,
+          title: 'Xác minh doanh nghiệp thành công! 🎉',
+          message: `Hồ sơ xác minh doanh nghiệp "${verification.storeName || 'Cửa hàng'}" đã được quản trị viên phê duyệt.`,
+          type: 'verification',
+          link: '/employer/profile',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send employer verification approval notification:', notifErr.message);
+      }
 
       return res.json({
         message: 'Đã duyệt xác minh doanh nghiệp thành công!',
@@ -481,6 +549,18 @@ router.post('/verifications/:id/approve', async (req, res) => {
       status: 'active',
     });
 
+    try {
+      await Notification.create({
+        userId: store.userId,
+        title: 'Xác minh doanh nghiệp thành công! 🎉',
+        message: `Hồ sơ xác minh doanh nghiệp "${store.storeName || 'Cửa hàng'}" đã được quản trị viên phê duyệt.`,
+        type: 'verification',
+        link: '/employer/profile',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send employer verification approval notification:', notifErr.message);
+    }
+
     res.json({
       message: 'Đã duyệt xác minh doanh nghiệp thành công!',
       store,
@@ -508,6 +588,19 @@ router.post('/verifications/:id/reject', async (req, res) => {
       studentProfile.reviewedAt = new Date();
       await studentProfile.save();
 
+      const isWorker = studentProfile.profileType === 'worker' || (Boolean(studentProfile.idCardFrontPhoto || studentProfile.idCardNumber) && !studentProfile.studentCode);
+      try {
+        await Notification.create({
+          userId: studentProfile.userId,
+          title: isWorker ? 'Xác thực CCCD chưa được duyệt ⚠️' : 'Xác thực thẻ sinh viên chưa được duyệt ⚠️',
+          message: `Hồ sơ xác minh của bạn chưa được duyệt. Lý do: ${defaultReason}`,
+          type: 'verification',
+          link: '/verify-account',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send verification rejection notification:', notifErr.message);
+      }
+
       // Keep user status as pending so they can re-submit
       return res.json({ message: 'Đã từ chối thẻ sinh viên', profile: studentProfile });
     }
@@ -525,6 +618,18 @@ router.post('/verifications/:id/reject', async (req, res) => {
         { userId: verification.employerUserId },
         { verified: false }
       );
+
+      try {
+        await Notification.create({
+          userId: verification.employerUserId,
+          title: 'Xác minh doanh nghiệp chưa được duyệt ⚠️',
+          message: `Hồ sơ xác minh doanh nghiệp "${verification.storeName || 'Cửa hàng'}" chưa được duyệt. Lý do: ${defaultReason}`,
+          type: 'verification',
+          link: '/verify-account',
+        });
+      } catch (notifErr) {
+        console.warn('Failed to send employer verification rejection notification:', notifErr.message);
+      }
 
       return res.json({
         message: 'Đã từ chối xác minh doanh nghiệp',
@@ -557,6 +662,18 @@ router.post('/verifications/:id/reject', async (req, res) => {
       },
       { upsert: true }
     );
+
+    try {
+      await Notification.create({
+        userId: store.userId,
+        title: 'Xác minh doanh nghiệp chưa được duyệt ⚠️',
+        message: `Hồ sơ xác minh doanh nghiệp "${store.storeName || 'Cửa hàng'}" chưa được duyệt. Lý do: ${defaultReason}`,
+        type: 'verification',
+        link: '/verify-account',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to send employer verification rejection notification:', notifErr.message);
+    }
 
     res.json({
       message: 'Đã từ chối xác minh doanh nghiệp',
