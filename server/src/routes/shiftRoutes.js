@@ -301,24 +301,22 @@ router.post('/:id/checkin', async (req, res, next) => {
     }
 
     shift.status = 'checked_in';
-    shift.attendance = {
-      ...shift.attendance,
-      checkInAt: new Date(),
-      checkInCoords: {
-        lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
-        lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
-        accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
-        timestamp: timestamp ? new Date(timestamp) : new Date(),
-      },
-      checkInDistanceMeters: evaluation.distanceMeters,
-      checkInVerified: evaluation.verified,
-      checkInVerificationStatus: evaluation.status,
-      checkInReasonCode: evaluation.reasonCode,
-      checkInTargetCoords: evaluation.targetCoords,
-      checkInConfiguredRadius: evaluation.configuredRadius,
-      checkInManualReason: manualReason || null,
-      locationVerified: evaluation.verified,
+    if (!shift.attendance) shift.attendance = {};
+    shift.attendance.checkInAt = new Date();
+    shift.attendance.checkInCoords = {
+      lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
+      lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
+      accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+      timestamp: timestamp ? new Date(timestamp) : new Date(),
     };
+    shift.attendance.checkInDistanceMeters = evaluation.distanceMeters;
+    shift.attendance.checkInVerified = evaluation.verified;
+    shift.attendance.checkInVerificationStatus = evaluation.status;
+    shift.attendance.checkInReasonCode = evaluation.reasonCode;
+    shift.attendance.checkInTargetCoords = evaluation.targetCoords;
+    shift.attendance.checkInConfiguredRadius = evaluation.configuredRadius;
+    shift.attendance.checkInManualReason = manualReason || null;
+    shift.attendance.locationVerified = evaluation.verified;
 
     shift.history.push({
       status: 'checked_in',
@@ -428,23 +426,21 @@ router.post('/:id/checkout', async (req, res, next) => {
     shift.workedMinutes = workedMinutes;
     shift.totalPay = calculatedPay;
 
-    shift.attendance = {
-      ...shift.attendance,
-      checkOutAt: checkOutTime,
-      checkOutCoords: {
-        lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
-        lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
-        accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
-        timestamp: timestamp ? new Date(timestamp) : new Date(),
-      },
-      checkOutDistanceMeters: evaluation.distanceMeters,
-      checkOutVerified: evaluation.verified,
-      checkOutVerificationStatus: evaluation.status,
-      checkOutReasonCode: evaluation.reasonCode,
-      checkOutTargetCoords: evaluation.targetCoords,
-      checkOutConfiguredRadius: evaluation.configuredRadius,
-      checkOutManualReason: manualReason || null,
+    if (!shift.attendance) shift.attendance = {};
+    shift.attendance.checkOutAt = checkOutTime;
+    shift.attendance.checkOutCoords = {
+      lat: Number.isFinite(Number(lat)) ? Number(lat) : null,
+      lng: Number.isFinite(Number(lng)) ? Number(lng) : null,
+      accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+      timestamp: timestamp ? new Date(timestamp) : new Date(),
     };
+    shift.attendance.checkOutDistanceMeters = evaluation.distanceMeters;
+    shift.attendance.checkOutVerified = evaluation.verified;
+    shift.attendance.checkOutVerificationStatus = evaluation.status;
+    shift.attendance.checkOutReasonCode = evaluation.reasonCode;
+    shift.attendance.checkOutTargetCoords = evaluation.targetCoords;
+    shift.attendance.checkOutConfiguredRadius = evaluation.configuredRadius;
+    shift.attendance.checkOutManualReason = manualReason || null;
 
     shift.history.push({
       status: 'pending_approval',
