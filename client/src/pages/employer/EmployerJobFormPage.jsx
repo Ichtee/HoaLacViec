@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Briefcase, ArrowLeft, MapPin, DollarSign,
   Phone, CheckCircle2, AlertCircle, Save,
-  Building2, ExternalLink
+  Building2, ExternalLink, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
@@ -38,6 +38,7 @@ export default function EmployerJobFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [employerPhone, setEmployerPhone] = useState(user?.phone || '');
+  const [visiblePositionsCount, setVisiblePositionsCount] = useState(5);
 
   // Dynamic Provinces, Districts, Wards from open-api.vn
   const [provinces, setProvinces] = useState([]);
@@ -352,6 +353,19 @@ export default function EmployerJobFormPage() {
     });
   }
 
+  const totalPositions = (formData.positions || []).length;
+  const displayedPositions = (formData.positions || []).slice(0, visiblePositionsCount);
+  const remainingPositionsCount = Math.max(0, totalPositions - visiblePositionsCount);
+  const nextBatchCount = Math.min(5, remainingPositionsCount);
+
+  function handleShowMorePositions() {
+    setVisiblePositionsCount(prev => prev + Math.min(5, totalPositions - prev));
+  }
+
+  function handleCollapsePositions() {
+    setVisiblePositionsCount(5);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     try {
@@ -360,6 +374,9 @@ export default function EmployerJobFormPage() {
       // Validate positions
       const emptyPosIndex = (formData.positions || []).findIndex(p => !p.title || !p.title.trim());
       if (emptyPosIndex !== -1) {
+        if (visiblePositionsCount <= emptyPosIndex) {
+          setVisiblePositionsCount(Math.ceil((emptyPosIndex + 1) / 5) * 5);
+        }
         setToast({
           type: 'error',
           message: `Vui lòng nhập tên vị trí cho ứng viên thứ ${emptyPosIndex + 1}.`,
@@ -638,12 +655,12 @@ export default function EmployerJobFormPage() {
             </div>
           </div>
 
-          {/* Auto-rendered rows */}
+          {/* Auto-rendered rows (hiển thị tối đa 5 vị trí ban đầu, có nút Xem thêm) */}
           <div className="space-y-3 pt-2">
-            {(formData.positions || []).map((pos, idx) => (
+            {displayedPositions.map((pos, idx) => (
               <div
                 key={idx}
-                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-pink-50/30 p-3 rounded-2xl border border-pink-100 hover:border-pink-200 transition-all"
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-pink-50/30 p-3 rounded-2xl border border-pink-100 hover:border-pink-200 transition-all animate-scale-in"
               >
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs font-bold text-pink-700 bg-pink-200/80 w-7 h-7 rounded-xl flex items-center justify-center">
@@ -680,6 +697,37 @@ export default function EmployerJobFormPage() {
                 </div>
               </div>
             ))}
+
+            {/* Nút Xem thêm khi tổng số ứng viên > 5 */}
+            {totalPositions > 5 && (
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-pink-100/60 mt-3">
+                <span className="text-xs text-gray-500 font-medium">
+                  Đang hiển thị <strong className="text-pink-600 font-bold">{displayedPositions.length}</strong> / {totalPositions} vị trí ứng viên
+                </span>
+
+                <div className="flex items-center gap-2">
+                  {remainingPositionsCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleShowMorePositions}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-pink-100 hover:bg-pink-200 text-pink-800 font-bold text-xs transition-colors shadow-xs"
+                    >
+                      <ChevronDown className="w-4 h-4 text-pink-600" />
+                      Xem thêm ({nextBatchCount === remainingPositionsCount ? `còn lại ${remainingPositionsCount} vị trí` : `thêm ${nextBatchCount} vị trí`})
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCollapsePositions}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition-colors"
+                    >
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                      Thu gọn (chỉ hiển thị 5 vị trí)
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

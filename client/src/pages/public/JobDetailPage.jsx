@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   MapPin, Clock, DollarSign, Users, Star, CheckCircle, Shield,
   Bookmark, BookmarkCheck, Send, ArrowLeft, Bus, AlertTriangle, Calendar, Navigation, ExternalLink,
-  Phone, MessageCircle, Flag, Search, AlertCircle, Briefcase
+  Phone, MessageCircle, Flag, Search, AlertCircle, Briefcase, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
 import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport, updateUserProfile } from '@/services';
@@ -33,6 +33,7 @@ export default function JobDetailPage() {
   const [applyError, setApplyError] = useState('');
   const [applySuccess, setApplySuccess] = useState(false);
   const [matchResult, setMatchResult] = useState(null);
+  const [visiblePositionsCount, setVisiblePositionsCount] = useState(5);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState('Lừa đảo / Yêu cầu đặt cọc phí');
@@ -251,12 +252,17 @@ export default function JobDetailPage() {
           {/* Positions & Shifts */}
           {job.positions?.length > 0 && (
             <div className="card space-y-3">
-              <h2 className="section-title flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-green-main" /> Vị trí tuyển dụng & Ca làm việc
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="section-title flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-green-main" /> Vị trí tuyển dụng & Ca làm việc
+                </h2>
+                <span className="text-xs text-text-muted font-medium">
+                  {job.positions.length} vị trí
+                </span>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {job.positions.map((pos, pIdx) => (
-                  <div key={pIdx} className="p-3.5 rounded-2xl bg-cream/70 border border-green-100 flex items-center justify-between gap-3">
+                {job.positions.slice(0, visiblePositionsCount).map((pos, pIdx) => (
+                  <div key={pIdx} className="p-3.5 rounded-2xl bg-cream/70 border border-green-100 flex items-center justify-between gap-3 animate-scale-in">
                     <div>
                       <h4 className="font-bold text-sm text-text-main">{pos.title}</h4>
                       <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1 font-medium">
@@ -269,6 +275,30 @@ export default function JobDetailPage() {
                   </div>
                 ))}
               </div>
+
+              {job.positions.length > 5 && (
+                <div className="pt-2 flex items-center justify-center">
+                  {visiblePositionsCount < job.positions.length ? (
+                    <button
+                      type="button"
+                      onClick={() => setVisiblePositionsCount(prev => prev + Math.min(5, job.positions.length - prev))}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold text-xs transition-colors shadow-xs"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                      Xem thêm ({Math.min(5, job.positions.length - visiblePositionsCount) === job.positions.length - visiblePositionsCount ? `còn lại ${job.positions.length - visiblePositionsCount} vị trí` : `thêm ${Math.min(5, job.positions.length - visiblePositionsCount)} vị trí`})
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setVisiblePositionsCount(5)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold text-xs transition-colors"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                      Thu gọn (chỉ hiện 5 vị trí)
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
