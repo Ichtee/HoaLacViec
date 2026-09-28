@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Calendar, Clock, CheckCircle, Plus, Users, MapPin, Check, X,
-  Navigation, AlertTriangle, ShieldCheck, DollarSign, ChevronLeft,
-  ChevronRight, UserPlus, UserCheck, UserX, Search, RotateCcw,
-  Sparkles, Building2, Briefcase, AlertCircle, ArrowRight, Send, Edit3, Trash2
+  AlertTriangle, ShieldCheck, DollarSign, ChevronLeft, ChevronRight,
+  UserPlus, UserCheck, UserX, Search, RotateCcw, Sparkles, Building2,
+  Briefcase, AlertCircle, ArrowRight, Send, Edit3, Trash2, Sun, Sunrise, Sunset, Moon, Phone
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -42,13 +42,6 @@ function formatDateDisplayVN(dateStr) {
   return `${weekday}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
 
-function getDayOfWeek(dateStr) {
-  if (!dateStr) return 0;
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dateObj = new Date(y, m - 1, d);
-  return dateObj.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-}
-
 function offsetDate(dateStr, days) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
@@ -59,65 +52,59 @@ function offsetDate(dateStr, days) {
   return `${year}-${month}-${day}`;
 }
 
-function parseShiftTimes(shiftStr) {
-  if (!shiftStr) return { startTime: '08:00', endTime: '12:00' };
-
-  const matchColon = shiftStr.match(/(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})/);
-  if (matchColon) {
-    const formatTime = (t) => (t.length === 4 ? `0${t}` : t);
-    return {
-      startTime: formatTime(matchColon[1]),
-      endTime: formatTime(matchColon[2]),
-    };
+function calculateWorkedMinutes(start, end) {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  let startTotal = sh * 60 + sm;
+  let endTotal = eh * 60 + em;
+  if (endTotal <= startTotal) {
+    endTotal += 24 * 60; // Overnight shift
   }
-
-  const matchH = shiftStr.match(/(\d{1,2})h(?:(\d{2}))?\s*[-–—]\s*(\d{1,2})h(?:(\d{2}))?/i);
-  if (matchH) {
-    const sh = matchH[1].padStart(2, '0');
-    const sm = matchH[2] || '00';
-    const eh = matchH[3].padStart(2, '0');
-    const em = matchH[4] || '00';
-    return {
-      startTime: `${sh}:${sm}`,
-      endTime: `${eh}:${em}`,
-    };
-  }
-
-  const lower = shiftStr.toLowerCase();
-  if (lower.includes('sáng')) return { startTime: '07:00', endTime: '12:00' };
-  if (lower.includes('chiều')) return { startTime: '12:00', endTime: '17:00' };
-  if (lower.includes('tối')) return { startTime: '17:00', endTime: '22:00' };
-  if (lower.includes('đêm')) return { startTime: '22:00', endTime: '06:00' };
-  if (lower.includes('full')) return { startTime: '08:00', endTime: '17:00' };
-
-  return { startTime: '08:00', endTime: '12:00' };
+  return Math.max(0, endTotal - startTotal);
 }
 
-function getShiftBadge(status) {
+function calculatePayAmount(wageRate, minutes) {
+  const rate = Number(wageRate) || 25000;
+  const hours = minutes / 60;
+  return Math.round(rate * hours);
+}
+
+function getShiftPeriod(startTime) {
+  if (!startTime) return 'morning';
+  const hour = parseInt(startTime.split(':')[0], 10);
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  return 'evening';
+}
+
+function getShiftStatusMeta(status) {
   switch (status) {
-    case 'paid':
-      return { variant: 'success', label: 'Đã chi trả lương 💵' };
-    case 'payroll_ready':
-      return { variant: 'purple', label: 'Sẵn sàng tính lương 💰' };
-    case 'approved':
-    case 'completed':
-      return { variant: 'success', label: 'Đã duyệt công ✅' };
+    case 'draft':
+      return { variant: 'default', label: 'Bản nháp' };
+    case 'published':
+      return { variant: 'info', label: 'Đã công bố' };
+    case 'acknowledged':
+      return { variant: 'success', label: 'Đã xác nhận' };
+    case 'checked_in':
+      return { variant: 'success', label: 'Đang làm việc' };
+    case 'checked_out':
+      return { variant: 'warning', label: 'Đã tan ca' };
     case 'completed_pending_review':
     case 'pending_approval':
-      return { variant: 'purple', label: 'Chờ duyệt công ⏳' };
-    case 'checked_in':
-      return { variant: 'warning', label: 'Đang làm việc ⏱️' };
-    case 'acknowledged':
-      return { variant: 'info', label: 'SV đã xác nhận lịch 🤝' };
-    case 'published':
-      return { variant: 'info', label: 'Đã công bố lịch 📢' };
-    case 'draft':
-      return { variant: 'neutral', label: 'Lịch nháp 📝' };
+      return { variant: 'warning', label: 'Chờ duyệt công' };
+    case 'approved':
+      return { variant: 'success', label: 'Đã duyệt công' };
+    case 'payroll_ready':
+      return { variant: 'info', label: 'Sẵn sàng trả lương' };
+    case 'paid':
+      return { variant: 'success', label: 'Đã trả lương' };
     case 'disputed':
-      return { variant: 'danger', label: 'Cần đối soát ⚠️' };
+      return { variant: 'danger', label: 'Đang khiếu nại' };
     case 'cancelled':
-      return { variant: 'neutral', label: 'Đã hủy' };
-    case 'scheduled':
+      return { variant: 'danger', label: 'Đã hủy' };
+    case 'no_show':
+      return { variant: 'danger', label: 'Vắng mặt' };
     default:
       return { variant: 'info', label: 'Đã xếp ca' };
   }
@@ -135,14 +122,10 @@ export default function EmployerShiftsPage() {
 
   // Filter states
   const [filterJobId, setFilterJobId] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
 
-  // Modals
-  const [assignModalSlot, setAssignModalSlot] = useState(null);
+  // Modal assign employee to shift
+  const [assignShiftModal, setAssignShiftModal] = useState(null);
   const [candidateSearch, setCandidateSearch] = useState('');
-  const [disputeModalShift, setDisputeModalShift] = useState(null);
-  const [disputeReason, setDisputeReason] = useState('');
-  const [isAdHocModalOpen, setIsAdHocModalOpen] = useState(false);
 
   // Adjust time modal
   const [adjustModalShift, setAdjustModalShift] = useState(null);
@@ -153,17 +136,9 @@ export default function EmployerShiftsPage() {
   const [cancelModalShift, setCancelModalShift] = useState(null);
   const [cancelReasonText, setCancelReasonText] = useState('');
 
-  // Ad-hoc form state
-  const [adHocForm, setAdHocForm] = useState({
-    jobId: '',
-    role: '',
-    date: getTodayString(),
-    startTime: '08:00',
-    endTime: '12:00',
-    wageRate: 25000,
-    studentUserId: '',
-    isDraft: false,
-  });
+  // Dispute modal
+  const [disputeModalShift, setDisputeModalShift] = useState(null);
+  const [disputeReason, setDisputeReason] = useState('');
 
   useEffect(() => {
     loadData();
@@ -185,14 +160,6 @@ export default function EmployerShiftsPage() {
 
       const empList = Array.isArray(empData) ? empData : [];
       setEmployments(empList);
-
-      if (jobList.length > 0 && !adHocForm.jobId) {
-        setAdHocForm((prev) => ({
-          ...prev,
-          jobId: jobList[0]._id || jobList[0].id,
-          wageRate: jobList[0].salaryAmount || 25000,
-        }));
-      }
     } catch (err) {
       console.error(err);
       setToast({ type: 'error', message: 'Không thể tải dữ liệu ca làm việc.' });
@@ -206,167 +173,107 @@ export default function EmployerShiftsPage() {
     return employments.filter((e) => ['active', 'onboarding'].includes(e.status));
   }, [employments]);
 
-  // Draft shifts count for selected date
-  const draftShiftsForDate = useMemo(() => {
-    return shifts.filter((s) => s.date === selectedDate && s.status === 'draft');
-  }, [shifts, selectedDate]);
-
-  // Generate slots for the selected date
-  const dailySlots = useMemo(() => {
-    // Current weekday of selected date: 0=Sun, 1=Mon, ..., 6=Sat
-    const currentWeekday = getDayOfWeek(selectedDate);
-    const shiftsForDate = shifts.filter((s) => s.date === selectedDate && s.status !== 'cancelled');
-    const unmatchedShifts = [...shiftsForDate];
-    const slots = [];
-
-    // Jobs keep their shift requirements even if filled
-    jobs.forEach((job) => {
-      const jId = job._id || job.id;
-
-      // Filter schedule for current weekday if schedule is configured
-      let hasWeekdayMatch = true;
-      if (Array.isArray(job.schedule) && job.schedule.length > 0) {
-        // schedule.dayOfWeek can be 1=Mon..7=Sun or 0=Sun..6=Sat
-        const mappedDays = job.schedule.map((sc) => sc.dayOfWeek % 7);
-        hasWeekdayMatch = mappedDays.includes(currentWeekday);
-      }
-
-      if (!hasWeekdayMatch) return;
-
-      const positions = Array.isArray(job.positions) && job.positions.length > 0
-        ? job.positions
-        : [{ title: job.title || 'Nhân viên bán ca', shift: job.shiftDetail || 'Ca làm việc', quantity: job.slots || 1 }];
-
-      positions.forEach((pos, pIdx) => {
-        const qty = Number(pos.quantity) > 0 ? Number(pos.quantity) : 1;
-        const times = parseShiftTimes(pos.shift);
-
-        for (let i = 0; i < qty; i++) {
-          const slotKey = `${jId}_p${pIdx}_s${i}`;
-
-          const matchIndex = unmatchedShifts.findIndex((s) => {
-            const sJobId = s.jobId?._id || s.jobId;
-            if (String(sJobId) !== String(jId)) return false;
-            const roleMatch = s.role && pos.title && s.role.trim().toLowerCase() === pos.title.trim().toLowerCase();
-            const timeMatch = s.startTime === times.startTime && s.endTime === times.endTime;
-            return roleMatch || timeMatch;
-          });
-
-          let assignedShift = null;
-          if (matchIndex !== -1) {
-            assignedShift = unmatchedShifts[matchIndex];
-            unmatchedShifts.splice(matchIndex, 1);
-          } else {
-            const jobMatchIndex = unmatchedShifts.findIndex((s) => {
-              const sJobId = s.jobId?._id || s.jobId;
-              return String(sJobId) === String(jId);
-            });
-            if (jobMatchIndex !== -1) {
-              assignedShift = unmatchedShifts[jobMatchIndex];
-              unmatchedShifts.splice(jobMatchIndex, 1);
-            }
-          }
-
-          slots.push({
-            id: slotKey,
-            jobId: jId,
-            jobTitle: job.title,
-            storeName: job.storeName || job.title || 'Cửa hàng',
-            role: pos.title,
-            shiftName: pos.shift,
-            quantity: qty,
-            slotNumber: i + 1,
-            wageRate: job.salaryAmount || 25000,
-            startTime: times.startTime,
-            endTime: times.endTime,
-            assignedShift,
-            isAdHoc: false,
-          });
-        }
-      });
-    });
-
-    // Append extra shifts in DB
-    unmatchedShifts.forEach((s) => {
-      slots.push({
-        id: `extra_${s._id || s.id}`,
-        jobId: s.jobId?._id || s.jobId,
-        jobTitle: s.jobId?.title || s.storeName || 'Ca phát sinh',
-        storeName: s.storeName || 'Cửa hàng',
-        role: s.role || 'Nhân viên bán ca',
-        shiftName: `${s.startTime} - ${s.endTime}`,
-        quantity: 1,
-        slotNumber: 1,
-        wageRate: s.wageRate || 25000,
-        startTime: s.startTime,
-        endTime: s.endTime,
-        assignedShift: s,
-        isAdHoc: true,
-      });
-    });
-
-    return slots;
-  }, [jobs, shifts, selectedDate]);
-
-  // Filtered slots
-  const filteredSlots = useMemo(() => {
-    return dailySlots.filter((slot) => {
+  // Active shifts for selected date
+  const shiftsForDate = useMemo(() => {
+    return shifts.filter((s) => {
+      if (s.date !== selectedDate || s.status === 'cancelled') return false;
       if (filterJobId !== 'all') {
-        if (String(slot.jobId) !== String(filterJobId)) return false;
+        const sJobId = s.jobId?._id || s.jobId;
+        if (String(sJobId) !== String(filterJobId)) return false;
       }
-
-      if (filterStatus === 'empty') return !slot.assignedShift;
-      if (filterStatus === 'assigned') return Boolean(slot.assignedShift);
-      if (filterStatus === 'pending') {
-        const s = slot.assignedShift?.status;
-        return s === 'completed_pending_review' || s === 'pending_approval';
-      }
-      if (filterStatus === 'draft') return slot.assignedShift?.status === 'draft';
-      if (filterStatus === 'approved') return ['approved', 'payroll_ready', 'paid'].includes(slot.assignedShift?.status);
-
       return true;
     });
-  }, [dailySlots, filterJobId, filterStatus]);
+  }, [shifts, selectedDate, filterJobId]);
 
-  // Stats
-  const totalSlotsCount = dailySlots.length;
-  const assignedSlotsCount = dailySlots.filter((s) => Boolean(s.assignedShift)).length;
-  const emptySlotsCount = totalSlotsCount - assignedSlotsCount;
-  const pendingApprovalCount = dailySlots.filter((s) => {
-    const st = s.assignedShift?.status;
-    return st === 'completed_pending_review' || st === 'pending_approval';
-  }).length;
+  // Draft shifts count for selected date
+  const draftShiftsForDate = useMemo(() => {
+    return shiftsForDate.filter((s) => s.status === 'draft');
+  }, [shiftsForDate]);
+
+  // Pending approval count
+  const pendingApprovalCount = useMemo(() => {
+    return shiftsForDate.filter((s) => ['completed_pending_review', 'pending_approval'].includes(s.status)).length;
+  }, [shiftsForDate]);
+
+  // Group shifts into 3 shifts: Morning, Afternoon, Evening
+  const morningShifts = useMemo(() => {
+    return shiftsForDate.filter((s) => getShiftPeriod(s.startTime) === 'morning');
+  }, [shiftsForDate]);
+
+  const afternoonShifts = useMemo(() => {
+    return shiftsForDate.filter((s) => getShiftPeriod(s.startTime) === 'afternoon');
+  }, [shiftsForDate]);
+
+  const eveningShifts = useMemo(() => {
+    return shiftsForDate.filter((s) => getShiftPeriod(s.startTime) === 'evening');
+  }, [shiftsForDate]);
 
   const isToday = selectedDate === getTodayString();
 
-  // Action: Assign active employee to slot
-  async function handleAssignEmployee(employee) {
-    if (!assignModalSlot) return;
+  // Action: Open Assign Modal for Period
+  function handleOpenAssignModal(period) {
+    let defaultStart = '07:00';
+    let defaultEnd = '12:00';
+    let periodTitle = 'Ca Sáng';
+
+    if (period === 'afternoon') {
+      defaultStart = '12:00';
+      defaultEnd = '17:00';
+      periodTitle = 'Ca Chiều';
+    } else if (period === 'evening') {
+      defaultStart = '17:00';
+      defaultEnd = '22:00';
+      periodTitle = 'Ca Tối';
+    }
+
+    const defaultJob = jobs[0];
+    const defaultRole = defaultJob?.positions?.[0]?.title || defaultJob?.title || 'Nhân viên';
+    const defaultWage = defaultJob?.salaryAmount || 25000;
+
+    setAssignShiftModal({
+      period,
+      periodTitle,
+      startTime: defaultStart,
+      endTime: defaultEnd,
+      jobId: defaultJob?._id || defaultJob?.id || '',
+      role: defaultRole,
+      wageRate: defaultWage,
+      studentUserId: '',
+      isDraft: false,
+    });
+    setCandidateSearch('');
+  }
+
+  // Action: Confirm Assign Employee
+  async function handleConfirmAssign(employee) {
+    if (!assignShiftModal) return;
 
     try {
       setSubmitting(true);
       const sId = employee.employeeUserId?._id || employee.employeeUserId || employee.id;
       const sName = employee.studentName || employee.employeeUserId?.name || 'Nhân viên';
 
+      const selectedJob = jobs.find((j) => (j._id || j.id) === assignShiftModal.jobId) || jobs[0];
+
       const newShift = await createShift({
-        jobId: assignModalSlot.jobId,
+        jobId: assignShiftModal.jobId || selectedJob?._id || selectedJob?.id,
         studentUserId: sId,
         studentName: sName,
         date: selectedDate,
-        startTime: assignModalSlot.startTime,
-        endTime: assignModalSlot.endTime,
-        role: assignModalSlot.role,
-        wageRate: assignModalSlot.wageRate,
-        storeName: assignModalSlot.storeName,
-        isDraft: false, // Published immediately
+        startTime: assignShiftModal.startTime,
+        endTime: assignShiftModal.endTime,
+        role: assignShiftModal.role || employee.positionTitle || 'Nhân viên',
+        wageRate: Number(assignShiftModal.wageRate) || selectedJob?.salaryAmount || 25000,
+        storeName: selectedJob?.storeName || 'Cửa hàng',
+        isDraft: assignShiftModal.isDraft,
       });
 
       setShifts((prev) => [newShift.shift || newShift, ...prev]);
       setToast({
         type: 'success',
-        message: `Đã phân công ${sName} vào ca ${assignModalSlot.startTime} - ${assignModalSlot.endTime} thành công!`,
+        message: `Đã phân công ${sName} vào ${assignShiftModal.periodTitle} (${assignShiftModal.startTime} - ${assignShiftModal.endTime}) thành công!`,
       });
-      setAssignModalSlot(null);
+      setAssignShiftModal(null);
       setCandidateSearch('');
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi phân ca cho nhân viên.' });
@@ -403,7 +310,7 @@ export default function EmployerShiftsPage() {
     const shiftId = shift._id || shift.id;
     try {
       setSubmitting(true);
-      const res = await approveAttendance(shiftId);
+      await approveAttendance(shiftId);
       setShifts((prev) =>
         prev.map((s) => ((s._id === shiftId || s.id === shiftId) ? { ...s, status: 'approved' } : s))
       );
@@ -458,87 +365,184 @@ export default function EmployerShiftsPage() {
     const shiftId = cancelModalShift._id || cancelModalShift.id;
     try {
       setSubmitting(true);
-      await cancelShift(shiftId, cancelReasonText);
+      await cancelShift(shiftId, cancelReasonText || 'Quản lý hủy ca làm việc');
       setShifts((prev) =>
-        prev.map((s) => ((s._id === shiftId || s.id === shiftId) ? { ...s, status: 'cancelled' } : s))
+        prev.map((s) =>
+          (s._id === shiftId || s.id === shiftId)
+            ? { ...s, status: 'cancelled', cancelReason: cancelReasonText }
+            : s
+        )
       );
-      setToast({ type: 'info', message: 'Đã hủy ca làm việc.' });
+      setToast({ type: 'success', message: 'Đã hủy ca làm việc thành công.' });
       setCancelModalShift(null);
       setCancelReasonText('');
     } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Lỗi khi hủy ca.' });
+      setToast({ type: 'error', message: err.message || 'Lỗi khi hủy ca làm việc.' });
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Action: Adjust worked minutes
-  async function handleSaveAdjustTime() {
+  // Action: Adjust time
+  async function handleConfirmAdjustTime() {
     if (!adjustModalShift) return;
     const shiftId = adjustModalShift._id || adjustModalShift.id;
     try {
       setSubmitting(true);
-      const res = await adjustShiftTime(shiftId, {
-        workedMinutes: Number(adjustedMinutes),
-        reason: adjustReason,
-      });
+      const res = await adjustShiftTime(shiftId, Number(adjustedMinutes), adjustReason);
       setShifts((prev) =>
-        prev.map((s) => ((s._id === shiftId || s.id === shiftId) ? res.shift : s))
+        prev.map((s) => ((s._id === shiftId || s.id === shiftId) ? { ...s, ...res.shift } : s))
       );
-      setToast({ type: 'success', message: 'Đã cập nhật điều chỉnh giờ làm việc thành công.' });
+      setToast({ type: 'success', message: 'Đã điều chỉnh giờ công làm việc thành công!' });
       setAdjustModalShift(null);
       setAdjustReason('');
     } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Lỗi khi điều chỉnh công.' });
+      setToast({ type: 'error', message: err.message || 'Lỗi khi điều chỉnh giờ công.' });
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Action: Create ad-hoc shift
-  async function handleCreateAdHocShift(e) {
-    e.preventDefault();
-    try {
-      setSubmitting(true);
-      if (!adHocForm.jobId) {
-        setToast({ type: 'error', message: 'Vui lòng chọn việc làm / quán.' });
-        return;
-      }
-      if (!adHocForm.studentUserId) {
-        setToast({ type: 'error', message: 'Vui lòng chọn nhân viên chính thức để phân ca.' });
-        return;
-      }
+  // Sub-component: Render Shift Card
+  function renderShiftCard(shift) {
+    const sId = shift._id || shift.id;
+    const meta = getShiftStatusMeta(shift.status);
+    const workedMins = shift.actualMinutesWorked || calculateWorkedMinutes(shift.startTime, shift.endTime);
+    const payAmount = calculatePayAmount(shift.wageRate, workedMins);
 
-      const selectedJob = jobs.find((j) => (j._id || j.id) === adHocForm.jobId);
-      const selectedEmp = employments.find((emp) => {
-        const sId = emp.employeeUserId?._id || emp.employeeUserId || emp.id;
-        return String(sId) === String(adHocForm.studentUserId);
-      });
+    return (
+      <div
+        key={sId}
+        className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs hover:shadow-md transition-all space-y-3"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
+              {shift.studentName ? shift.studentName.charAt(0).toUpperCase() : 'N'}
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-gray-900 leading-tight">
+                {shift.studentName || 'Nhân viên'}
+              </h4>
+              <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1 font-medium">
+                <Briefcase className="w-3 h-3 text-gray-400" />
+                <span className="font-semibold text-gray-700">{shift.role || 'Nhân viên'}</span>
+                {shift.storeName && (
+                  <>
+                    <span className="text-gray-300">•</span>
+                    <span className="text-gray-500">{shift.storeName}</span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
 
-      const newShift = await createShift({
-        jobId: adHocForm.jobId,
-        studentUserId: adHocForm.studentUserId,
-        studentName: selectedEmp?.studentName || selectedEmp?.employeeUserId?.name || 'Nhân viên',
-        date: adHocForm.date,
-        startTime: adHocForm.startTime,
-        endTime: adHocForm.endTime,
-        role: adHocForm.role || selectedJob?.title || 'Ca phát sinh',
-        wageRate: Number(adHocForm.wageRate) || selectedJob?.salaryAmount || 25000,
-        storeName: selectedJob?.storeName || 'Cửa hàng tuyển dụng',
-        isDraft: adHocForm.isDraft,
-      });
+          <Badge variant={meta.variant}>{meta.label}</Badge>
+        </div>
 
-      setShifts((prev) => [newShift.shift || newShift, ...prev]);
-      setToast({
-        type: 'success',
-        message: adHocForm.isDraft ? 'Đã lưu ca nháp thành công!' : 'Tạo ca phát sinh và công bố lịch thành công!',
-      });
-      setIsAdHocModalOpen(false);
-    } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Lỗi khi tạo ca phát sinh.' });
-    } finally {
-      setSubmitting(false);
-    }
+        {/* TIME & SALARY INFO */}
+        <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50/80 border border-gray-100 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-gray-800">
+            <Clock className="w-3.5 h-3.5 text-gray-500" />
+            <span>{shift.startTime} - {shift.endTime}</span>
+            <span className="text-gray-400 font-normal">({workedMins} phút)</span>
+          </div>
+
+          <div className="text-right">
+            <span className="text-green-700 font-bold">{payAmount.toLocaleString('vi-VN')} đ</span>
+            <span className="text-[11px] text-gray-500 block">({Number(shift.wageRate || 25000).toLocaleString('vi-VN')} đ/h)</span>
+          </div>
+        </div>
+
+        {/* ACTION BUTTONS */}
+        <div className="pt-2 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setAdjustModalShift(shift);
+                setAdjustedMinutes(workedMins);
+                setAdjustReason('');
+              }}
+              className="px-2 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-[11px] transition-colors"
+              title="Chỉnh sửa giờ công thực tế"
+            >
+              <Edit3 className="w-3 h-3 inline mr-1" /> Chỉnh công
+            </button>
+
+            {['published', 'draft', 'acknowledged'].includes(shift.status) && (
+              <button
+                type="button"
+                onClick={() => setCancelModalShift(shift)}
+                className="px-2 py-1 rounded-lg text-red-600 hover:bg-red-50 font-bold text-[11px] transition-colors"
+                title="Hủy ca làm này"
+              >
+                <Trash2 className="w-3 h-3 inline mr-1" /> Hủy ca
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {shift.status === 'draft' && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setSubmitting(true);
+                    await publishShifts([sId]);
+                    setShifts((prev) =>
+                      prev.map((s) => (s._id === sId || s.id === sId ? { ...s, status: 'published' } : s))
+                    );
+                    setToast({ type: 'success', message: 'Đã công bố ca làm việc!' });
+                  } catch (err) {
+                    setToast({ type: 'error', message: err.message || 'Lỗi khi công bố ca.' });
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+                disabled={submitting}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                <Send className="w-3 h-3" /> Công bố ca
+              </button>
+            )}
+
+            {['completed_pending_review', 'pending_approval'].includes(shift.status) && (
+              <button
+                type="button"
+                onClick={() => handleApprove(shift)}
+                disabled={submitting}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                <CheckCircle className="w-3.5 h-3.5" /> Duyệt công
+              </button>
+            )}
+
+            {shift.status === 'approved' && (
+              <button
+                type="button"
+                onClick={() => handleMarkPayrollReady(shift)}
+                disabled={submitting}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                <DollarSign className="w-3.5 h-3.5" /> Sẵn sàng trả lương
+              </button>
+            )}
+
+            {shift.status === 'payroll_ready' && (
+              <button
+                type="button"
+                onClick={() => handleMarkPaid(shift)}
+                disabled={submitting}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                <Check className="w-3.5 h-3.5" /> Đã trả lương
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -553,7 +557,7 @@ export default function EmployerShiftsPage() {
               <Calendar className="w-6 h-6 text-green-dark" /> Quản lý Ca Làm & Xếp Lịch
             </h1>
             <p className="text-xs text-text-muted mt-1">
-              Phân ca cho nhân viên chính thức, kiểm tra xung đột trùng lịch, lập lịch nháp và duyệt công chi trả lương.
+              Phân ca Sáng - Chiều - Tối cho nhân viên chính thức, tự động kiểm tra trùng lịch và duyệt công chi trả lương.
             </p>
           </div>
 
@@ -565,17 +569,26 @@ export default function EmployerShiftsPage() {
                 disabled={submitting}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
               >
-                <Send className="w-4 h-4" /> Công bố {draftShiftsForDate.length} ca nháp
+                <Send className="w-4 h-4" /> Công bố {draftShiftsForDate.length} ca nháp trong ngày
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={() => setIsAdHocModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors shrink-0 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" /> + Thêm ca phát sinh
-            </button>
+            {jobs.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={filterJobId}
+                  onChange={(e) => setFilterJobId(e.target.value)}
+                  className="p-2 rounded-2xl border border-gray-200 bg-white text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-main"
+                >
+                  <option value="all">Tất cả việc làm ({jobs.length})</option>
+                  {jobs.map((j) => (
+                    <option key={j._id || j.id} value={j._id || j.id}>
+                      {j.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -614,373 +627,393 @@ export default function EmployerShiftsPage() {
               <button
                 type="button"
                 onClick={() => setSelectedDate(getTodayString())}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold transition-colors"
+                className="px-2.5 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-600 transition-colors"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-gray-500" /> Về hôm nay
+                Về hôm nay
               </button>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs text-text-muted font-medium flex items-center gap-1.5">
-              <span>Chọn ngày:</span>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-                className="p-1.5 text-xs font-bold text-gray-800 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main bg-white"
-              />
-            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+              className="p-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-main"
+            />
           </div>
         </div>
 
-        {/* QUICK STATS CARDS */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-          <div className="p-3.5 rounded-2xl bg-gray-50/80 border border-gray-100">
-            <span className="text-[11px] font-semibold text-gray-500">Tổng ca ngày</span>
-            <p className="text-lg font-black text-gray-900 mt-0.5">{totalSlotsCount} <span className="text-xs font-normal text-gray-500">ca</span></p>
-          </div>
-          <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100">
-            <span className="text-[11px] font-semibold text-emerald-700">Đã gán nhân viên</span>
-            <p className="text-lg font-black text-emerald-800 mt-0.5">{assignedSlotsCount} <span className="text-xs font-normal text-emerald-600">ca</span></p>
-          </div>
-          <div className={clsx(
-            'p-3.5 rounded-2xl border',
-            emptySlotsCount > 0 ? 'bg-amber-50/70 border-amber-200' : 'bg-gray-50/80 border-gray-100'
-          )}>
-            <span className={clsx('text-[11px] font-semibold', emptySlotsCount > 0 ? 'text-amber-800 font-bold' : 'text-gray-500')}>
-              Còn trống
-            </span>
-            <p className={clsx('text-lg font-black mt-0.5', emptySlotsCount > 0 ? 'text-amber-900' : 'text-gray-900')}>
-              {emptySlotsCount} <span className="text-xs font-normal text-gray-500">ca</span>
+        {/* QUICK STATS FOR 3 SHIFTS */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          <div className="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/60">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800">
+              <Sunrise className="w-3.5 h-3.5 text-amber-600" /> Ca Sáng
+            </div>
+            <p className="text-xl font-black text-amber-950 mt-1">
+              {morningShifts.length} <span className="text-xs font-normal text-amber-700">nhân viên</span>
             </p>
           </div>
-          <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-100">
-            <span className="text-[11px] font-semibold text-purple-700">Chờ duyệt công</span>
-            <p className="text-lg font-black text-purple-900 mt-0.5">{pendingApprovalCount} <span className="text-xs font-normal text-purple-600">ca</span></p>
+
+          <div className="p-3.5 rounded-2xl bg-sky-50/60 border border-sky-200/60">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-sky-800">
+              <Sun className="w-3.5 h-3.5 text-sky-600" /> Ca Chiều
+            </div>
+            <p className="text-xl font-black text-sky-950 mt-1">
+              {afternoonShifts.length} <span className="text-xs font-normal text-sky-700">nhân viên</span>
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-200/60">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-800">
+              <Moon className="w-3.5 h-3.5 text-indigo-600" /> Ca Tối
+            </div>
+            <p className="text-xl font-black text-indigo-950 mt-1">
+              {eveningShifts.length} <span className="text-xs font-normal text-indigo-700">nhân viên</span>
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-purple-50/60 border border-purple-200/60">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-purple-800">
+              <CheckCircle className="w-3.5 h-3.5 text-purple-600" /> Chờ duyệt công
+            </div>
+            <p className="text-xl font-black text-purple-950 mt-1">
+              {pendingApprovalCount} <span className="text-xs font-normal text-purple-700">ca</span>
+            </p>
           </div>
         </div>
       </div>
 
-      {/* FILTER TABS */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setFilterStatus('all')}
-            className={clsx(
-              'px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer',
-              filterStatus === 'all' ? 'bg-green-main text-white shadow-xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            )}
-          >
-            Tất cả ({totalSlotsCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterStatus('empty')}
-            className={clsx(
-              'px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer',
-              filterStatus === 'empty' ? 'bg-amber-500 text-white shadow-xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            )}
-          >
-            Chưa phân công ({emptySlotsCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterStatus('assigned')}
-            className={clsx(
-              'px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer',
-              filterStatus === 'assigned' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-            )}
-          >
-            Đã có nhân viên ({assignedSlotsCount})
-          </button>
-          {pendingApprovalCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setFilterStatus('pending')}
-              className={clsx(
-                'px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer animate-pulse',
-                filterStatus === 'pending' ? 'bg-purple-600 text-white shadow-xs' : 'bg-purple-50 text-purple-800 border border-purple-200 hover:bg-purple-100'
-              )}
-            >
-              Chờ duyệt công ({pendingApprovalCount})
-            </button>
-          )}
-        </div>
-
-        {jobs.length > 1 && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-text-muted">Quán:</span>
-            <select
-              value={filterJobId}
-              onChange={(e) => setFilterJobId(e.target.value)}
-              className="p-1.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-main"
-            >
-              <option value="all">Tất cả việc làm ({jobs.length})</option>
-              {jobs.map((j) => (
-                <option key={j._id || j.id} value={j._id || j.id}>
-                  {j.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* SHIFTS GRID */}
+      {/* 3 SHIFT SECTIONS: MORNING, AFTERNOON, EVENING */}
       {loading ? (
         <div className="text-center py-16 text-text-muted">Đang tải danh sách ca làm việc...</div>
-      ) : dailySlots.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-card space-y-4">
-          <Briefcase className="w-12 h-12 text-gray-300 mx-auto" />
-          <div>
-            <h3 className="text-base font-bold text-text-main">Chưa có vị trí ca làm nào cho ngày này</h3>
-            <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
-              Không có mẫu ca nào khớp với thứ trong tuần này. Bạn có thể bấm "Thêm ca phát sinh" để xếp ca ngay.
-            </p>
-          </div>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => setIsAdHocModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-main text-white font-bold text-xs hover:bg-green-dark transition-colors shadow-xs"
-            >
-              <Plus className="w-4 h-4" /> Thêm ca phát sinh
-            </button>
-          </div>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filteredSlots.map((slot) => {
-            const isAssigned = Boolean(slot.assignedShift);
-            const shift = slot.assignedShift;
-            const badge = isAssigned ? getShiftBadge(shift.status) : null;
-            const workedMins = shift?.workedMinutes || (shift?.hours ? shift.hours * 60 : 240);
-            const payAmount = shift?.totalPay || Math.round((workedMins / 60) * (slot.wageRate || 25000));
-
-            return (
-              <div
-                key={slot.id}
-                className={clsx(
-                  'p-5 rounded-3xl border transition-all flex flex-col justify-between space-y-4 shadow-card',
-                  isAssigned
-                    ? 'bg-white border-green-100 hover:border-green-300'
-                    : 'bg-white border-dashed border-amber-300 hover:border-amber-400 bg-amber-50/20'
-                )}
-              >
-                {/* TOP HEADER */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-green-dark bg-green-50 px-2.5 py-1 rounded-xl border border-green-200 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-green-600" />
-                      {slot.startTime} – {slot.endTime}
-                    </span>
-
-                    {isAssigned ? (
-                      <Badge variant={badge.variant} size="sm">
-                        {badge.label}
-                      </Badge>
-                    ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">
-                        Chưa phân công
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-base text-text-main flex items-center gap-2">
-                      <span>{slot.role}</span>
-                      {slot.quantity > 1 && (
-                        <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
-                          Vị trí #{slot.slotNumber}/{slot.quantity}
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1 font-medium">
-                      <Building2 className="w-3.5 h-3.5 text-gray-400" /> {slot.storeName}
-                      <span className="text-gray-300">•</span>
-                      <span className="text-green-700 font-semibold">{Number(slot.wageRate).toLocaleString('vi-VN')} đ/h</span>
-                    </p>
-                  </div>
+        <div className="space-y-6">
+          {/* SECTION 1: CA SÁNG */}
+          <div className="bg-white rounded-3xl border border-amber-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <Sunrise className="w-5 h-5" />
                 </div>
-
-                {/* MIDDLE BODY */}
-                {isAssigned ? (
-                  <div className="space-y-2.5 p-3 rounded-2xl bg-green-50/40 border border-green-100">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-green-600 text-white font-black text-sm flex items-center justify-center shrink-0">
-                          {shift.studentName ? shift.studentName.charAt(0).toUpperCase() : 'N'}
-                        </div>
-                        <div>
-                          <p className="font-bold text-xs text-gray-900 leading-tight">
-                            {shift.studentName}
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">
-                            Tiền lương ca: <strong className="text-green-700">{payAmount.toLocaleString('vi-VN')} VNĐ</strong> ({workedMins} phút)
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-2xl bg-white/70 border border-amber-200/60 flex items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-bold text-gray-800">Chưa có nhân viên nhận ca</p>
-                      <p className="text-[11px] text-gray-500">
-                        {activeEmployees.length} nhân viên chính thức sẵn sàng nhận ca
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAssignModalSlot(slot)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors shrink-0 cursor-pointer"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" /> Gán nhân viên
-                    </button>
-                  </div>
-                )}
-
-                {/* BOTTOM ACTIONS */}
-                {isAssigned && (
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAdjustModalShift(shift);
-                          setAdjustedMinutes(workedMins);
-                          setAdjustReason('');
-                        }}
-                        className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition-colors"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 inline mr-1" /> Chỉnh công
-                      </button>
-
-                      {['published', 'draft', 'acknowledged'].includes(shift.status) && (
-                        <button
-                          type="button"
-                          onClick={() => setCancelModalShift(shift)}
-                          className="px-2 py-1 rounded-xl text-red-600 hover:bg-red-50 font-bold text-xs transition-colors"
-                        >
-                          Hủy ca
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      {/* Lifecycle CTA */}
-                      {['completed_pending_review', 'pending_approval'].includes(shift.status) && (
-                        <button
-                          type="button"
-                          onClick={() => handleApprove(shift)}
-                          disabled={submitting}
-                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors"
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" /> Duyệt công
-                        </button>
-                      )}
-
-                      {shift.status === 'approved' && (
-                        <button
-                          type="button"
-                          onClick={() => handleMarkPayrollReady(shift)}
-                          disabled={submitting}
-                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-xs transition-colors"
-                        >
-                          <DollarSign className="w-3.5 h-3.5" /> Sẵn sàng trả lương
-                        </button>
-                      )}
-
-                      {shift.status === 'payroll_ready' && (
-                        <button
-                          type="button"
-                          onClick={() => handleMarkPaid(shift)}
-                          disabled={submitting}
-                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
-                        >
-                          <Check className="w-3.5 h-3.5" /> Đã trả lương
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    Ca Sáng
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-bold text-xs border border-amber-200">
+                      07:00 - 12:00
+                    </span>
+                  </h2>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Hiện có <strong className="text-amber-900 font-bold">{morningShifts.length}</strong> nhân viên làm việc ca sáng
+                  </p>
+                </div>
               </div>
-            );
-          })}
+
+              <button
+                type="button"
+                onClick={() => handleOpenAssignModal('morning')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <UserPlus className="w-4 h-4" /> + Gán nhân viên vào Ca Sáng
+              </button>
+            </div>
+
+            {morningShifts.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-amber-50/30 border border-dashed border-amber-200 text-center space-y-2">
+                <p className="text-xs font-semibold text-amber-900">Chưa có nhân viên nào trong ca sáng</p>
+                <p className="text-[11px] text-gray-500">Bấm nút trên để chọn nhân viên trúng tuyển vào ca làm này.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {morningShifts.map((s) => renderShiftCard(s))}
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 2: CA CHIỀU */}
+          <div className="bg-white rounded-3xl border border-sky-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-sky-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                  <Sun className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    Ca Chiều
+                    <span className="px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-800 font-bold text-xs border border-sky-200">
+                      12:00 - 17:00
+                    </span>
+                  </h2>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Hiện có <strong className="text-sky-900 font-bold">{afternoonShifts.length}</strong> nhân viên làm việc ca chiều
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleOpenAssignModal('afternoon')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <UserPlus className="w-4 h-4" /> + Gán nhân viên vào Ca Chiều
+              </button>
+            </div>
+
+            {afternoonShifts.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-sky-50/30 border border-dashed border-sky-200 text-center space-y-2">
+                <p className="text-xs font-semibold text-sky-900">Chưa có nhân viên nào trong ca chiều</p>
+                <p className="text-[11px] text-gray-500">Bấm nút trên để chọn nhân viên trúng tuyển vào ca làm này.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {afternoonShifts.map((s) => renderShiftCard(s))}
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 3: CA TỐI */}
+          <div className="bg-white rounded-3xl border border-indigo-200/80 p-5 sm:p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+                  <Moon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                    Ca Tối
+                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 font-bold text-xs border border-indigo-200">
+                      17:00 - 22:00
+                    </span>
+                  </h2>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    Hiện có <strong className="text-indigo-900 font-bold">{eveningShifts.length}</strong> nhân viên làm việc ca tối
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleOpenAssignModal('evening')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <UserPlus className="w-4 h-4" /> + Gán nhân viên vào Ca Tối
+              </button>
+            </div>
+
+            {eveningShifts.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-indigo-50/30 border border-dashed border-indigo-200 text-center space-y-2">
+                <p className="text-xs font-semibold text-indigo-900">Chưa có nhân viên nào trong ca tối</p>
+                <p className="text-[11px] text-gray-500">Bấm nút trên để chọn nhân viên trúng tuyển vào ca làm này.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {eveningShifts.map((s) => renderShiftCard(s))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* ASSIGN EMPLOYEE MODAL */}
-      {assignModalSlot && (
+      {assignShiftModal && (
         <Modal
           isOpen={true}
-          onClose={() => { setAssignModalSlot(null); setCandidateSearch(''); }}
-          title={`Phân ca: ${assignModalSlot.role} (${assignModalSlot.startTime} - ${assignModalSlot.endTime})`}
+          onClose={() => { setAssignShiftModal(null); setCandidateSearch(''); }}
+          title={`Gán nhân viên vào ${assignShiftModal.periodTitle}`}
         >
           <div className="space-y-4 text-xs">
-            <div className="p-3 bg-green-50/70 border border-green-200 rounded-2xl">
-              <p className="font-bold text-green-950">
-                Ca ngày: {formatDateDisplayVN(selectedDate)}
+            <div className="p-3.5 bg-green-50/80 border border-green-200 rounded-2xl space-y-1">
+              <p className="font-bold text-green-950 text-sm">
+                Ngày làm: {formatDateDisplayVN(selectedDate)}
               </p>
-              <p className="text-green-800 text-[11px] mt-0.5">
-                Vị trí: <strong>{assignModalSlot.role}</strong> tại {assignModalSlot.storeName}
+              <p className="text-green-800 text-xs">
+                Chọn nhân viên chính thức để phân công vào <strong>{assignShiftModal.periodTitle}</strong>.
               </p>
             </div>
 
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={candidateSearch}
-                onChange={(e) => setCandidateSearch(e.target.value)}
-                placeholder="Tìm nhân viên theo tên, SĐT..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 font-semibold"
-              />
+            {/* TIME SETTINGS */}
+            <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-200">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">Giờ bắt đầu</label>
+                <input
+                  type="time"
+                  value={assignShiftModal.startTime}
+                  onChange={(e) => setAssignShiftModal((prev) => ({ ...prev, startTime: e.target.value }))}
+                  className="w-full p-2 rounded-xl border border-gray-200 font-semibold bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">Giờ kết thúc</label>
+                <input
+                  type="time"
+                  value={assignShiftModal.endTime}
+                  onChange={(e) => setAssignShiftModal((prev) => ({ ...prev, endTime: e.target.value }))}
+                  className="w-full p-2 rounded-xl border border-gray-200 font-semibold bg-white"
+                />
+              </div>
             </div>
 
-            <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-              {activeEmployees.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">Quán chưa có nhân viên chính thức nào.</p>
-              ) : (
-                activeEmployees
-                  .filter((emp) => {
-                    const q = candidateSearch.trim().toLowerCase();
-                    if (!q) return true;
-                    return (
-                      (emp.studentName || '').toLowerCase().includes(q) ||
-                      (emp.studentPhone || '').includes(q)
-                    );
-                  })
-                  .map((emp) => (
-                    <div
-                      key={emp._id || emp.id}
-                      className="p-3 rounded-2xl border border-gray-100 hover:border-green-300 hover:bg-green-50/30 transition-all flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-green-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
-                          {emp.studentName ? emp.studentName.charAt(0).toUpperCase() : 'N'}
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900">{emp.studentName}</p>
-                          <p className="text-[11px] text-gray-500">
-                            SĐT: {emp.studentPhone || 'Chưa có'} • {emp.positionTitle}
-                          </p>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={submitting}
-                        onClick={() => handleAssignEmployee(emp)}
-                        className="px-3 py-1.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs transition-colors shadow-xs shrink-0 cursor-pointer"
-                      >
-                        Gán vào ca
-                      </button>
-                    </div>
-                  ))
+            {/* JOB & ROLE & WAGE SETTINGS */}
+            <div className="space-y-3">
+              {jobs.length > 1 && (
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Việc làm / Cửa hàng</label>
+                  <select
+                    value={assignShiftModal.jobId}
+                    onChange={(e) => {
+                      const jId = e.target.value;
+                      const selectedJob = jobs.find((j) => (j._id || j.id) === jId);
+                      setAssignShiftModal((prev) => ({
+                        ...prev,
+                        jobId: jId,
+                        wageRate: selectedJob?.salaryAmount || prev.wageRate,
+                        role: selectedJob?.positions?.[0]?.title || selectedJob?.title || prev.role,
+                      }));
+                    }}
+                    className="w-full p-2 rounded-xl border border-gray-200 font-semibold bg-white"
+                  >
+                    {jobs.map((j) => (
+                      <option key={j._id || j.id} value={j._id || j.id}>
+                        {j.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Vị trí / Chức danh</label>
+                  <input
+                    type="text"
+                    value={assignShiftModal.role}
+                    onChange={(e) => setAssignShiftModal((prev) => ({ ...prev, role: e.target.value }))}
+                    placeholder="Thu ngân, Pha chế..."
+                    className="w-full p-2 rounded-xl border border-gray-200 font-semibold bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Lương (đ/giờ)</label>
+                  <input
+                    type="number"
+                    value={assignShiftModal.wageRate}
+                    onChange={(e) => setAssignShiftModal((prev) => ({ ...prev, wageRate: e.target.value }))}
+                    className="w-full p-2 rounded-xl border border-gray-200 font-semibold bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* DRAFT VS PUBLISH */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="draftModeCheck"
+                  checked={assignShiftModal.isDraft}
+                  onChange={(e) => setAssignShiftModal((prev) => ({ ...prev, isDraft: e.target.checked }))}
+                  className="rounded text-green-main focus:ring-green-main"
+                />
+                <label htmlFor="draftModeCheck" className="text-xs text-gray-700 font-medium cursor-pointer">
+                  Lưu nháp (chưa công bố cho nhân viên)
+                </label>
+              </div>
+            </div>
+
+            {/* EMPLOYEE SEARCH & LIST */}
+            <div className="pt-2 border-t border-gray-100 space-y-2">
+              <label className="block text-xs font-bold text-gray-800">
+                Chọn nhân viên từ danh sách đã trúng tuyển:
+              </label>
+
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={candidateSearch}
+                  onChange={(e) => setCandidateSearch(e.target.value)}
+                  placeholder="Tìm nhân viên theo tên, SĐT..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 font-semibold"
+                />
+              </div>
+
+              <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                {activeEmployees.length === 0 ? (
+                  <p className="text-gray-500 text-center py-6">
+                    Quán chưa có nhân viên chính thức nào. Hãy duyệt ứng viên thành nhân viên trước.
+                  </p>
+                ) : (
+                  activeEmployees
+                    .filter((emp) => {
+                      const q = candidateSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      const name = (emp.studentName || emp.employeeUserId?.name || '').toLowerCase();
+                      const phone = (emp.employeeUserId?.phone || '').toLowerCase();
+                      const role = (emp.positionTitle || '').toLowerCase();
+                      return name.includes(q) || phone.includes(q) || role.includes(q);
+                    })
+                    .map((emp) => {
+                      const empId = emp._id || emp.id;
+                      const name = emp.studentName || emp.employeeUserId?.name || 'Nhân viên';
+                      const phone = emp.employeeUserId?.phone || 'Chưa cập nhật SĐT';
+                      const pos = emp.positionTitle || 'Nhân viên';
+
+                      // Check if already has a shift on this date
+                      const hasShiftToday = shifts.some((s) => {
+                        const sStudentId = s.studentUserId?._id || s.studentUserId;
+                        const targetId = emp.employeeUserId?._id || emp.employeeUserId || emp.id;
+                        return String(sStudentId) === String(targetId) && s.date === selectedDate && s.status !== 'cancelled';
+                      });
+
+                      return (
+                        <div
+                          key={empId}
+                          className="p-3 rounded-2xl border border-gray-100 hover:border-green-300 hover:bg-green-50/30 transition-all flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-green-100 text-green-800 font-black text-xs flex items-center justify-center shrink-0">
+                              {name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-900 leading-tight flex items-center gap-1.5">
+                                {name}
+                                {hasShiftToday && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">
+                                    Đã có ca hôm nay
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2">
+                                <span>{pos}</span>
+                                <span>•</span>
+                                <span className="flex items-center gap-0.5">
+                                  <Phone className="w-3 h-3 text-gray-400" /> {phone}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmAssign(emp)}
+                            disabled={submitting}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors shrink-0 cursor-pointer"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" /> Gán vào ca
+                          </button>
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAssignShiftModal(null)}
+                className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-bold text-xs transition-colors"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </Modal>
@@ -991,45 +1024,64 @@ export default function EmployerShiftsPage() {
         <Modal
           isOpen={true}
           onClose={() => setAdjustModalShift(null)}
-          title={`Điều chỉnh công: ${adjustModalShift.studentName}`}
+          title="Điều chỉnh số phút làm việc thực tế"
         >
           <div className="space-y-4 text-xs">
+            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200">
+              <p className="font-bold text-amber-900">
+                Nhân viên: {adjustModalShift.studentName} ({adjustModalShift.role})
+              </p>
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                Ca: {adjustModalShift.startTime} - {adjustModalShift.endTime} (Ngày {adjustModalShift.date})
+              </p>
+            </div>
+
             <div>
-              <label className="font-bold text-gray-800 block mb-1">Số phút làm việc thực tế *</label>
+              <label className="block font-bold text-gray-700 mb-1">
+                Số phút thực tế làm việc
+              </label>
               <input
                 type="number"
+                min="0"
+                max="1440"
                 value={adjustedMinutes}
                 onChange={(e) => setAdjustedMinutes(e.target.value)}
                 className="w-full p-2.5 rounded-xl border border-gray-200 font-bold text-sm"
               />
+              <p className="text-[11px] text-text-muted mt-1">
+                Tương đương: <strong>{(Number(adjustedMinutes) / 60).toFixed(2)} giờ</strong> •
+                Tổng tiền: <strong>{calculatePayAmount(adjustModalShift.wageRate, Number(adjustedMinutes)).toLocaleString('vi-VN')} VNĐ</strong>
+              </p>
             </div>
 
             <div>
-              <label className="font-bold text-gray-800 block mb-1">Lý do điều chỉnh (bắt buộc audit) *</label>
+              <label className="block font-bold text-gray-700 mb-1">
+                Lý do điều chỉnh (bắt buộc để lưu audit log)
+              </label>
               <textarea
                 rows={2}
                 value={adjustReason}
                 onChange={(e) => setAdjustReason(e.target.value)}
-                placeholder="Ví dụ: Sinh viên tăng ca 30 phút dọn quán / trừ 15 phút đến trễ..."
+                placeholder="Ví dụ: Đi muộn 15 phút, làm thêm giờ theo yêu cầu cửa hàng..."
                 className="w-full p-2.5 rounded-xl border border-gray-200"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setAdjustModalShift(null)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold"
+                className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-bold"
               >
                 Hủy
               </button>
               <button
                 type="button"
+                onClick={handleConfirmAdjustTime}
                 disabled={submitting || !adjustReason.trim()}
-                onClick={handleSaveAdjustTime}
-                className="px-4 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold shadow-xs transition-colors disabled:opacity-50"
               >
-                {submitting ? 'Đang lưu...' : 'Lưu điều chỉnh'}
+                Lưu điều chỉnh
               </button>
             </div>
           </div>
@@ -1044,155 +1096,46 @@ export default function EmployerShiftsPage() {
           title="Xác nhận hủy ca làm việc"
         >
           <div className="space-y-4 text-xs">
-            <p className="text-gray-700">
-              Bạn có chắc chắn muốn hủy ca làm ngày <strong>{cancelModalShift.date} ({cancelModalShift.startTime} - {cancelModalShift.endTime})</strong> của nhân viên <strong>{cancelModalShift.studentName}</strong> không?
-            </p>
+            <div className="p-3 bg-red-50 rounded-2xl border border-red-200 text-red-900">
+              <p className="font-bold">
+                Bạn sắp hủy ca làm của {cancelModalShift.studentName}
+              </p>
+              <p className="text-[11px] mt-0.5">
+                Ngày: {cancelModalShift.date} ({cancelModalShift.startTime} - {cancelModalShift.endTime})
+              </p>
+            </div>
+
             <div>
-              <label className="font-bold text-gray-800 block mb-1">Lý do hủy ca:</label>
+              <label className="block font-bold text-gray-700 mb-1">
+                Lý do hủy ca (thông báo đến nhân viên)
+              </label>
               <textarea
-                rows={2}
+                rows={3}
                 value={cancelReasonText}
                 onChange={(e) => setCancelReasonText(e.target.value)}
-                placeholder="Nhập lý do hủy ca làm..."
-                className="w-full p-2 rounded-xl border border-gray-200"
+                placeholder="Ví dụ: Quán nghỉ sửa chữa điện, thừa nhân sự ca này..."
+                className="w-full p-2.5 rounded-xl border border-gray-200"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+
+            <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setCancelModalShift(null)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold"
+                className="px-4 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-bold"
               >
-                Đóng
+                Quay lại
               </button>
               <button
                 type="button"
-                disabled={submitting}
                 onClick={handleConfirmCancelShift}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold"
+                disabled={submitting}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-xs transition-colors"
               >
                 Xác nhận hủy ca
               </button>
             </div>
           </div>
-        </Modal>
-      )}
-
-      {/* AD-HOC MODAL */}
-      {isAdHocModalOpen && (
-        <Modal
-          isOpen={true}
-          onClose={() => setIsAdHocModalOpen(false)}
-          title="Tạo ca làm phát sinh"
-        >
-          <form onSubmit={handleCreateAdHocShift} className="space-y-4 text-xs">
-            <div>
-              <label className="font-bold text-gray-800 block mb-1">Chọn công việc / Cơ sở *</label>
-              <select
-                value={adHocForm.jobId}
-                onChange={(e) => setAdHocForm((prev) => ({ ...prev, jobId: e.target.value }))}
-                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white font-semibold"
-              >
-                {jobs.map((j) => (
-                  <option key={j._id || j.id} value={j._id || j.id}>
-                    {j.title} ({j.storeName})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="font-bold text-gray-800 block mb-1">Chọn nhân viên chính thức *</label>
-              <select
-                value={adHocForm.studentUserId}
-                onChange={(e) => setAdHocForm((prev) => ({ ...prev, studentUserId: e.target.value }))}
-                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white font-semibold"
-              >
-                <option value="">-- Chọn nhân viên nhận ca --</option>
-                {activeEmployees.map((emp) => (
-                  <option
-                    key={emp._id || emp.id}
-                    value={emp.employeeUserId?._id || emp.employeeUserId || emp.id}
-                  >
-                    {emp.studentName} ({emp.positionTitle}) - SĐT: {emp.studentPhone}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="font-bold text-gray-800 block mb-1">Ngày ca làm *</label>
-                <input
-                  type="date"
-                  value={adHocForm.date}
-                  onChange={(e) => setAdHocForm((prev) => ({ ...prev, date: e.target.value }))}
-                  className="w-full p-2 rounded-xl border border-gray-200 font-semibold"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-gray-800 block mb-1">Tên vị trí / ca</label>
-                <input
-                  type="text"
-                  value={adHocForm.role}
-                  onChange={(e) => setAdHocForm((prev) => ({ ...prev, role: e.target.value }))}
-                  placeholder="Ví dụ: Phục vụ tăng cường"
-                  className="w-full p-2 rounded-xl border border-gray-200"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="font-bold text-gray-800 block mb-1">Giờ bắt đầu *</label>
-                <input
-                  type="time"
-                  value={adHocForm.startTime}
-                  onChange={(e) => setAdHocForm((prev) => ({ ...prev, startTime: e.target.value }))}
-                  className="w-full p-2 rounded-xl border border-gray-200 font-semibold"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-gray-800 block mb-1">Giờ kết thúc *</label>
-                <input
-                  type="time"
-                  value={adHocForm.endTime}
-                  onChange={(e) => setAdHocForm((prev) => ({ ...prev, endTime: e.target.value }))}
-                  className="w-full p-2 rounded-xl border border-gray-200 font-semibold"
-                />
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
-              <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
-                <input
-                  type="checkbox"
-                  checked={adHocForm.isDraft}
-                  onChange={(e) => setAdHocForm((prev) => ({ ...prev, isDraft: e.target.checked }))}
-                  className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-4 h-4"
-                />
-                <span>Lưu ở trạng thái nháp (chưa thông báo cho nhân viên ngay)</span>
-              </label>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setIsAdHocModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={handleCreateAdHocShift}
-                className="px-4 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold disabled:opacity-50 shadow-xs"
-              >
-                {submitting ? 'Đang tạo...' : 'Tạo ca làm việc'}
-              </button>
-            </div>
-          </form>
         </Modal>
       )}
     </div>
