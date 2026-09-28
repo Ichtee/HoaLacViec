@@ -278,18 +278,43 @@ export default function EmployerJobsPage() {
     }));
   }
 
-  function handleAddPosition() {
-    setFormData(prev => ({
-      ...prev,
-      positions: [...(prev.positions || []), { title: '', shift: PRESET_SHIFTS[0] }]
-    }));
+  function handleSlotsChange(val) {
+    if (val === '') {
+      setFormData(prev => ({ ...prev, slots: '' }));
+      return;
+    }
+    const num = Math.min(30, Math.max(1, parseInt(val, 10) || 1));
+    setFormData(prev => {
+      const current = prev.positions || [];
+      let updated = [...current];
+      if (updated.length < num) {
+        for (let i = updated.length; i < num; i++) {
+          updated.push({
+            title: '',
+            shift: PRESET_SHIFTS[i % PRESET_SHIFTS.length] || PRESET_SHIFTS[0],
+          });
+        }
+      } else if (updated.length > num) {
+        updated = updated.slice(0, num);
+      }
+      return {
+        ...prev,
+        slots: num,
+        positions: updated,
+      };
+    });
   }
 
-  function handleRemovePosition(index) {
-    setFormData(prev => ({
-      ...prev,
-      positions: prev.positions.filter((_, i) => i !== index)
-    }));
+  function handleSlotsBlur() {
+    if (!formData.slots || Number(formData.slots) < 1) {
+      handleSlotsChange(1);
+    }
+  }
+
+  function handleStepSlots(delta) {
+    const current = Number(formData.slots) || (formData.positions?.length || 1);
+    const nextVal = Math.min(30, Math.max(1, current + delta));
+    handleSlotsChange(nextVal);
   }
 
   function handlePositionChange(index, field, value) {
@@ -324,8 +349,11 @@ export default function EmployerJobsPage() {
       locationStatus: 'unconfirmed',
       locationSource: null,
       shiftDetail: '',
-      positions: [{ title: '', shift: PRESET_SHIFTS[0] }],
-      slots: 1,
+      slots: 2,
+      positions: [
+        { title: '', shift: PRESET_SHIFTS[0] },
+        { title: '', shift: PRESET_SHIFTS[1] || PRESET_SHIFTS[0] },
+      ],
       description: '',
       requirements: '',
       benefits: '',
@@ -359,6 +387,22 @@ export default function EmployerJobsPage() {
     }
 
     const hasValidCoords = isValidCoordinate(job.location?.lat, job.location?.lng);
+    let initialPositions = (job.positions && job.positions.length > 0)
+      ? job.positions.map(p => ({ title: p.title || '', shift: p.shift || PRESET_SHIFTS[0] }))
+      : [{ title: job.title || '', shift: job.shiftDetail || PRESET_SHIFTS[0] }];
+
+    const initialSlots = job.slots || initialPositions.length || 1;
+    if (initialPositions.length < initialSlots) {
+      for (let i = initialPositions.length; i < initialSlots; i++) {
+        initialPositions.push({
+          title: '',
+          shift: PRESET_SHIFTS[i % PRESET_SHIFTS.length] || PRESET_SHIFTS[0],
+        });
+      }
+    } else if (initialPositions.length > initialSlots) {
+      initialPositions = initialPositions.slice(0, initialSlots);
+    }
+
     setFormData({
       title: job.title || '',
       jobType: job.type === 'shift' ? 'Theo ca' : 'Part-time',
@@ -372,10 +416,8 @@ export default function EmployerJobsPage() {
       locationStatus: job.locationStatus || (hasValidCoords ? 'confirmed' : 'unconfirmed'),
       locationSource: job.locationSource || (hasValidCoords ? 'map_pin' : null),
       shiftDetail: job.shiftDetail || 'Sáng: 7h-12h | Tối: 17h-22h',
-      positions: (job.positions && job.positions.length > 0)
-        ? job.positions.map(p => ({ title: p.title || '', shift: p.shift || PRESET_SHIFTS[0] }))
-        : [{ title: job.title || '', shift: job.shiftDetail || PRESET_SHIFTS[0] }],
-      slots: job.slots || 2,
+      positions: initialPositions,
+      slots: initialSlots,
       description: job.description || '',
       requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : (job.requirements || ''),
       benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : (job.benefits || ''),
@@ -387,6 +429,16 @@ export default function EmployerJobsPage() {
     e.preventDefault();
     try {
       setSubmitting(true);
+
+      const emptyPosIndex = (formData.positions || []).findIndex(p => !p.title || !p.title.trim());
+      if (emptyPosIndex !== -1) {
+        setToast({
+          type: 'error',
+          message: `Vui lòng nhập tên vị trí cho ứng viên thứ ${emptyPosIndex + 1}.`,
+        });
+        setSubmitting(false);
+        return;
+      }
 
       const finalAddress = fullAddressPreview || formData.address;
       const isConfirmed = isValidCoordinate(formData.lat, formData.lng) && formData.locationStatus === 'confirmed';
@@ -910,28 +962,54 @@ export default function EmployerJobsPage() {
 
             {/* Vị trí tuyển dụng & Ca làm việc */}
             <div className="p-4 bg-pink-50/40 rounded-2xl border border-pink-100 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-pink-100/60">
                 <div>
                   <label className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
                     <Briefcase className="w-4 h-4 text-pink-main" /> Vị trí tuyển dụng & Ca làm việc *
                   </label>
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    Nhập tên vị trí và chọn ca tương ứng. Ứng viên sẽ chọn theo ca này khi nộp hồ sơ.
+                    Nhập số ứng viên cần tuyển, hệ thống sẽ tự động tạo đủ số dòng vị trí & ca làm tương ứng.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddPosition}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs shadow-sm transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Thêm vị trí
-                </button>
+
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-pink-200 shadow-xs shrink-0 self-start sm:self-auto">
+                  <span className="text-xs font-bold text-gray-700">Số ứng viên cần tuyển:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleStepSlots(-1)}
+                      className="w-6 h-6 flex items-center justify-center rounded-md bg-pink-100 hover:bg-pink-200 text-pink-700 font-black text-sm transition-colors"
+                      title="Giảm 1 ứng viên"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={formData.slots}
+                      onChange={e => handleSlotsChange(e.target.value)}
+                      onBlur={handleSlotsBlur}
+                      className="w-12 py-0.5 text-center font-bold text-xs text-pink-700 focus:outline-none focus:ring-1 focus:ring-pink-main border border-pink-200 rounded-md bg-pink-50/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleStepSlots(1)}
+                      className="w-6 h-6 flex items-center justify-center rounded-md bg-pink-100 hover:bg-pink-200 text-pink-700 font-black text-sm transition-colors"
+                      title="Tăng 1 ứng viên"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="text-xs font-semibold text-gray-500">bạn</span>
+                </div>
               </div>
 
+              {/* Tự động render số dòng tương ứng với số lượng ứng viên cần tuyển */}
               <div className="space-y-2.5">
                 {(formData.positions || []).map((pos, idx) => (
                   <div key={idx} className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-pink-100 shadow-xs">
-                    <span className="text-[11px] font-bold text-pink-700 bg-pink-100 w-5 h-5 rounded-full flex items-center justify-center shrink-0">
+                    <span className="text-[11px] font-bold text-pink-700 bg-pink-100 w-6 h-6 rounded-full flex items-center justify-center shrink-0">
                       {idx + 1}
                     </span>
                     {/* Ô 1: Vị trí tuyển */}
@@ -939,14 +1017,14 @@ export default function EmployerJobsPage() {
                       <input
                         type="text"
                         required
-                        placeholder="Ví dụ: Nhân viên phục vụ, Pha chế, Thu ngân..."
+                        placeholder={`Vị trí ứng viên ${idx + 1} (Ví dụ: Thu ngân, Pha chế, Dọn bàn...)`}
                         value={pos.title}
                         onChange={e => handlePositionChange(idx, 'title', e.target.value)}
                         className="w-full p-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-text-main placeholder:text-gray-400"
                       />
                     </div>
                     {/* Ô 2: Dropdown Ca làm việc */}
-                    <div className="w-48 sm:w-60">
+                    <div className="w-52 sm:w-64">
                       <select
                         value={pos.shift}
                         onChange={e => handlePositionChange(idx, 'shift', e.target.value)}
@@ -957,36 +1035,8 @@ export default function EmployerJobsPage() {
                         ))}
                       </select>
                     </div>
-                    {/* Nút xóa dòng nếu có hơn 1 dòng */}
-                    {(formData.positions || []).length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePosition(idx)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
-                        title="Xóa vị trí này"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 ))}
-              </div>
-
-              <div className="flex items-center justify-between pt-1 border-t border-pink-100/60">
-                <span className="text-[11px] text-gray-600 font-medium">
-                  Tổng số lượng ứng viên cần tuyển:
-                </span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={formData.slots}
-                    onChange={e => setFormData({ ...formData, slots: e.target.value })}
-                    className="w-20 p-1.5 rounded-lg border border-gray-200 text-center font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-main bg-white"
-                  />
-                  <span className="text-xs text-text-muted">bạn</span>
-                </div>
               </div>
             </div>
 
