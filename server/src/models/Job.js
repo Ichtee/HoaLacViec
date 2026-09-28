@@ -66,6 +66,7 @@ const jobSchema = new mongoose.Schema({
   positions: [{
     title: { type: String, default: '' },
     shift: { type: String, default: '' },
+    quantity: { type: Number, default: 1 },
   }],
   slots: { type: Number, default: 1 },
   description: { type: String, default: '' },

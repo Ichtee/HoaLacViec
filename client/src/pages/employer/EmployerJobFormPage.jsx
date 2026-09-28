@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Briefcase, ArrowLeft, MapPin, DollarSign,
   Phone, CheckCircle2, AlertCircle, Save,
-  Building2, ExternalLink, ChevronDown, ChevronUp
+  Building2, ExternalLink, Plus, Trash2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
@@ -38,7 +38,6 @@ export default function EmployerJobFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [employerPhone, setEmployerPhone] = useState(user?.phone || '');
-  const [visiblePositionsCount, setVisiblePositionsCount] = useState(5);
 
   // Dynamic Provinces, Districts, Wards from open-api.vn
   const [provinces, setProvinces] = useState([]);
@@ -68,10 +67,9 @@ export default function EmployerJobFormPage() {
     locationStatus: 'unconfirmed',
     locationSource: null,
     shiftDetail: '',
-    slots: 2,
+    slots: 1,
     positions: [
-      { title: '', shift: PRESET_SHIFTS[0] },
-      { title: '', shift: PRESET_SHIFTS[1] || PRESET_SHIFTS[0] },
+      { title: '', shift: PRESET_SHIFTS[0], quantity: 1 },
     ],
     description: '',
     requirements: '',
@@ -167,20 +165,14 @@ export default function EmployerJobFormPage() {
 
         const hasValidCoords = isValidCoordinate(job.location?.lat, job.location?.lng);
         let initialPositions = (job.positions && job.positions.length > 0)
-          ? job.positions.map(p => ({ title: p.title || '', shift: p.shift || PRESET_SHIFTS[0] }))
-          : [{ title: job.title || '', shift: job.shiftDetail || PRESET_SHIFTS[0] }];
+          ? job.positions.map(p => ({
+              title: p.title || '',
+              shift: p.shift || PRESET_SHIFTS[0],
+              quantity: Number(p.quantity) > 0 ? Number(p.quantity) : 1,
+            }))
+          : [{ title: job.title || '', shift: job.shiftDetail || PRESET_SHIFTS[0], quantity: job.slots || 1 }];
 
-        const initialSlots = job.slots || initialPositions.length || 1;
-        if (initialPositions.length < initialSlots) {
-          for (let i = initialPositions.length; i < initialSlots; i++) {
-            initialPositions.push({
-              title: '',
-              shift: PRESET_SHIFTS[i % PRESET_SHIFTS.length] || PRESET_SHIFTS[0],
-            });
-          }
-        } else if (initialPositions.length > initialSlots) {
-          initialPositions = initialPositions.slice(0, initialSlots);
-        }
+        const computedSlots = initialPositions.reduce((sum, p) => sum + (Number(p.quantity) || 1), 0);
 
         setFormData({
           title: job.title || '',
@@ -305,66 +297,40 @@ export default function EmployerJobFormPage() {
     }));
   }
 
-  // Slots input auto-renders rows
-  function handleSlotsChange(val) {
-    if (val === '') {
-      setFormData(prev => ({ ...prev, slots: '' }));
-      return;
-    }
-    const num = Math.min(30, Math.max(1, parseInt(val, 10) || 1));
+  function handleAddPosition() {
+    setFormData(prev => ({
+      ...prev,
+      positions: [
+        ...(prev.positions || []),
+        { title: '', shift: PRESET_SHIFTS[0], quantity: 1 },
+      ],
+    }));
+  }
+
+  function handleRemovePosition(index) {
     setFormData(prev => {
-      const current = prev.positions || [];
-      let updated = [...current];
-      if (updated.length < num) {
-        for (let i = updated.length; i < num; i++) {
-          updated.push({
-            title: '',
-            shift: PRESET_SHIFTS[i % PRESET_SHIFTS.length] || PRESET_SHIFTS[0],
-          });
-        }
-      } else if (updated.length > num) {
-        updated = updated.slice(0, num);
-      }
+      const updated = (prev.positions || []).filter((_, i) => i !== index);
       return {
         ...prev,
-        slots: num,
-        positions: updated,
+        positions: updated.length > 0 ? updated : [{ title: '', shift: PRESET_SHIFTS[0], quantity: 1 }],
       };
     });
-  }
-
-  function handleSlotsBlur() {
-    if (!formData.slots || Number(formData.slots) < 1) {
-      handleSlotsChange(1);
-    }
-  }
-
-  function handleStepSlots(delta) {
-    const current = Number(formData.slots) || (formData.positions?.length || 1);
-    const nextVal = Math.min(30, Math.max(1, current + delta));
-    handleSlotsChange(nextVal);
   }
 
   function handlePositionChange(index, field, value) {
     setFormData(prev => {
       const updated = [...(prev.positions || [])];
-      updated[index] = { ...updated[index], [field]: value };
+      if (field === 'quantity') {
+        const val = value === '' ? '' : Math.max(1, Math.min(50, parseInt(value, 10) || 1));
+        updated[index] = { ...updated[index], quantity: val };
+      } else {
+        updated[index] = { ...updated[index], [field]: value };
+      }
       return { ...prev, positions: updated };
     });
   }
 
-  const totalPositions = (formData.positions || []).length;
-  const displayedPositions = (formData.positions || []).slice(0, visiblePositionsCount);
-  const remainingPositionsCount = Math.max(0, totalPositions - visiblePositionsCount);
-  const nextBatchCount = Math.min(5, remainingPositionsCount);
-
-  function handleShowMorePositions() {
-    setVisiblePositionsCount(prev => prev + Math.min(5, totalPositions - prev));
-  }
-
-  function handleCollapsePositions() {
-    setVisiblePositionsCount(5);
-  }
+  const totalSlots = (formData.positions || []).reduce((sum, p) => sum + (Number(p.quantity) || 1), 0);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -374,12 +340,9 @@ export default function EmployerJobFormPage() {
       // Validate positions
       const emptyPosIndex = (formData.positions || []).findIndex(p => !p.title || !p.title.trim());
       if (emptyPosIndex !== -1) {
-        if (visiblePositionsCount <= emptyPosIndex) {
-          setVisiblePositionsCount(Math.ceil((emptyPosIndex + 1) / 5) * 5);
-        }
         setToast({
           type: 'error',
-          message: `Vui lòng nhập tên vị trí cho ứng viên thứ ${emptyPosIndex + 1}.`,
+          message: `Vui lòng nhập tên vị trí cho dòng thứ ${emptyPosIndex + 1}.`,
         });
         setSubmitting(false);
         return;
@@ -395,14 +358,17 @@ export default function EmployerJobFormPage() {
         : null;
 
       const inputPhone = formData.contactPhone?.trim() || user?.phone || employerPhone || '';
-      const validPositions = (formData.positions || []).filter(p => p.title && p.title.trim());
-      const finalPositions = validPositions.length > 0
-        ? validPositions
-        : [{ title: formData.title || 'Nhân viên', shift: PRESET_SHIFTS[0] }];
+      const finalPositions = (formData.positions || []).map(p => ({
+        title: (p.title || '').trim() || formData.title || 'Nhân viên',
+        shift: p.shift || PRESET_SHIFTS[0],
+        quantity: Number(p.quantity) > 0 ? Number(p.quantity) : 1,
+      }));
 
       const computedShiftDetail = finalPositions
-        .map(p => `${p.title} (${p.shift})`)
+        .map(p => `${p.title} (${p.shift} - SL: ${p.quantity})`)
         .join(' | ');
+
+      const computedTotalSlots = finalPositions.reduce((sum, p) => sum + p.quantity, 0);
 
       const payload = {
         title: formData.title,
@@ -429,7 +395,7 @@ export default function EmployerJobFormPage() {
         location: locationPayload,
         locationStatus: isConfirmed ? 'confirmed' : formData.locationStatus || 'unconfirmed',
         locationSource: isConfirmed ? (formData.locationSource || 'map_pin') : null,
-        slots: Number(formData.slots) || finalPositions.length || 2,
+        slots: computedTotalSlots,
         positions: finalPositions,
         shiftDetail: computedShiftDetail || formData.shiftDetail,
         description: formData.description,
@@ -603,7 +569,7 @@ export default function EmployerJobFormPage() {
           </div>
         </div>
 
-        {/* CARD 2: SỐ LƯỢNG & VỊ TRÍ TUYỂN DỤNG (AUTO RENDER) */}
+        {/* CARD 2: VỊ TRÍ TUYỂN DỤNG & SỐ LƯỢNG */}
         <div className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-pink-50 pb-3">
             <div className="flex items-center gap-2">
@@ -616,58 +582,34 @@ export default function EmployerJobFormPage() {
                   <span className="text-red-500">*</span>
                 </h2>
                 <p className="text-[11px] text-gray-500 mt-0.5">
-                  Nhập số lượng ứng viên cần tuyển, hệ thống tự động tạo đủ số dòng vị trí & ca làm tương ứng.
+                  Thêm các vị trí, chọn ca làm và nhập số lượng ứng viên cần tuyển cho từng vị trí.
                 </p>
               </div>
             </div>
 
-            {/* Ô nhập số lượng ứng viên cần tuyển */}
-            <div className="flex items-center gap-2 bg-pink-50/60 p-1.5 rounded-2xl border border-pink-200 shadow-xs shrink-0 self-start sm:self-auto">
-              <span className="text-xs font-bold text-gray-700 pl-2">Số ứng viên cần tuyển:</span>
-              <div className="flex items-center gap-1 bg-white rounded-xl p-1 border border-pink-200">
-                <button
-                  type="button"
-                  onClick={() => handleStepSlots(-1)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 font-black text-sm transition-colors"
-                  title="Giảm 1 ứng viên"
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={formData.slots}
-                  onChange={e => handleSlotsChange(e.target.value)}
-                  onBlur={handleSlotsBlur}
-                  className="w-12 py-1 text-center font-black text-sm text-pink-700 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleStepSlots(1)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-700 font-black text-sm transition-colors"
-                  title="Tăng 1 ứng viên"
-                >
-                  +
-                </button>
-              </div>
-              <span className="text-xs font-bold text-pink-800 pr-2">bạn</span>
-            </div>
+            {/* Nút thêm vị trí */}
+            <button
+              type="button"
+              onClick={handleAddPosition}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Thêm vị trí
+            </button>
           </div>
 
-          {/* Auto-rendered rows (hiển thị tối đa 5 vị trí ban đầu, có nút Xem thêm) */}
-          <div className="space-y-3 pt-2">
-            {displayedPositions.map((pos, idx) => (
+          {/* Danh sách các dòng vị trí */}
+          <div className="space-y-3 pt-1">
+            {(formData.positions || []).map((pos, idx) => (
               <div
                 key={idx}
-                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-pink-50/30 p-3 rounded-2xl border border-pink-100 hover:border-pink-200 transition-all animate-scale-in"
+                className="flex flex-col md:flex-row md:items-center gap-3 bg-pink-50/30 p-3 rounded-2xl border border-pink-100 hover:border-pink-200 transition-all animate-scale-in"
               >
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs font-bold text-pink-700 bg-pink-200/80 w-7 h-7 rounded-xl flex items-center justify-center">
                     {idx + 1}
                   </span>
-                  <span className="text-xs font-bold text-gray-700 sm:hidden">
-                    Ứng viên {idx + 1}:
+                  <span className="text-xs font-bold text-gray-700 md:hidden">
+                    Vị trí {idx + 1}:
                   </span>
                 </div>
 
@@ -676,7 +618,7 @@ export default function EmployerJobFormPage() {
                   <input
                     type="text"
                     required
-                    placeholder={`Tên vị trí ứng viên ${idx + 1} (Ví dụ: Thu ngân, Pha chế, Dọn bàn...)`}
+                    placeholder="Tên vị trí (Ví dụ: Phục vụ bàn, Thu ngân, Pha chế...)"
                     value={pos.title}
                     onChange={e => handlePositionChange(idx, 'title', e.target.value)}
                     className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
@@ -684,7 +626,7 @@ export default function EmployerJobFormPage() {
                 </div>
 
                 {/* Ô 2: Dropdown Ca làm việc */}
-                <div className="w-full sm:w-72">
+                <div className="w-full md:w-64">
                   <select
                     value={pos.shift}
                     onChange={e => handlePositionChange(idx, 'shift', e.target.value)}
@@ -695,39 +637,50 @@ export default function EmployerJobFormPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Ô 3: Số lượng cần tuyển */}
+                <div className="flex items-center gap-1.5 shrink-0 bg-white px-2.5 py-1.5 rounded-xl border border-gray-200">
+                  <span className="text-xs font-bold text-gray-600 whitespace-nowrap">SL:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={pos.quantity === '' ? '' : (pos.quantity ?? 1)}
+                    onChange={e => handlePositionChange(idx, 'quantity', e.target.value)}
+                    className="w-12 text-center font-bold text-xs text-pink-700 focus:outline-none"
+                    title="Số lượng cần tuyển cho vị trí này"
+                  />
+                  <span className="text-xs text-gray-500 font-medium">bạn</span>
+                </div>
+
+                {/* Nút Xoá dòng vị trí */}
+                {(formData.positions || []).length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePosition(idx)}
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors shrink-0 self-end md:self-auto cursor-pointer"
+                    title="Xóa vị trí này"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             ))}
 
-            {/* Nút Xem thêm khi tổng số ứng viên > 5 */}
-            {totalPositions > 5 && (
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-pink-100/60 mt-3">
-                <span className="text-xs text-gray-500 font-medium">
-                  Đang hiển thị <strong className="text-pink-600 font-bold">{displayedPositions.length}</strong> / {totalPositions} vị trí ứng viên
-                </span>
+            {/* Footer tổng kết số lượng */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-pink-100/60 mt-3">
+              <span className="text-xs text-gray-600 font-medium">
+                Tổng cộng: <strong className="text-pink-600 font-bold">{totalSlots}</strong> ứng viên cần tuyển ({formData.positions?.length || 0} vị trí)
+              </span>
 
-                <div className="flex items-center gap-2">
-                  {remainingPositionsCount > 0 ? (
-                    <button
-                      type="button"
-                      onClick={handleShowMorePositions}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-pink-100 hover:bg-pink-200 text-pink-800 font-bold text-xs transition-colors shadow-xs"
-                    >
-                      <ChevronDown className="w-4 h-4 text-pink-600" />
-                      Xem thêm ({nextBatchCount === remainingPositionsCount ? `còn lại ${remainingPositionsCount} vị trí` : `thêm ${nextBatchCount} vị trí`})
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleCollapsePositions}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs transition-colors"
-                    >
-                      <ChevronUp className="w-4 h-4 text-gray-500" />
-                      Thu gọn (chỉ hiển thị 5 vị trí)
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+              <button
+                type="button"
+                onClick={handleAddPosition}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Thêm vị trí khác
+              </button>
+            </div>
           </div>
         </div>
 

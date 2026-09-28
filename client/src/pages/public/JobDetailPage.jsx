@@ -269,9 +269,11 @@ export default function JobDetailPage() {
                         <Clock className="w-3.5 h-3.5 text-green-dark" /> {pos.shift}
                       </p>
                     </div>
-                    <span className="px-2.5 py-1 rounded-xl bg-green-100 text-green-dark font-bold text-[11px] shrink-0">
-                      Đang tuyển
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="px-2.5 py-1 rounded-xl bg-green-100 text-green-dark font-bold text-[11px]">
+                        Tuyển {pos.quantity || 1} bạn
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -567,7 +569,7 @@ export default function JobDetailPage() {
               >
                 {job.positions.map((p, idx) => (
                   <option key={idx} value={`${p.title}:::${p.shift}`}>
-                    {p.title} — {p.shift}
+                    {p.title} — {p.shift} {p.quantity ? `(Tuyển ${p.quantity} bạn)` : ''}
                   </option>
                 ))}
               </select>
