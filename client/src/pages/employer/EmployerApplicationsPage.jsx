@@ -136,53 +136,6 @@ export default function EmployerApplicationsPage() {
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* TOP PRIMARY TABS: ỨNG VIÊN vs NHÂN VIÊN */}
-      <div className="flex items-center gap-2 border-b border-gray-200 pb-3">
-        <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold bg-pink-main text-white shadow-sm">
-          <Users className="w-4 h-4" />
-          <span>Ứng viên tuyển dụng</span>
-          <span className="px-2 py-0.5 rounded-full bg-white/20 text-white text-[10px] font-black">
-            {candidates.length}
-          </span>
-        </div>
-
-        <Link
-          to="/employer/employees"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all text-gray-500 hover:text-gray-900 hover:bg-gray-100"
-        >
-          <UserCheck className="w-4 h-4" />
-          <span>Nhân viên chính thức</span>
-          <span className="px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 text-[10px] font-black">
-            {employees.length}
-          </span>
-        </Link>
-      </div>
-
-      {/* EMPLOYEES BANNER NOTIFICATION */}
-      {employees.length > 0 && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shrink-0">
-              ✓
-            </div>
-            <div>
-              <p className="text-xs font-bold text-emerald-950">
-                Quán đang có <span className="text-emerald-700 font-black">{employees.length} nhân viên chính thức</span> (đã duyệt trúng tuyển)
-              </p>
-              <p className="text-[11px] text-emerald-700 mt-0.5">
-                Các ứng viên trúng tuyển đã được chuyển vào <strong>Tab Nhân viên</strong> để quản lý danh sách và phân ca làm.
-              </p>
-            </div>
-          </div>
-          <Link
-            to="/employer/employees"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-colors shrink-0 self-start sm:self-auto"
-          >
-            Đến tab Nhân viên ({employees.length}) <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-      )}
-
       {/* Header */}
       <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

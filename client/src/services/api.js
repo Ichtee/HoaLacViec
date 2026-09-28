@@ -221,6 +221,12 @@ export async function apiWithdrawApplication(id) {
   });
 }
 
+export async function apiDeleteApplication(id) {
+  return request(`/applications/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 // ─── SHIFTS ───────────────────────────────────────────────────────
 export async function apiGetShifts(params = {}) {
   return request(`/shifts${buildQueryString(params)}`);

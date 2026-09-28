@@ -429,12 +429,38 @@ router.put('/:id/withdraw', async (req, res, next) => {
   }
 });
 
-// DELETE /api/applications/:id (Applications cannot be hard deleted; preserve audit trail)
-router.delete('/:id', async (req, res) => {
-  return res.status(400).json({
-    error: 'Hồ sơ ứng tuyển không thể bị xóa để đảm bảo tính minh bạch và lịch sử kiểm toán của hệ thống.',
-    code: 'CANNOT_DELETE',
-  });
+// DELETE /api/applications/:id (Employer or admin removes candidate/employee)
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const application = await Application.findById(req.params.id);
+    if (!application) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ.', code: 'NOT_FOUND' });
+    }
+
+    if (req.user.role !== 'admin') {
+      const employerProfile = await EmployerProfile.findOne({ userId: req.user._id });
+      const empIds = [
+        req.user._id.toString(),
+        employerProfile?._id?.toString(),
+      ].filter(Boolean);
+
+      const isDirectOwner = empIds.includes(application.employerId?.toString()) ||
+                            empIds.includes(application.employerUserId?.toString());
+
+      if (!isDirectOwner) {
+        const job = await Job.findById(application.jobId);
+        const jobOwner = job && (empIds.includes(job.employerId?.toString()) || empIds.includes(job.employerUserId?.toString()));
+        if (!jobOwner) {
+          return res.status(403).json({ error: 'Bạn không có quyền xóa hồ sơ này.', code: 'FORBIDDEN' });
+        }
+      }
+    }
+
+    await Application.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Đã xóa nhân viên / hồ sơ thành công', id: req.params.id });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

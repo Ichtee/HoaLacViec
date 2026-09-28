@@ -30,6 +30,7 @@ export {
   apiGetApplications as getApplications,
   apiUpdateApplication as updateApplication,
   apiWithdrawApplication as withdrawApplication,
+  apiDeleteApplication as deleteApplication,
   apiGetShifts as getShifts,
   apiCreateShift as createShift,
   apiCheckIn as checkIn,
