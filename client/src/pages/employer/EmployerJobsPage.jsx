@@ -20,6 +20,16 @@ import LocationPicker from '@/components/LocationPicker';
 import { formatVND, isValidCoordinate, hasConfirmedCoordinates } from '@/utils';
 import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
 
+export const PRESET_SHIFTS = [
+  'Ca sáng (07:00 - 12:00)',
+  'Ca chiều (12:00 - 17:00)',
+  'Ca tối (17:00 - 22:00)',
+  'Ca đêm (22:00 - 06:00)',
+  'Ca xoay / Linh hoạt theo lịch học',
+  'Ca full-time (08:00 - 17:00)',
+  'Ca cuối tuần (Thứ 7 & Chủ Nhật)',
+];
+
 export default function EmployerJobsPage() {
   const { user, updateUser } = useAuth();
   const [jobs, setJobs] = useState([]);
@@ -86,6 +96,7 @@ export default function EmployerJobsPage() {
     locationStatus: 'unconfirmed',
     locationSource: null,
     shiftDetail: '',
+    positions: [{ title: '', shift: PRESET_SHIFTS[0] }],
     slots: 1,
     description: '',
     requirements: '',
@@ -267,6 +278,28 @@ export default function EmployerJobsPage() {
     }));
   }
 
+  function handleAddPosition() {
+    setFormData(prev => ({
+      ...prev,
+      positions: [...(prev.positions || []), { title: '', shift: PRESET_SHIFTS[0] }]
+    }));
+  }
+
+  function handleRemovePosition(index) {
+    setFormData(prev => ({
+      ...prev,
+      positions: prev.positions.filter((_, i) => i !== index)
+    }));
+  }
+
+  function handlePositionChange(index, field, value) {
+    setFormData(prev => {
+      const updated = [...(prev.positions || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, positions: updated };
+    });
+  }
+
   function handleOpenCreate() {
     setEditingJob(null);
     setDetailAddress('');
@@ -291,6 +324,7 @@ export default function EmployerJobsPage() {
       locationStatus: 'unconfirmed',
       locationSource: null,
       shiftDetail: '',
+      positions: [{ title: '', shift: PRESET_SHIFTS[0] }],
       slots: 1,
       description: '',
       requirements: '',
@@ -338,6 +372,9 @@ export default function EmployerJobsPage() {
       locationStatus: job.locationStatus || (hasValidCoords ? 'confirmed' : 'unconfirmed'),
       locationSource: job.locationSource || (hasValidCoords ? 'map_pin' : null),
       shiftDetail: job.shiftDetail || 'Sáng: 7h-12h | Tối: 17h-22h',
+      positions: (job.positions && job.positions.length > 0)
+        ? job.positions.map(p => ({ title: p.title || '', shift: p.shift || PRESET_SHIFTS[0] }))
+        : [{ title: job.title || '', shift: job.shiftDetail || PRESET_SHIFTS[0] }],
       slots: job.slots || 2,
       description: job.description || '',
       requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : (job.requirements || ''),
@@ -361,6 +398,16 @@ export default function EmployerJobsPage() {
         : null;
 
       const inputPhone = formData.contactPhone?.trim() || user?.phone || employerPhone || '';
+
+      const validPositions = (formData.positions || []).filter(p => p.title && p.title.trim());
+      const finalPositions = validPositions.length > 0
+        ? validPositions
+        : [{ title: formData.title || 'Nhân viên', shift: PRESET_SHIFTS[0] }];
+
+      const computedShiftDetail = finalPositions
+        .map(p => `${p.title} (${p.shift})`)
+        .join(' | ');
+
       const payload = {
         title: formData.title,
         type: formData.jobType === 'Theo ca' ? 'shift' : 'part_time',
@@ -386,8 +433,9 @@ export default function EmployerJobsPage() {
         location: locationPayload,
         locationStatus: isConfirmed ? 'confirmed' : formData.locationStatus || 'unconfirmed',
         locationSource: isConfirmed ? (formData.locationSource || 'map_pin') : null,
-        slots: Number(formData.slots) || 2,
-        shiftDetail: formData.shiftDetail,
+        slots: Number(formData.slots) || finalPositions.length || 2,
+        positions: finalPositions,
+        shiftDetail: computedShiftDetail || formData.shiftDetail,
         description: formData.description,
         requirements: formData.requirements
           ? formData.requirements.split('\n').map(s => s.trim()).filter(Boolean)
@@ -591,6 +639,16 @@ export default function EmployerJobsPage() {
                       <span>Cần tuyển: {job.slots || 1} bạn</span>
                     </div>
                   </div>
+
+                  {job.positions?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {job.positions.map((pos, pIdx) => (
+                        <span key={pIdx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-100">
+                          🎯 {pos.title}: {pos.shift.split('(')[0].trim()}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs gap-2">
@@ -850,27 +908,85 @@ export default function EmployerJobsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block font-bold text-text-main mb-1">Số lượng sinh viên cần tuyển</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={formData.slots}
-                  onChange={e => setFormData({ ...formData, slots: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main"
-                />
+            {/* Vị trí tuyển dụng & Ca làm việc */}
+            <div className="p-4 bg-pink-50/40 rounded-2xl border border-pink-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
+                    <Briefcase className="w-4 h-4 text-pink-main" /> Vị trí tuyển dụng & Ca làm việc *
+                  </label>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Nhập tên vị trí và chọn ca tương ứng. Ứng viên sẽ chọn theo ca này khi nộp hồ sơ.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddPosition}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white font-bold text-xs shadow-sm transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Thêm vị trí
+                </button>
               </div>
-              <div>
-                <label className="block font-bold text-text-main mb-1">Khung ca dự kiến</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Sáng: 7h-12h | Tối: 17h-22h"
-                  value={formData.shiftDetail}
-                  onChange={e => setFormData({ ...formData, shiftDetail: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main"
-                />
+
+              <div className="space-y-2.5">
+                {(formData.positions || []).map((pos, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-pink-100 shadow-xs">
+                    <span className="text-[11px] font-bold text-pink-700 bg-pink-100 w-5 h-5 rounded-full flex items-center justify-center shrink-0">
+                      {idx + 1}
+                    </span>
+                    {/* Ô 1: Vị trí tuyển */}
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ví dụ: Nhân viên phục vụ, Pha chế, Thu ngân..."
+                        value={pos.title}
+                        onChange={e => handlePositionChange(idx, 'title', e.target.value)}
+                        className="w-full p-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-text-main placeholder:text-gray-400"
+                      />
+                    </div>
+                    {/* Ô 2: Dropdown Ca làm việc */}
+                    <div className="w-48 sm:w-60">
+                      <select
+                        value={pos.shift}
+                        onChange={e => handlePositionChange(idx, 'shift', e.target.value)}
+                        className="w-full p-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-text-main"
+                      >
+                        {PRESET_SHIFTS.map((s, sIdx) => (
+                          <option key={sIdx} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Nút xóa dòng nếu có hơn 1 dòng */}
+                    {(formData.positions || []).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePosition(idx)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                        title="Xóa vị trí này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-pink-100/60">
+                <span className="text-[11px] text-gray-600 font-medium">
+                  Tổng số lượng ứng viên cần tuyển:
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={formData.slots}
+                    onChange={e => setFormData({ ...formData, slots: e.target.value })}
+                    className="w-20 p-1.5 rounded-lg border border-gray-200 text-center font-bold text-xs focus:outline-none focus:ring-2 focus:ring-pink-main bg-white"
+                  />
+                  <span className="text-xs text-text-muted">bạn</span>
+                </div>
               </div>
             </div>
 

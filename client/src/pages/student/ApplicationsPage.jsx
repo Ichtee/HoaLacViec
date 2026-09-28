@@ -148,6 +148,11 @@ export default function ApplicationsPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
+                    {(app.selectedPosition || app.selectedShift) && (
+                      <span className="inline-flex items-center gap-1 font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full text-[11px]">
+                        🎯 {app.selectedPosition ? app.selectedPosition : ''}{app.selectedPosition && app.selectedShift ? ' — ' : ''}{app.selectedShift ? app.selectedShift : ''}
+                      </span>
+                    )}
                     <span className="flex items-center gap-1 font-medium text-green-dark">
                       <Building2 className="w-3.5 h-3.5 text-green-main" /> {app.storeName}
                     </span>

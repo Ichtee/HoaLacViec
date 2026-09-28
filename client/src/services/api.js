@@ -198,6 +198,8 @@ export async function apiApply(studentId, jobId, note, candidateData = {}) {
       studentEmail: candidateData.email || user.email || '',
       jobId,
       note,
+      selectedPosition: candidateData.selectedPosition || '',
+      selectedShift: candidateData.selectedShift || '',
     }),
   });
 }

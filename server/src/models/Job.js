@@ -63,6 +63,10 @@ const jobSchema = new mongoose.Schema({
     endTime: { type: String },
     slot: { type: String },
   }],
+  positions: [{
+    title: { type: String, default: '' },
+    shift: { type: String, default: '' },
+  }],
   slots: { type: Number, default: 1 },
   description: { type: String, default: '' },
   requirements: [{ type: String }],

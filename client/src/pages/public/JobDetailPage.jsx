@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import {
   MapPin, Clock, DollarSign, Users, Star, CheckCircle, Shield,
   Bookmark, BookmarkCheck, Send, ArrowLeft, Bus, AlertTriangle, Calendar, Navigation, ExternalLink,
-  Phone, MessageCircle, Flag, Search, AlertCircle
+  Phone, MessageCircle, Flag, Search, AlertCircle, Briefcase
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
 import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport, updateUserProfile } from '@/services';
@@ -26,6 +26,7 @@ export default function JobDetailPage() {
   const [applyOpen, setApplyOpen] = useState(false);
   const [candidateName, setCandidateName] = useState(user?.name || '');
   const [candidatePhone, setCandidatePhone] = useState(user?.phone || '');
+  const [candidatePosition, setCandidatePosition] = useState('');
   const [candidateShift, setCandidateShift] = useState('Ca Sáng (7h - 12h)');
   const [applyNote, setApplyNote] = useState('');
   const [applying, setApplying] = useState(false);
@@ -113,6 +114,10 @@ export default function JobDetailPage() {
     if (!isAuthenticated) { navigate(`/login?redirect=/jobs/${id}`); return; }
     if (user?.name && !candidateName) setCandidateName(user.name);
     if (user?.phone && !candidatePhone) setCandidatePhone(user.phone);
+    if (job?.positions && job.positions.length > 0) {
+      setCandidatePosition(job.positions[0].title);
+      setCandidateShift(job.positions[0].shift);
+    }
     setApplyOpen(true);
   }
 
@@ -128,10 +133,14 @@ export default function JobDetailPage() {
     setApplyError('');
     try {
       const targetId = job._id || job.id;
-      const combinedNote = `[Ca mong muốn: ${candidateShift}]${applyNote ? ` ${applyNote}` : ''}`;
+      const chosenPos = candidatePosition || (job.positions?.[0]?.title || job.title);
+      const chosenShift = candidateShift || (job.positions?.[0]?.shift || 'Ca xoay');
+      const combinedNote = `[Vị trí: ${chosenPos}] [Ca: ${chosenShift}]${applyNote ? ` ${applyNote}` : ''}`;
       await applyToJob(profileId, targetId, combinedNote, {
         name: candidateName,
         phone: candidatePhone,
+        selectedPosition: chosenPos,
+        selectedShift: chosenShift,
       });
       if (candidatePhone && !user?.phone) {
         updateUserProfile({ phone: candidatePhone.trim() }).catch(() => {});
@@ -238,6 +247,30 @@ export default function JobDetailPage() {
               </Button>
             </div>
           </div>
+
+          {/* Positions & Shifts */}
+          {job.positions?.length > 0 && (
+            <div className="card space-y-3">
+              <h2 className="section-title flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-green-main" /> Vị trí tuyển dụng & Ca làm việc
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {job.positions.map((pos, pIdx) => (
+                  <div key={pIdx} className="p-3.5 rounded-2xl bg-cream/70 border border-green-100 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-bold text-sm text-text-main">{pos.title}</h4>
+                      <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-green-dark" /> {pos.shift}
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-xl bg-green-100 text-green-dark font-bold text-[11px] shrink-0">
+                      Đang tuyển
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <div className="card">
@@ -490,19 +523,37 @@ export default function JobDetailPage() {
 
           <div>
             <label className="block font-bold text-text-main mb-1">
-              Ca làm việc mong muốn
+              Vị trí & Ca làm việc ứng tuyển <span className="text-red-500">*</span>
             </label>
-            <select
-              value={candidateShift}
-              onChange={e => setCandidateShift(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main bg-white"
-            >
-              <option value="Ca Sáng (7h - 12h)">Ca Sáng (7h - 12h)</option>
-              <option value="Ca Chiều (12h - 17h)">Ca Chiều (12h - 17h)</option>
-              <option value="Ca Tối (17h - 22h)">Ca Tối (17h - 22h)</option>
-              <option value="Ca Xoay / Linh hoạt theo lịch học">Ca Xoay / Linh hoạt theo lịch học</option>
-              <option value="Full-time cuối tuần (Thứ 7 & CN)">Full-time cuối tuần (Thứ 7 & CN)</option>
-            </select>
+            {job.positions?.length > 0 ? (
+              <select
+                value={`${candidatePosition}:::${candidateShift}`}
+                onChange={e => {
+                  const [pos, sh] = e.target.value.split(':::');
+                  setCandidatePosition(pos);
+                  setCandidateShift(sh);
+                }}
+                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main bg-white"
+              >
+                {job.positions.map((p, idx) => (
+                  <option key={idx} value={`${p.title}:::${p.shift}`}>
+                    {p.title} — {p.shift}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={candidateShift}
+                onChange={e => setCandidateShift(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main bg-white"
+              >
+                <option value="Ca Sáng (7h - 12h)">Ca Sáng (7h - 12h)</option>
+                <option value="Ca Chiều (12h - 17h)">Ca Chiều (12h - 17h)</option>
+                <option value="Ca Tối (17h - 22h)">Ca Tối (17h - 22h)</option>
+                <option value="Ca Xoay / Linh hoạt theo lịch học">Ca Xoay / Linh hoạt theo lịch học</option>
+                <option value="Full-time cuối tuần (Thứ 7 & CN)">Full-time cuối tuần (Thứ 7 & CN)</option>
+              </select>
+            )}
           </div>
 
           <div>

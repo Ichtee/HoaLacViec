@@ -22,6 +22,8 @@ const applicationSchema = new mongoose.Schema({
     ],
     default: 'pending',
   },
+  selectedPosition: { type: String, default: '' },
+  selectedShift: { type: String, default: '' },
   note: { type: String, default: '' }, // Lời nhắn từ sinh viên khi nộp
   employerNote: { type: String, default: '' }, // Legacy employer note
   internalNote: { type: String, default: '' }, // Ghi chú nội bộ dành riêng cho NTD

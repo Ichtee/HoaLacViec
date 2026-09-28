@@ -214,6 +214,11 @@ export default function EmployerApplicationsPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                    {(app.selectedPosition || app.selectedShift) && (
+                      <span className="inline-flex items-center gap-1 font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-full text-[11px]">
+                        🎯 {app.selectedPosition ? app.selectedPosition : ''}{app.selectedPosition && app.selectedShift ? ' — ' : ''}{app.selectedShift ? app.selectedShift : ''}
+                      </span>
+                    )}
                     <Badge variant="outline" size="sm">🎓 Sinh viên Hòa Lạc</Badge>
                     {app.studentPhone && (
                       <span className="inline-flex items-center gap-1 font-semibold text-gray-800 bg-gray-100 px-2.5 py-0.5 rounded-full text-[11px]">

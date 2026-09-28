@@ -128,6 +128,8 @@ router.post('/', async (req, res, next) => {
       studentEmail,
       coverLetter,
       shift,
+      selectedPosition,
+      selectedShift,
     } = req.body;
 
     if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
@@ -175,7 +177,11 @@ router.post('/', async (req, res, next) => {
     const finalName = studentName || name || req.user.name || 'Sinh viên';
     const finalPhone = studentPhone || phone || req.user.phone || '';
     const finalEmail = studentEmail || email || req.user.email || '';
-    const finalNote = note || [shift ? `[Ca mong muốn: ${shift}]` : '', coverLetter || ''].filter(Boolean).join(' ');
+    const finalPos = selectedPosition || '';
+    const finalShift = selectedShift || shift || '';
+    const posTag = finalPos ? `[Vị trí: ${finalPos}]` : '';
+    const shiftTag = finalShift ? `[Ca: ${finalShift}]` : '';
+    const finalNote = note || [posTag, shiftTag, coverLetter || ''].filter(Boolean).join(' ');
 
     const application = await Application.create({
       studentId,
@@ -184,13 +190,15 @@ router.post('/', async (req, res, next) => {
       studentEmail: finalEmail,
       jobId,
       employerId: job.employerUserId || job.employerId || null,
+      selectedPosition: finalPos,
+      selectedShift: finalShift,
       note: finalNote,
       status: 'pending',
       statusHistory: [{
         status: 'pending',
         changedAt: new Date(),
         changedBy: req.user._id,
-        note: 'Sinh viên nộp đơn ứng tuyển',
+        note: `Sinh viên nộp đơn ứng tuyển${finalPos ? ` vị trí ${finalPos}` : ''}${finalShift ? ` (${finalShift})` : ''}`,
       }],
     });
 
