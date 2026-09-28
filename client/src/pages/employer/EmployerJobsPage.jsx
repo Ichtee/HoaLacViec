@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Briefcase, Plus, Edit, Trash2, MapPin,
   DollarSign, Users, ExternalLink,
@@ -8,102 +9,18 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
   getEmployerMyJobs,
-  createJob,
   updateJob,
   deleteJob,
-  getEmployerProfile,
-  updateUserProfile,
 } from '@/services';
-import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
-import LocationPicker from '@/components/LocationPicker';
-import { formatVND, isValidCoordinate, hasConfirmedCoordinates } from '@/utils';
-import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
-
-export const PRESET_SHIFTS = [
-  'Ca sáng (07:00 - 12:00)',
-  'Ca chiều (12:00 - 17:00)',
-  'Ca tối (17:00 - 22:00)',
-  'Ca đêm (22:00 - 06:00)',
-  'Ca xoay / Linh hoạt theo lịch học',
-  'Ca full-time (08:00 - 17:00)',
-  'Ca cuối tuần (Thứ 7 & Chủ Nhật)',
-];
+import { formatVND, hasConfirmedCoordinates } from '@/utils';
 
 export default function EmployerJobsPage() {
-  const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [employerPhone, setEmployerPhone] = useState(user?.phone || '');
-
-  // Dynamic Provinces, Districts, Wards from open-api.vn
-  const [provinces, setProvinces] = useState([]);
-  const [districts, setDistricts] = useState([]);
-  const [wards, setWards] = useState([]);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const [loadingWards, setLoadingWards] = useState(false);
-
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState('');
-  const [selectedProvinceName, setSelectedProvinceName] = useState('');
-  const [selectedDistrictCode, setSelectedDistrictCode] = useState('');
-  const [selectedDistrictName, setSelectedDistrictName] = useState('');
-  const [selectedWardCode, setSelectedWardCode] = useState('');
-  const [selectedWardName, setSelectedWardName] = useState('');
-  const [detailAddress, setDetailAddress] = useState('');
-
-  function buildFullAddress(detail, ward, district, province) {
-    const rawDetail = (detail || '').trim();
-    if (!rawDetail) {
-      return [ward, district, province].filter(Boolean).join(', ');
-    }
-    // Remove trailing ", Việt Nam" if user copy-pasted from Google Maps
-    let cleanDetail = rawDetail.replace(/,?\s*Việt\s*Nam\s*$/i, '').trim();
-
-    // Avoid duplicating administrative units if already typed in detail
-    const parts = [cleanDetail];
-    if (ward && !cleanDetail.toLowerCase().includes(ward.toLowerCase().replace('xã ', '').replace('phường ', '').replace('thị trấn ', ''))) {
-      parts.push(ward);
-    }
-    if (district && !cleanDetail.toLowerCase().includes(district.toLowerCase().replace('huyện ', '').replace('quận ', '').replace('thị xã ', '').replace('thành phố ', ''))) {
-      parts.push(district);
-    }
-    if (province && !cleanDetail.toLowerCase().includes(province.toLowerCase().replace('tỉnh ', '').replace('thành phố ', ''))) {
-      parts.push(province);
-    }
-    return parts.filter(Boolean).join(', ');
-  }
-
-  // Computed full address for preview only — NOT stored in formData each keystroke
-  const fullAddressPreview = useMemo(
-    () => buildFullAddress(detailAddress, selectedWardName, selectedDistrictName, selectedProvinceName),
-    [detailAddress, selectedWardName, selectedDistrictName, selectedProvinceName]
-  );
-
-  // New Job Form State
-  const [formData, setFormData] = useState({
-    title: '',
-    jobType: 'Theo ca',
-    salaryAmount: 25000,
-    salaryUnit: 'hour',
-    contactPhone: user?.phone || '',
-    address: '',
-    area: 'tan_xa',
-    lat: null,
-    lng: null,
-    locationStatus: 'unconfirmed',
-    locationSource: null,
-    shiftDetail: '',
-    positions: [{ title: '', shift: PRESET_SHIFTS[0] }],
-    slots: 1,
-    description: '',
-    requirements: '',
-    benefits: ''
-  });
-
-  const [editingJob, setEditingJob] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
   async function loadJobs() {
@@ -121,422 +38,14 @@ export default function EmployerJobsPage() {
     }
   }
 
-  // Initialize all 63 provinces from open-api.vn
-  async function initProvinces() {
-    try {
-      const pList = await getProvinces();
-      setProvinces(pList);
-
-      // Default to Thành phố Hà Nội (code: 1)
-      const hanoi = pList.find(p => p.code === 1 || p.name.includes('Hà Nội')) || pList[0];
-      if (hanoi) {
-        setSelectedProvinceCode(String(hanoi.code));
-        setSelectedProvinceName(hanoi.name);
-
-        const dList = await getDistricts(hanoi.code);
-        setDistricts(dList);
-
-        // Default to Huyện Thạch Thất (code: 276)
-        const thachThat = dList.find(d => d.code === 276 || d.name.includes('Thạch Thất')) || dList[0];
-        if (thachThat) {
-          setSelectedDistrictCode(String(thachThat.code));
-          setSelectedDistrictName(thachThat.name);
-
-          const wList = await getWards(thachThat.code);
-          setWards(wList);
-
-          const tanXa = wList.find(w => w.name.includes('Tân Xã')) || wList[0];
-          if (tanXa) {
-            setSelectedWardCode(String(tanXa.code));
-            setSelectedWardName(tanXa.name);
-            const full = buildFullAddress(detailAddress, tanXa.name, thachThat.name, hanoi.name);
-            setFormData(prev => ({
-              ...prev,
-              address: full,
-            }));
-          }
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
   useEffect(() => {
     loadJobs();
-    initProvinces();
-    if (user?.id || user?.profileId) {
-      getEmployerProfile(user?.profileId || user?.id)
-        .then(profile => {
-          if (profile?.contactPhone) {
-            setEmployerPhone(profile.contactPhone);
-            setFormData(prev => ({
-              ...prev,
-              contactPhone: prev.contactPhone || profile.contactPhone
-            }));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user]);
-
-  // Phone synchronization with user
-  useEffect(() => {
-    if (user?.phone) {
-      setEmployerPhone(prev => prev || user.phone);
-      setFormData(prev => ({
-        ...prev,
-        contactPhone: prev.contactPhone || user.phone
-      }));
-    }
-  }, [user?.phone]);
-
-  // Cascading Handlers
-  async function handleProvinceChange(e) {
-    const code = e.target.value;
-    setSelectedProvinceCode(code);
-    setSelectedDistrictCode('');
-    setSelectedDistrictName('');
-    setSelectedWardCode('');
-    setSelectedWardName('');
-    setDistricts([]);
-    setWards([]);
-
-    const prov = provinces.find(p => String(p.code) === String(code));
-    setSelectedProvinceName(prov ? prov.name : '');
-
-    // Requirement 6: Editing address resets confirmed location status until pin is reconfirmed
-    setFormData(prev => ({
-      ...prev,
-      locationStatus: 'unconfirmed',
-      locationConfirmedAt: null,
-    }));
-
-    if (code) {
-      setLoadingDistricts(true);
-      try {
-        const dList = await getDistricts(code);
-        setDistricts(dList);
-      } finally {
-        setLoadingDistricts(false);
-      }
-    }
-  }
-
-  async function handleDistrictChange(e) {
-    const code = e.target.value;
-    setSelectedDistrictCode(code);
-    setSelectedWardCode('');
-    setSelectedWardName('');
-    setWards([]);
-
-    const dist = districts.find(d => String(d.code) === String(code));
-    setSelectedDistrictName(dist ? dist.name : '');
-
-    // Requirement Phase 3 item 1: Editing address resets confirmed location status to unconfirmed
-    setFormData(prev => ({
-      ...prev,
-      locationStatus: 'unconfirmed',
-      locationConfirmedAt: null,
-    }));
-
-    if (code) {
-      setLoadingWards(true);
-      try {
-        const wList = await getWards(code);
-        setWards(wList);
-      } finally {
-        setLoadingWards(false);
-      }
-    }
-  }
-
-  function handleWardChange(e) {
-    const code = e.target.value;
-    setSelectedWardCode(code);
-
-    const ward = wards.find(w => String(w.code) === String(code));
-    const wName = ward ? ward.name : '';
-    setSelectedWardName(wName);
-
-    const resolvedArea = resolveAreaCode(selectedProvinceName, selectedDistrictName, wName);
-    setFormData(prev => ({
-      ...prev,
-      area: resolvedArea,
-      locationStatus: 'unconfirmed',
-      locationConfirmedAt: null,
-    }));
-  }
-
-  // Update detailAddress: editing address resets location status to unconfirmed
-  function handleDetailAddressChange(val) {
-    setDetailAddress(val);
-    setFormData(prev => ({
-      ...prev,
-      locationStatus: 'unconfirmed',
-      locationConfirmedAt: null,
-    }));
-  }
-
-  function handleSlotsChange(val) {
-    if (val === '') {
-      setFormData(prev => ({ ...prev, slots: '' }));
-      return;
-    }
-    const num = Math.min(30, Math.max(1, parseInt(val, 10) || 1));
-    setFormData(prev => {
-      const current = prev.positions || [];
-      let updated = [...current];
-      if (updated.length < num) {
-        for (let i = updated.length; i < num; i++) {
-          updated.push({
-            title: '',
-            shift: PRESET_SHIFTS[i % PRESET_SHIFTS.length] || PRESET_SHIFTS[0],
-          });
-        }
-      } else if (updated.length > num) {
-        updated = updated.slice(0, num);
-      }
-      return {
-        ...prev,
-        slots: num,
-        positions: updated,
-      };
-    });
-  }
-
-  function handleSlotsBlur() {
-    if (!formData.slots || Number(formData.slots) < 1) {
-      handleSlotsChange(1);
-    }
-  }
-
-  function handleStepSlots(delta) {
-    const current = Number(formData.slots) || (formData.positions?.length || 1);
-    const nextVal = Math.min(30, Math.max(1, current + delta));
-    handleSlotsChange(nextVal);
-  }
-
-  function handlePositionChange(index, field, value) {
-    setFormData(prev => {
-      const updated = [...(prev.positions || [])];
-      updated[index] = { ...updated[index], [field]: value };
-      return { ...prev, positions: updated };
-    });
-  }
-
-  function handleOpenCreate() {
-    setEditingJob(null);
-    setDetailAddress('');
-    setSelectedProvinceCode('');
-    setSelectedProvinceName('');
-    setSelectedDistrictCode('');
-    setSelectedDistrictName('');
-    setSelectedWardCode('');
-    setSelectedWardName('');
-    setDistricts([]);
-    setWards([]);
-    setFormData({
-      title: '',
-      jobType: 'Theo ca',
-      salaryAmount: 25000,
-      salaryUnit: 'hour',
-      contactPhone: user?.phone || employerPhone || '',
-      address: '',
-      area: 'other',
-      lat: null,
-      lng: null,
-      locationStatus: 'unconfirmed',
-      locationSource: null,
-      shiftDetail: '',
-      slots: 2,
-      positions: [
-        { title: '', shift: PRESET_SHIFTS[0] },
-        { title: '', shift: PRESET_SHIFTS[1] || PRESET_SHIFTS[0] },
-      ],
-      description: '',
-      requirements: '',
-      benefits: '',
-    });
-    setIsModalOpen(true);
-  }
-
-  async function handleOpenEdit(job) {
-    setEditingJob(job);
-    const pCode = job.addressComponents?.provinceCode || job.provinceCode || '';
-    const dCode = job.addressComponents?.districtCode || job.districtCode || '';
-    const wCode = job.addressComponents?.wardCode || job.wardCode || '';
-    const pName = job.addressComponents?.provinceName || job.provinceName || '';
-    const dName = job.addressComponents?.districtName || job.districtName || '';
-    const wName = job.addressComponents?.wardName || job.wardName || '';
-    const addrLine = job.addressComponents?.addressLine || job.detailAddress || job.address?.split(',')[0] || '';
-
-    setSelectedProvinceCode(pCode);
-    setSelectedProvinceName(pName);
-    setSelectedDistrictCode(dCode);
-    setSelectedDistrictName(dName);
-    setSelectedWardCode(wCode);
-    setSelectedWardName(wName);
-    setDetailAddress(addrLine);
-
-    if (pCode) {
-      getDistricts(pCode).then(setDistricts).catch(() => {});
-    }
-    if (dCode) {
-      getWards(dCode).then(setWards).catch(() => {});
-    }
-
-    const hasValidCoords = isValidCoordinate(job.location?.lat, job.location?.lng);
-    let initialPositions = (job.positions && job.positions.length > 0)
-      ? job.positions.map(p => ({ title: p.title || '', shift: p.shift || PRESET_SHIFTS[0] }))
-      : [{ title: job.title || '', shift: job.shiftDetail || PRESET_SHIFTS[0] }];
-
-    const initialSlots = job.slots || initialPositions.length || 1;
-    if (initialPositions.length < initialSlots) {
-      for (let i = initialPositions.length; i < initialSlots; i++) {
-        initialPositions.push({
-          title: '',
-          shift: PRESET_SHIFTS[i % PRESET_SHIFTS.length] || PRESET_SHIFTS[0],
-        });
-      }
-    } else if (initialPositions.length > initialSlots) {
-      initialPositions = initialPositions.slice(0, initialSlots);
-    }
-
-    setFormData({
-      title: job.title || '',
-      jobType: job.type === 'shift' ? 'Theo ca' : 'Part-time',
-      salaryAmount: job.salaryAmount || 25000,
-      salaryUnit: job.salaryUnit || 'hour',
-      contactPhone: job.contactPhone || user?.phone || employerPhone || '',
-      address: job.address || '',
-      area: job.area || 'other',
-      lat: hasValidCoords ? job.location.lat : null,
-      lng: hasValidCoords ? job.location.lng : null,
-      locationStatus: job.locationStatus || (hasValidCoords ? 'confirmed' : 'unconfirmed'),
-      locationSource: job.locationSource || (hasValidCoords ? 'map_pin' : null),
-      shiftDetail: job.shiftDetail || 'Sáng: 7h-12h | Tối: 17h-22h',
-      positions: initialPositions,
-      slots: initialSlots,
-      description: job.description || '',
-      requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : (job.requirements || ''),
-      benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : (job.benefits || ''),
-    });
-    setIsModalOpen(true);
-  }
-
-  async function handleSubmitJob(e) {
-    e.preventDefault();
-    try {
-      setSubmitting(true);
-
-      const emptyPosIndex = (formData.positions || []).findIndex(p => !p.title || !p.title.trim());
-      if (emptyPosIndex !== -1) {
-        setToast({
-          type: 'error',
-          message: `Vui lòng nhập tên vị trí cho ứng viên thứ ${emptyPosIndex + 1}.`,
-        });
-        setSubmitting(false);
-        return;
-      }
-
-      const finalAddress = fullAddressPreview || formData.address;
-      const isConfirmed = isValidCoordinate(formData.lat, formData.lng) && formData.locationStatus === 'confirmed';
-      const locationPayload = isConfirmed
-        ? {
-            lat: Number(Number(formData.lat).toFixed(6)),
-            lng: Number(Number(formData.lng).toFixed(6)),
-          }
-        : null;
-
-      const inputPhone = formData.contactPhone?.trim() || user?.phone || employerPhone || '';
-
-      const validPositions = (formData.positions || []).filter(p => p.title && p.title.trim());
-      const finalPositions = validPositions.length > 0
-        ? validPositions
-        : [{ title: formData.title || 'Nhân viên', shift: PRESET_SHIFTS[0] }];
-
-      const computedShiftDetail = finalPositions
-        .map(p => `${p.title} (${p.shift})`)
-        .join(' | ');
-
-      const payload = {
-        title: formData.title,
-        type: formData.jobType === 'Theo ca' ? 'shift' : 'part_time',
-        storeName: user?.name || 'Cửa hàng',
-        employerId: user?.profileId || user?.id,
-        salaryAmount: Number(formData.salaryAmount) || 25000,
-        salaryUnit: formData.salaryUnit,
-        contactPhone: inputPhone,
-        area: formData.area || 'other',
-        address: finalAddress,
-        addressComponents: {
-          addressLine: detailAddress.trim(),
-          wardCode: selectedWardCode || null,
-          wardName: selectedWardName || '',
-          districtCode: selectedDistrictCode || null,
-          districtName: selectedDistrictName || '',
-          provinceCode: selectedProvinceCode || null,
-          provinceName: selectedProvinceName || '',
-        },
-        provinceCode: selectedProvinceCode || null,
-        districtCode: selectedDistrictCode || null,
-        wardCode: selectedWardCode || null,
-        location: locationPayload,
-        locationStatus: isConfirmed ? 'confirmed' : formData.locationStatus || 'unconfirmed',
-        locationSource: isConfirmed ? (formData.locationSource || 'map_pin') : null,
-        slots: Number(formData.slots) || finalPositions.length || 2,
-        positions: finalPositions,
-        shiftDetail: computedShiftDetail || formData.shiftDetail,
-        description: formData.description,
-        requirements: formData.requirements
-          ? formData.requirements.split('\n').map(s => s.trim()).filter(Boolean)
-          : [],
-        benefits: [],
-        status: editingJob ? editingJob.status : 'approved',
-      };
-
-      if (editingJob) {
-        const targetId = editingJob._id || editingJob.id;
-        await updateJob(targetId, payload);
-        setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? { ...j, ...payload } : j));
-        setToast({ type: 'success', message: 'Cập nhật tin tuyển dụng thành công!' });
-      } else {
-        const newJob = await createJob(payload);
-        setJobs(prev => [newJob, ...prev]);
-        setToast({
-          type: 'success',
-          message: isConfirmed
-            ? 'Tạo tin tuyển dụng thành công! Đã ghim vị trí quán lên Bản đồ việc làm.'
-            : 'Đã lưu tin tuyển dụng (chưa ghim vị trí, chưa bật chấm công GPS).'
-        });
-      }
-
-      if (inputPhone && !user?.phone) {
-        try {
-          await updateUserProfile({ phone: inputPhone });
-          updateUser?.({ ...user, phone: inputPhone });
-        } catch {}
-      }
-
-      setIsModalOpen(false);
-      setEditingJob(null);
-      setDetailAddress('');
-    } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Lỗi khi lưu tin tuyển dụng.' });
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  }, []);
 
   async function handleToggleStatus(job) {
-    const allowedStatuses = ['approved', 'paused', 'closed'];
-    if (!allowedStatuses.includes(job.status)) {
-      setToast({ type: 'error', message: 'Chỉ có thể tạm dừng hoặc mở lại tin đã được duyệt.' });
-      return;
-    }
-    const newStatus = job.status === 'closed' ? 'approved' : 'closed';
     const targetId = job._id || job.id;
+    const isClosed = job.status === 'closed';
+    const newStatus = isClosed ? 'approved' : 'closed';
     await updateJob(targetId, { status: newStatus });
     setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? { ...j, status: newStatus } : j));
     setToast({ type: 'info', message: `Đã cập nhật trạng thái tin tuyển dụng: ${newStatus === 'approved' ? 'Hoạt động' : 'Tạm đóng'}` });
@@ -566,7 +75,7 @@ export default function EmployerJobsPage() {
         </div>
 
         <button
-          onClick={handleOpenCreate}
+          onClick={() => navigate('/employer/jobs/create')}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all self-start sm:self-center shrink-0"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin tuyển mới
@@ -594,7 +103,7 @@ export default function EmployerJobsPage() {
             Hãy đăng tin tuyển dụng ca làm để tiếp cận ngay hàng ngàn sinh viên ĐH FPT, KTX ĐHQG đang tìm việc quanh bạn!
           </p>
           <button
-            onClick={handleOpenCreate}
+            onClick={() => navigate('/employer/jobs/create')}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white text-xs font-bold shadow-md transition-all"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin đầu tiên
@@ -705,21 +214,21 @@ export default function EmployerJobsPage() {
 
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs gap-2">
                   {['approved', 'paused', 'closed'].includes(job.status) && (
-                  <button
-                    onClick={() => handleToggleStatus(job)}
-                    className={clsx(
-                      'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-sm',
-                      isClosed
-                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                        : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
-                    )}
-                  >
-                    {isClosed ? (
-                      <><PlayCircle className="w-4 h-4" /> Mở lại tin</>
-                    ) : (
-                      <><PauseCircle className="w-4 h-4 text-amber-700" /> Tạm dừng tuyển</>
-                    )}
-                  </button>
+                    <button
+                      onClick={() => handleToggleStatus(job)}
+                      className={clsx(
+                        'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-sm',
+                        isClosed
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                      )}
+                    >
+                      {isClosed ? (
+                        <><PlayCircle className="w-4 h-4" /> Mở lại tin</>
+                      ) : (
+                        <><PauseCircle className="w-4 h-4 text-amber-700" /> Tạm dừng tuyển</>
+                      )}
+                    </button>
                   )}
 
                   <div className="flex items-center gap-1.5">
@@ -744,7 +253,7 @@ export default function EmployerJobsPage() {
                       );
                     })()}
                     <button
-                      onClick={() => handleOpenEdit(job)}
+                      onClick={() => navigate(`/employer/jobs/${job._id || job.id}/edit`)}
                       className="p-2 text-gray-500 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-colors border border-transparent hover:border-pink-200"
                       title="Chỉnh sửa tin tuyển dụng này"
                     >
@@ -763,325 +272,6 @@ export default function EmployerJobsPage() {
             );
           })}
         </div>
-      )}
-
-      {/* Modal create/edit job */}
-      {isModalOpen && (
-        <Modal
-          isOpen={true}
-          onClose={() => setIsModalOpen(false)}
-          title={editingJob ? "Chỉnh sửa tin tuyển dụng" : "Đăng bài tuyển dụng & Ghim vị trí Bản đồ"}
-        >
-          <form onSubmit={handleSubmitJob} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-bold text-text-main mb-1">Tiêu đề công việc *</label>
-              <input
-                type="text"
-                required
-                placeholder="Ví dụ: Tuyển Nhân viên Pha chế ca Tối (17h-22h)"
-                value={formData.title}
-                onChange={e => setFormData({ ...formData, title: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-bold text-text-main mb-1">Loại hình</label>
-                <select
-                  value={formData.jobType}
-                  onChange={e => setFormData({ ...formData, jobType: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main bg-white"
-                >
-                  <option value="Theo ca">Theo ca linh hoạt</option>
-                  <option value="Part-time">Part-time cố định</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-text-main mb-1">Mức lương (VNĐ/giờ) *</label>
-                <input
-                  type="number"
-                  required
-                  min={15000}
-                  step={1000}
-                  value={formData.salaryAmount}
-                  onChange={e => setFormData({ ...formData, salaryAmount: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-text-main mb-1">SĐT / Zalo của quán *</label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="0987654321"
-                  value={formData.contactPhone}
-                  onChange={e => setFormData({ ...formData, contactPhone: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main"
-                />
-              </div>
-            </div>
-
-            {/* Địa điểm làm việc */}
-            <div className="p-4 bg-slate-50/80 rounded-2xl border border-gray-200 space-y-3.5">
-              <div className="flex items-center justify-between">
-                <label className="font-bold text-gray-900 flex items-center gap-1.5 text-xs">
-                  <MapPin className="w-4 h-4 text-pink-main" /> Địa điểm làm việc
-                </label>
-                <span className="text-[11px] text-gray-500 font-medium">Khu vực Hòa Lạc & lân cận</span>
-              </div>
-
-              {/* 3 Dropdowns: Tỉnh, Huyện, Xã */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                    Tỉnh / Thành phố
-                  </label>
-                  <select
-                    value={selectedProvinceCode}
-                    onChange={handleProvinceChange}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white font-medium text-text-main text-xs focus:ring-2 focus:ring-pink-main focus:outline-none"
-                  >
-                    <option value="">-- Tỉnh / Thành phố --</option>
-                    {provinces.map(p => (
-                      <option key={p.code} value={p.code}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                    Quận / Huyện
-                  </label>
-                  <select
-                    value={selectedDistrictCode}
-                    onChange={handleDistrictChange}
-                    disabled={!selectedProvinceCode || loadingDistricts}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white font-medium text-text-main text-xs focus:ring-2 focus:ring-pink-main focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    <option value="">
-                      {loadingDistricts ? 'Đang tải...' : '-- Quận / Huyện --'}
-                    </option>
-                    {districts.map(d => (
-                      <option key={d.code} value={d.code}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                    Phường / Xã
-                  </label>
-                  <select
-                    value={selectedWardCode}
-                    onChange={handleWardChange}
-                    disabled={!selectedDistrictCode || loadingWards}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white font-medium text-text-main text-xs focus:ring-2 focus:ring-pink-main focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    <option value="">
-                      {loadingWards ? 'Đang tải...' : '-- Phường / Xã --'}
-                    </option>
-                    {wards.map(w => (
-                      <option key={w.code} value={w.code}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Tên quán & Địa chỉ cụ thể */}
-              <div className="space-y-2 pt-1">
-                <label className="block text-[11px] font-medium text-gray-700">
-                  Tên quán / Số nhà, ngõ, đường cụ thể:
-                </label>
-                <input
-                  type="text"
-                  value={detailAddress}
-                  onChange={e => handleDetailAddressChange(e.target.value)}
-                  placeholder="Ví dụ: Cà phê Mộc, Số 10 Thôn 3, hoặc Km 29 Đại lộ Thăng Long..."
-                  className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main font-medium text-xs text-text-main placeholder:text-gray-400"
-                />
-
-                {/* Interactive Vietmap GL Location Picker with Vietmap Autocomplete candidates */}
-                <div className="pt-2">
-                  <LocationPicker
-                    value={{
-                      lat: formData.lat,
-                      lng: formData.lng,
-                      locationStatus: formData.locationStatus,
-                      locationSource: formData.locationSource,
-                    }}
-                    onChange={({ lat, lng, locationStatus, locationSource, formattedAddress }) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        lat,
-                        lng,
-                        locationStatus,
-                        locationSource,
-                      }));
-                      if (formattedAddress && !detailAddress) {
-                        setDetailAddress(formattedAddress);
-                      }
-                    }}
-                    addressHint={fullAddressPreview || detailAddress}
-                  />
-                </div>
-              </div>
-
-              {/* Địa chỉ hiển thị trên bài đăng */}
-              <div className="pt-2 border-t border-gray-200/80 flex items-center justify-between text-xs">
-                <div className="min-w-0 flex-1">
-                  <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider block">
-                    Địa chỉ hiển thị trên tin tuyển dụng:
-                  </span>
-                  <p className="font-semibold text-gray-800 truncate mt-0.5">
-                    {fullAddressPreview || 'Chưa có thông tin'}
-                  </p>
-                </div>
-                {(() => {
-                  const hasCoords = isValidCoordinate(formData.lat, formData.lng);
-                  const checkUrl = hasCoords
-                    ? `https://www.google.com/maps/dir/?api=1&destination=${formData.lat},${formData.lng}`
-                    : (fullAddressPreview ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddressPreview)}` : null);
-                  if (!checkUrl) return null;
-                  return (
-                    <a
-                      href={checkUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 text-blue-600 hover:text-blue-700 font-medium text-xs flex items-center gap-1 ml-2"
-                      title={hasCoords ? "Kiểm tra vị trí ghim trên Google Maps" : "Kiểm tra địa chỉ trên Google Maps"}
-                    >
-                      Kiểm tra <ExternalLink className="w-3 h-3" />
-                    </a>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Vị trí tuyển dụng & Ca làm việc */}
-            <div className="p-4 bg-pink-50/40 rounded-2xl border border-pink-100 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-pink-100/60">
-                <div>
-                  <label className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
-                    <Briefcase className="w-4 h-4 text-pink-main" /> Vị trí tuyển dụng & Ca làm việc *
-                  </label>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Nhập số ứng viên cần tuyển, hệ thống sẽ tự động tạo đủ số dòng vị trí & ca làm tương ứng.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-pink-200 shadow-xs shrink-0 self-start sm:self-auto">
-                  <span className="text-xs font-bold text-gray-700">Số ứng viên cần tuyển:</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleStepSlots(-1)}
-                      className="w-6 h-6 flex items-center justify-center rounded-md bg-pink-100 hover:bg-pink-200 text-pink-700 font-black text-sm transition-colors"
-                      title="Giảm 1 ứng viên"
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      min={1}
-                      max={30}
-                      value={formData.slots}
-                      onChange={e => handleSlotsChange(e.target.value)}
-                      onBlur={handleSlotsBlur}
-                      className="w-12 py-0.5 text-center font-bold text-xs text-pink-700 focus:outline-none focus:ring-1 focus:ring-pink-main border border-pink-200 rounded-md bg-pink-50/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleStepSlots(1)}
-                      className="w-6 h-6 flex items-center justify-center rounded-md bg-pink-100 hover:bg-pink-200 text-pink-700 font-black text-sm transition-colors"
-                      title="Tăng 1 ứng viên"
-                    >
-                      +
-                    </button>
-                  </div>
-                  <span className="text-xs font-semibold text-gray-500">bạn</span>
-                </div>
-              </div>
-
-              {/* Tự động render số dòng tương ứng với số lượng ứng viên cần tuyển */}
-              <div className="space-y-2.5">
-                {(formData.positions || []).map((pos, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-pink-100 shadow-xs">
-                    <span className="text-[11px] font-bold text-pink-700 bg-pink-100 w-6 h-6 rounded-full flex items-center justify-center shrink-0">
-                      {idx + 1}
-                    </span>
-                    {/* Ô 1: Vị trí tuyển */}
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        required
-                        placeholder={`Vị trí ứng viên ${idx + 1} (Ví dụ: Thu ngân, Pha chế, Dọn bàn...)`}
-                        value={pos.title}
-                        onChange={e => handlePositionChange(idx, 'title', e.target.value)}
-                        className="w-full p-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-text-main placeholder:text-gray-400"
-                      />
-                    </div>
-                    {/* Ô 2: Dropdown Ca làm việc */}
-                    <div className="w-52 sm:w-64">
-                      <select
-                        value={pos.shift}
-                        onChange={e => handlePositionChange(idx, 'shift', e.target.value)}
-                        className="w-full p-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-text-main"
-                      >
-                        {PRESET_SHIFTS.map((s, sIdx) => (
-                          <option key={sIdx} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-bold text-text-main mb-1">Mô tả công việc</label>
-              <textarea
-                rows={2}
-                placeholder="Nêu rõ công việc hàng ngày: Pha chế đồ uống, dọn dẹp quầy bar, phục vụ khách..."
-                value={formData.description}
-                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main resize-none"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-text-main mb-1">Yêu cầu & Quyền lợi</label>
-              <textarea
-                rows={2}
-                value={formData.requirements}
-                onChange={e => setFormData({ ...formData, requirements: e.target.value })}
-                placeholder="Ví dụ: Chăm chỉ, đúng giờ, làm được ca xoay. Bao cơm ca, thưởng doanh số..."
-                className="w-full p-2.5 rounded-xl border border-green-100 focus:outline-none focus:ring-2 focus:ring-pink-main resize-none text-xs"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-text-muted font-semibold"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold disabled:opacity-50 shadow-md hover:shadow-lg transition-all"
-              >
-                {submitting
-                  ? (editingJob ? 'Đang lưu...' : 'Đang tạo bài...')
-                  : (editingJob ? 'Lưu thay đổi' : 'Đăng tin & Ghim Bản Đồ')}
-              </button>
-            </div>
-          </form>
-        </Modal>
       )}
     </div>
   );

@@ -41,6 +41,7 @@ import StudentReviewsPage from '@/pages/student/ReviewsPage.jsx';
 import EmployerDashboardPage from '@/pages/employer/EmployerDashboardPage.jsx';
 import StoreProfilePage from '@/pages/employer/StoreProfilePage.jsx';
 import EmployerJobsPage from '@/pages/employer/EmployerJobsPage.jsx';
+import EmployerJobFormPage from '@/pages/employer/EmployerJobFormPage.jsx';
 import EmployerApplicationsPage from '@/pages/employer/EmployerApplicationsPage.jsx';
 import EmployerShiftsPage from '@/pages/employer/EmployerShiftsPage.jsx';
 
@@ -153,6 +154,8 @@ export default function App() {
           <Route path="account" element={<AccountInfoPage />} />
           <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="jobs" element={<EmployerJobsPage />} />
+          <Route path="jobs/create" element={<EmployerJobFormPage />} />
+          <Route path="jobs/:id/edit" element={<EmployerJobFormPage />} />
           <Route path="applications" element={<EmployerApplicationsPage />} />
           <Route path="shifts" element={<EmployerShiftsPage />} />
         </Route>
