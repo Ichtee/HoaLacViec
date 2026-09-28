@@ -68,7 +68,16 @@ const jobSchema = new mongoose.Schema({
     shift: { type: String, default: '' },
     quantity: { type: Number, default: 1 },
   }],
-  slots: { type: Number, default: 1 },
+  slots: { type: Number, default: 1 }, // Legacy compatibility: equals remainingOpenings
+  headcountTarget: { type: Number, default: 1, min: 1 }, // Total openings originally requested
+  hiredCount: { type: Number, default: 0, min: 0 },       // Total candidates hired into active Employment
+  remainingOpenings: { type: Number, default: 1, min: 0 },// headcountTarget - hiredCount
+  recruitmentStatus: {
+    type: String,
+    enum: ['open', 'paused', 'filled', 'closed'],
+    default: 'open',
+    index: true,
+  },
   description: { type: String, default: '' },
   requirements: [{ type: String }],
   benefits: [{ type: String }],

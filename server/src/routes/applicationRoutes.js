@@ -6,38 +6,19 @@ import { Job } from '../models/Job.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate } from '../middlewares/auth.js';
+import {
+  VALID_TRANSITIONS,
+  getStatusLabel,
+  sendOffer,
+  rescindOffer,
+  studentAcceptOffer,
+  studentDeclineOffer,
+  finalizeHire,
+  assertEmployerOwnership,
+} from '../services/applicationService.js';
 
 const router = express.Router();
-
 router.use(authenticate);
-
-// State machine definition
-const VALID_TRANSITIONS = {
-  pending: ['reviewing', 'interview', 'hired', 'rejected', 'withdrawn'],
-  reviewing: ['shortlisted', 'interview', 'hired', 'rejected', 'withdrawn'],
-  shortlisted: ['interview', 'hired', 'rejected', 'withdrawn'],
-  interview: ['hired', 'rejected', 'withdrawn'],
-  hired: ['rejected', 'reviewing'], // Cho phép kết thúc hợp đồng / chuyển trạng thái
-  rejected: ['reviewing', 'pending'], // Cho phép xem xét lại
-  withdrawn: [],
-  accepted: ['rejected', 'reviewing'], // legacy alias for hired
-  approved: ['rejected', 'reviewing'], // legacy alias for hired
-};
-
-function getStatusLabel(status) {
-  const map = {
-    pending: 'Đang chờ xét duyệt',
-    reviewing: 'Đang xem xét hồ sơ',
-    shortlisted: 'Đạt tiêu chuẩn vòng sơ loại',
-    interview: 'Hẹn phỏng vấn',
-    hired: 'Trúng tuyển',
-    accepted: 'Đã nhận việc',
-    approved: 'Đã được duyệt',
-    rejected: 'Chưa phù hợp',
-    withdrawn: 'Đã rút đơn',
-  };
-  return map[status] || status;
-}
 
 // GET /api/applications
 router.get('/', async (req, res, next) => {
@@ -64,6 +45,7 @@ router.get('/', async (req, res, next) => {
       filter.$or = [
         { jobId: { $in: myJobIds } },
         { employerId: req.user._id },
+        { employerUserId: req.user._id },
         ...(employerProfile ? [{ employerId: employerProfile._id }] : []),
       ];
     } else if (req.user.role === 'admin') {
@@ -76,6 +58,10 @@ router.get('/', async (req, res, next) => {
     if (status) {
       if (status === 'approved' || status === 'accepted' || status === 'hired') {
         filter.status = { $in: ['approved', 'accepted', 'hired'] };
+      } else if (status === 'pending' || status === 'submitted') {
+        filter.status = { $in: ['pending', 'submitted'] };
+      } else if (status === 'reviewing' || status === 'screening') {
+        filter.status = { $in: ['reviewing', 'screening'] };
       } else {
         filter.status = status;
       }
@@ -104,17 +90,41 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/applications (Active student apply to approved, unexpired, non-full job)
+// GET /api/applications/:id
+router.get('/:id', async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Mã hồ sơ không hợp lệ.', code: 'INVALID_ID' });
+    }
+
+    const application = await Application.findById(req.params.id)
+      .populate('jobId')
+      .populate('studentId', 'name phone email avatar studentProfile')
+      .lean();
+
+    if (!application) {
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ ứng tuyển.', code: 'NOT_FOUND' });
+    }
+
+    // Role check
+    if (req.user.role === 'student' && application.studentId?._id?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem hồ sơ này.', code: 'FORBIDDEN' });
+    }
+
+    res.json({ ...application, id: application._id });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/applications (Active student apply)
 router.post('/', async (req, res, next) => {
   try {
-    // Only active student accounts can apply
-    if (req.user.role !== 'admin') {
-      if (req.user.role !== 'student' || req.user.status !== 'active') {
-        return res.status(403).json({
-          error: 'Chỉ tài khoản sinh viên đã xác minh và đang hoạt động mới có thể nộp đơn ứng tuyển.',
-          code: 'FORBIDDEN',
-        });
-      }
+    if (req.user.role !== 'admin' && (req.user.role !== 'student' || req.user.status !== 'active')) {
+      return res.status(403).json({
+        error: 'Chỉ tài khoản sinh viên đã xác minh và đang hoạt động mới có thể nộp đơn ứng tuyển.',
+        code: 'FORBIDDEN',
+      });
     }
 
     const {
@@ -126,8 +136,6 @@ router.post('/', async (req, res, next) => {
       studentName,
       studentPhone,
       studentEmail,
-      coverLetter,
-      shift,
       selectedPosition,
       selectedShift,
     } = req.body;
@@ -138,213 +146,204 @@ router.post('/', async (req, res, next) => {
 
     const job = await Job.findById(jobId);
     if (!job) {
-      return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+      return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'NOT_FOUND' });
     }
 
-    // Only apply to approved, non-archived, unexpired jobs with slots
+    // Ensure job is open
     if (job.status !== 'approved' || job.archivedAt) {
       return res.status(400).json({
-        error: 'Công việc này hiện không còn mở tiếp nhận hồ sơ.',
-        code: 'JOB_CLOSED',
+        error: 'Công việc này hiện không tiếp nhận hồ sơ ứng tuyển.',
+        code: 'JOB_NOT_ACCEPTING',
       });
     }
 
-    if (job.closesAt && new Date(job.closesAt) <= new Date()) {
+    if (job.recruitmentStatus === 'filled' || job.remainingOpenings <= 0 || (typeof job.slots === 'number' && job.slots <= 0)) {
       return res.status(400).json({
-        error: 'Công việc này đã hết thời hạn ứng tuyển.',
-        code: 'JOB_EXPIRED',
+        error: 'Công việc này đã đủ số lượng nhân viên cần tuyển.',
+        code: 'JOB_FULL',
       });
     }
 
-    if (typeof job.slots === 'number' && job.slots <= 0) {
-      return res.status(400).json({
-        error: 'Công việc này đã tuyển đủ số lượng (hết slot trống).',
-        code: 'JOB_SLOTS_FULL',
-      });
-    }
-
-    const studentId = req.user._id;
-
-    // MVP: Exactly 1 application per student per job
-    const existing = await Application.findOne({ studentId, jobId });
+    // Check duplicate
+    const existing = await Application.findOne({ studentId: req.user._id, jobId });
     if (existing) {
       return res.status(409).json({
-        error: 'Bạn đã nộp đơn cho vị trí này rồi. Mỗi ứng viên chỉ được có một hồ sơ ứng tuyển duy nhất cho mỗi công việc.',
+        error: 'Bạn đã nộp đơn cho công việc này rồi. Vui lòng theo dõi trạng thái tại mục Đơn ứng tuyển.',
         code: 'DUPLICATE_APPLICATION',
       });
     }
 
-    const finalName = studentName || name || req.user.name || 'Sinh viên';
-    const finalPhone = studentPhone || phone || req.user.phone || '';
-    const finalEmail = studentEmail || email || req.user.email || '';
-    const finalPos = selectedPosition || '';
-    const finalShift = selectedShift || shift || '';
-    const posTag = finalPos ? `[Vị trí: ${finalPos}]` : '';
-    const shiftTag = finalShift ? `[Ca: ${finalShift}]` : '';
-    const finalNote = note || [posTag, shiftTag, coverLetter || ''].filter(Boolean).join(' ');
+    const studentFullName = studentName || name || req.user.name || 'Sinh viên';
+    const studentContactPhone = studentPhone || phone || req.user.phone || '';
+    const studentContactEmail = studentEmail || email || req.user.email || '';
 
-    const application = await Application.create({
-      studentId,
-      studentName: finalName,
-      studentPhone: finalPhone,
-      studentEmail: finalEmail,
+    const newApp = await Application.create({
+      studentId: req.user._id,
+      studentName: studentFullName,
+      studentPhone: studentContactPhone,
+      studentEmail: studentContactEmail,
       jobId,
-      employerId: job.employerUserId || job.employerId || null,
-      selectedPosition: finalPos,
-      selectedShift: finalShift,
-      note: finalNote,
-      status: 'pending',
+      employerId: job.employerId || job.employerUserId,
+      employerUserId: job.employerUserId || job.employerId,
+      status: 'submitted',
+      selectedPosition: selectedPosition || '',
+      selectedShift: selectedShift || '',
+      note: note || '',
       statusHistory: [{
-        status: 'pending',
+        fromStatus: '',
+        toStatus: 'submitted',
+        status: 'submitted',
         changedAt: new Date(),
         changedBy: req.user._id,
-        note: `Sinh viên nộp đơn ứng tuyển${finalPos ? ` vị trí ${finalPos}` : ''}${finalShift ? ` (${finalShift})` : ''}`,
+        reason: 'Nộp hồ sơ ứng tuyển',
+        candidateVisibleMessage: 'Bạn đã nộp hồ sơ thành công.',
       }],
     });
 
-    // Notify employer (resolve to User._id)
-    let targetEmployerUser = job.employerUserId;
-    if (!targetEmployerUser && job.employerId) {
-      const empUser = await User.findById(job.employerId);
-      if (empUser) {
-        targetEmployerUser = empUser._id;
-      } else {
-        const empProf = await EmployerProfile.findById(job.employerId);
-        if (empProf) targetEmployerUser = empProf.userId;
-      }
-    }
-
-    if (targetEmployerUser) {
-      try {
+    // Notify employer
+    try {
+      const targetEmployer = job.employerUserId || job.employerId;
+      if (targetEmployer) {
         await Notification.create({
-          userId: targetEmployerUser,
-          title: 'Ứng viên mới nộp đơn! 🎉',
-          message: `${finalName} vừa nộp đơn ứng tuyển vị trí "${job.title}"${finalPos ? ` (${finalPos})` : ''}.`,
+          userId: targetEmployer,
+          title: 'Hồ sơ ứng tuyển mới! 📄',
+          message: `${studentFullName} vừa nộp hồ sơ cho vị trí "${job.title}".`,
           type: 'application',
           link: '/employer/applications',
         });
-      } catch (notifErr) {
-        console.warn('Failed to dispatch employer notification:', notifErr.message);
       }
+    } catch (notifErr) {
+      console.warn('Notification error on application submit:', notifErr.message);
     }
 
-    const populated = await Application.findById(application._id).populate('jobId');
-    res.status(201).json(populated);
+    res.status(201).json({
+      message: 'Nộp đơn ứng tuyển thành công! Nhà tuyển dụng sẽ xem xét và phản hồi sớm.',
+      application: { ...newApp.toObject(), id: newApp._id },
+    });
   } catch (err) {
-    if (err.code === 11000) {
-      return res.status(409).json({
-        error: 'Bạn đã có hồ sơ ứng tuyển cho công việc này.',
-        code: 'DUPLICATE_APPLICATION',
-      });
-    }
     next(err);
   }
 });
 
-// PUT /api/applications/:id (Update status with state machine enforcement)
+// POST /api/applications/:id/offer (Employer sends offer)
+router.post('/:id/offer', async (req, res, next) => {
+  try {
+    const updated = await sendOffer(req.params.id, req.user._id, req.body);
+    res.json({ message: 'Đã gửi đề nghị nhận việc (Job Offer) thành công cho ứng viên.', application: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/applications/:id/rescind-offer (Employer rescinds offer)
+router.post('/:id/rescind-offer', async (req, res, next) => {
+  try {
+    const updated = await rescindOffer(req.params.id, req.user._id, req.body.reason);
+    res.json({ message: 'Đã thu hồi đề nghị nhận việc thành công.', application: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/applications/:id/accept-offer (Student accepts offer -> Finalize hire)
+router.post('/:id/accept-offer', async (req, res, next) => {
+  try {
+    const { application, employment } = await studentAcceptOffer(req.params.id, req.user._id, req.body.responseNote);
+    res.json({
+      message: 'Chúc mừng bạn đã chấp nhận đề nghị nhận việc và chính thức trở thành nhân viên! 🎉',
+      application,
+      employment,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/applications/:id/decline-offer (Student declines offer)
+router.post('/:id/decline-offer', async (req, res, next) => {
+  try {
+    const application = await studentDeclineOffer(req.params.id, req.user._id, req.body.reason);
+    res.json({ message: 'Bạn đã từ chối đề nghị nhận việc.', application });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/applications/:id (Update status / screening / shortlist / interview)
 router.put('/:id', async (req, res, next) => {
   try {
     const application = await Application.findById(req.params.id);
     if (!application) {
-      return res.status(404).json({ error: 'Không tìm thấy đơn ứng tuyển.', code: 'NOT_FOUND' });
+      return res.status(404).json({ error: 'Không tìm thấy hồ sơ ứng tuyển.', code: 'NOT_FOUND' });
     }
 
-    // Role ownership check
     if (req.user.role !== 'admin') {
-      const employerProfile = await EmployerProfile.findOne({ userId: req.user._id });
-      const allowedEmployerIds = [req.user._id.toString()];
-      if (employerProfile) allowedEmployerIds.push(employerProfile._id.toString());
-
-      const isOwner = application.employerId && allowedEmployerIds.includes(application.employerId.toString());
-      if (!isOwner) {
-        const job = await Job.findById(application.jobId);
-        const isJobOwner = job && (
-          (job.employerUserId && allowedEmployerIds.includes(job.employerUserId.toString())) ||
-          (job.employerId && allowedEmployerIds.includes(job.employerId.toString()))
-        );
-        if (!isJobOwner) {
-          return res.status(403).json({ error: 'Bạn không có quyền cập nhật đơn ứng tuyển này.', code: 'FORBIDDEN' });
-        }
-      }
+      await assertEmployerOwnership(application, req.user._id);
     }
 
-    const { status, note, employerNote, internalNote, candidateFeedback, interviewSchedule } = req.body;
+    const { status, note, internalNote, candidateFeedback, interviewSchedule } = req.body;
 
-    // State machine check
     if (status && status !== application.status) {
-      const allowedNext = VALID_TRANSITIONS[application.status] || [];
-      if (!allowedNext.includes(status)) {
-        return res.status(409).json({
-          error: `Không thể chuyển trạng thái từ "${application.status}" sang "${status}". Các trạng thái hợp lệ: ${allowedNext.join(', ') || 'Không có (trạng thái kết thúc)'}.`,
-          code: 'INVALID_TRANSITION',
+      // FORBIDDEN: Employer cannot self-mark offer_accepted or hired directly
+      if (status === 'offer_accepted') {
+        return res.status(403).json({
+          error: 'Nhà tuyển dụng không thể tự ý đánh dấu "Đã chấp nhận đề nghị" thay cho ứng viên.',
+          code: 'FORBIDDEN_SELF_ACCEPT',
         });
       }
 
-      // If transitioning to hired, atomically reserve slot
       if (status === 'hired') {
-        const updatedJob = await Job.findOneAndUpdate(
-          { _id: application.jobId, slots: { $gt: 0 } },
-          { $inc: { slots: -1 } },
-          { new: true }
-        );
+        return res.status(400).json({
+          error: 'Không thể duyệt trúng tuyển (hired) trực tiếp. Bạn cần gửi Đề nghị nhận việc (Offer) và ứng viên phải đồng ý trước khi hoàn tất tuyển dụng.',
+          code: 'MUST_ACCEPT_OFFER_FIRST',
+        });
+      }
 
-        if (!updatedJob) {
-          return res.status(409).json({
-            error: 'Công việc này đã đủ chỉ tiêu tuyển dụng (hết slot trống).',
-            code: 'NO_SLOTS_AVAILABLE',
-          });
-        }
-
-        if (updatedJob.slots === 0) {
-          updatedJob.status = 'closed';
-          await updatedJob.save();
-        }
+      const allowedNext = VALID_TRANSITIONS[application.status] || [];
+      if (!allowedNext.includes(status)) {
+        return res.status(409).json({
+          error: `Không thể chuyển trạng thái từ "${getStatusLabel(application.status)}" sang "${getStatusLabel(status)}". Các trạng thái hợp lệ tiếp theo: ${allowedNext.map(getStatusLabel).join(', ') || 'Không có'}.`,
+          code: 'INVALID_TRANSITION',
+        });
       }
     }
 
-    const updateData = {};
-    if (status) updateData.status = status;
-    if (note !== undefined) updateData.employerNote = note;
-    if (employerNote !== undefined) updateData.employerNote = employerNote;
-    if (internalNote !== undefined) updateData.internalNote = internalNote;
-    if (candidateFeedback !== undefined) updateData.candidateFeedback = candidateFeedback;
-    if (interviewSchedule !== undefined) updateData.interviewSchedule = interviewSchedule;
+    const oldStatus = application.status;
+    if (status) application.status = status;
+    if (internalNote !== undefined) application.internalNote = internalNote;
+    if (candidateFeedback !== undefined) application.candidateFeedback = candidateFeedback;
+    if (note !== undefined) application.candidateFeedback = note;
 
-    if (status && status !== application.status) {
-      const historyEntry = {
-        status,
-        changedAt: new Date(),
-        changedBy: req.user._id,
-        note: candidateFeedback || internalNote || note || `Chuyển trạng thái sang ${getStatusLabel(status)}`,
+    if (interviewSchedule !== undefined) {
+      application.interviewSchedule = {
+        ...application.interviewSchedule,
+        ...interviewSchedule,
       };
-      updateData.$push = { statusHistory: historyEntry };
     }
 
-    const updated = await Application.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    ).populate('jobId');
+    if (status && status !== oldStatus) {
+      application.statusHistory.push({
+        fromStatus: oldStatus,
+        toStatus: status,
+        status: status,
+        changedAt: new Date(),
+        changedBy: req.user._id,
+        reason: internalNote || `Chuyển trạng thái sang ${getStatusLabel(status)}`,
+        candidateVisibleMessage: candidateFeedback || `Hồ sơ của bạn đã được chuyển sang: ${getStatusLabel(status)}`,
+      });
+    }
 
-    // Notify student
-    if (status && status !== application.status) {
+    await application.save();
+
+    // Notify student if status changed
+    if (status && status !== oldStatus) {
       try {
-        const job = updated.jobId || {};
-        let notifTitle = 'Cập nhật trạng thái đơn ứng tuyển';
-        let notifMsg = `Đơn ứng tuyển vị trí "${job.title || 'công việc'}" của bạn đã được cập nhật: ${getStatusLabel(status)}.`;
+        let notifTitle = 'Cập nhật trạng thái hồ sơ ứng tuyển';
+        let notifMsg = `Hồ sơ của bạn đã được cập nhật: ${getStatusLabel(status)}.`;
 
         if (status === 'interview') {
           notifTitle = 'Lời mời phỏng vấn! 📅';
-          notifMsg = `Cửa hàng ${job.storeName || ''} đã mời bạn tham gia phỏng vấn vị trí "${job.title}". Vui lòng kiểm tra chi tiết đơn ứng tuyển.`;
-        } else if (status === 'hired') {
-          notifTitle = 'Chúc mừng! Bạn đã trúng tuyển 🎉';
-          notifMsg = `Cửa hàng ${job.storeName || ''} đã tiếp nhận bạn vào làm việc cho vị trí "${job.title}".`;
-        } else if (status === 'shortlisted') {
-          notifTitle = 'Hồ sơ vào vòng sơ tuyển! ✨';
-          notifMsg = `Hồ sơ của bạn cho vị trí "${job.title}" tại ${job.storeName || 'quán'} đã đạt tiêu chuẩn vòng sơ loại.`;
-        } else if (status === 'rejected') {
-          notifTitle = 'Thông báo kết quả ứng tuyển';
-          notifMsg = `Hồ sơ của bạn cho vị trí "${job.title}" tại ${job.storeName || 'quán'} chưa phù hợp ở thời điểm hiện tại.`;
+          notifMsg = `Nhà tuyển dụng đã mời bạn tham gia phỏng vấn. Vui lòng kiểm tra chi tiết trong hồ sơ ứng tuyển.`;
         }
 
         await Notification.create({
@@ -359,13 +358,13 @@ router.put('/:id', async (req, res, next) => {
       }
     }
 
-    res.json(updated);
+    res.json(application);
   } catch (err) {
     next(err);
   }
 });
 
-// PUT /api/applications/:id/withdraw (Student withdraw before terminal state)
+// PUT /api/applications/:id/withdraw (Student withdraws before offer_accepted)
 router.put('/:id/withdraw', async (req, res, next) => {
   try {
     const application = await Application.findById(req.params.id);
@@ -374,54 +373,29 @@ router.put('/:id/withdraw', async (req, res, next) => {
     }
 
     if (req.user.role !== 'admin' && application.studentId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Bạn không có quyền rút đơn ứng tuyển của người khác.', code: 'FORBIDDEN' });
+      return res.status(403).json({ error: 'Bạn không có quyền rút hồ sơ của người khác.', code: 'FORBIDDEN' });
     }
 
-    const terminalStates = ['hired', 'rejected', 'withdrawn', 'accepted', 'approved'];
+    const terminalStates = ['offer_accepted', 'hired', 'rejected', 'withdrawn', 'offer_declined'];
     if (terminalStates.includes(application.status)) {
       return res.status(409).json({
-        error: `Không thể rút đơn khi đơn đã ở trạng thái kết thúc (${getStatusLabel(application.status)}).`,
+        error: `Không thể rút đơn khi hồ sơ đã ở trạng thái kết thúc (${getStatusLabel(application.status)}).`,
         code: 'TERMINAL_STATE',
       });
     }
 
+    const oldStatus = application.status;
     application.status = 'withdrawn';
     application.statusHistory.push({
+      fromStatus: oldStatus,
+      toStatus: 'withdrawn',
       status: 'withdrawn',
       changedAt: new Date(),
       changedBy: req.user._id,
-      note: 'Sinh viên chủ động rút đơn ứng tuyển',
+      reason: req.body.reason || 'Sinh viên chủ động rút đơn ứng tuyển',
+      candidateVisibleMessage: 'Bạn đã rút đơn ứng tuyển này.',
     });
     await application.save();
-
-    // Notify employer about withdrawal
-    try {
-      let targetEmployerUser = null;
-      const job = await Job.findById(application.jobId);
-      if (job) {
-        targetEmployerUser = job.employerUserId;
-        if (!targetEmployerUser && job.employerId) {
-          const empUser = await User.findById(job.employerId);
-          if (empUser) {
-            targetEmployerUser = empUser._id;
-          } else {
-            const empProf = await EmployerProfile.findById(job.employerId);
-            if (empProf) targetEmployerUser = empProf.userId;
-          }
-        }
-      }
-      if (targetEmployerUser) {
-        await Notification.create({
-          userId: targetEmployerUser,
-          title: 'Ứng viên đã rút đơn ứng tuyển',
-          message: `Ứng viên ${application.studentName || 'Một ứng viên'} đã rút đơn ứng tuyển vị trí "${job?.title || 'việc làm'}".`,
-          type: 'application',
-          link: '/employer/applications',
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Failed to notify employer on application withdraw:', notifErr.message);
-    }
 
     res.json({ message: 'Rút đơn ứng tuyển thành công', application });
   } catch (err) {
@@ -429,7 +403,7 @@ router.put('/:id/withdraw', async (req, res, next) => {
   }
 });
 
-// DELETE /api/applications/:id (Employer or admin removes candidate/employee)
+// DELETE /api/applications/:id (Soft rejection / rejection instead of hard delete)
 router.delete('/:id', async (req, res, next) => {
   try {
     const application = await Application.findById(req.params.id);
@@ -438,33 +412,28 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     if (req.user.role !== 'admin') {
-      const employerProfile = await EmployerProfile.findOne({ userId: req.user._id });
-      const empIds = [
-        req.user._id.toString(),
-        employerProfile?._id?.toString(),
-      ].filter(Boolean);
-
-      const isDirectOwner = empIds.includes(application.employerId?.toString()) ||
-                            empIds.includes(application.employerUserId?.toString());
-
-      if (!isDirectOwner) {
-        const job = await Job.findById(application.jobId);
-        const jobOwner = job && (empIds.includes(job.employerId?.toString()) || empIds.includes(job.employerUserId?.toString()));
-        if (!jobOwner) {
-          return res.status(403).json({ error: 'Bạn không có quyền xóa hồ sơ này.', code: 'FORBIDDEN' });
-        }
-      }
+      await assertEmployerOwnership(application, req.user._id);
     }
 
-    await Application.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Đã xóa nhân viên / hồ sơ thành công', id: req.params.id });
+    // Soft delete: mark as rejected with note rather than destroying audit trail
+    application.status = 'rejected';
+    application.internalNote = 'Đã gỡ hồ sơ khỏi danh sách ứng viên tuyển dụng';
+    application.statusHistory.push({
+      fromStatus: application.status,
+      toStatus: 'rejected',
+      status: 'rejected',
+      changedAt: new Date(),
+      changedBy: req.user._id,
+      reason: 'Nhà tuyển dụng loại hồ sơ khỏi danh sách',
+      candidateVisibleMessage: 'Hồ sơ đã được lưu trữ.',
+    });
+    await application.save();
+
+    res.json({ message: 'Đã gỡ hồ sơ khỏi danh sách thành công', id: req.params.id });
   } catch (err) {
     next(err);
   }
 });
 
 export default router;
-export {
-  VALID_TRANSITIONS,
-  getStatusLabel,
-};
+export { VALID_TRANSITIONS, getStatusLabel };

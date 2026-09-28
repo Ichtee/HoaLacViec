@@ -221,9 +221,98 @@ export async function apiWithdrawApplication(id) {
   });
 }
 
-export async function apiDeleteApplication(id) {
-  return request(`/applications/${id}`, {
+export async function apiSendOffer(applicationId, offerData) {
+  return request(`/applications/${applicationId}/offer`, {
+    method: 'POST',
+    body: JSON.stringify(offerData),
+  });
+}
+
+export async function apiRescindOffer(applicationId, reason = '') {
+  return request(`/applications/${applicationId}/rescind-offer`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function apiAcceptOffer(applicationId, responseNote = '') {
+  return request(`/applications/${applicationId}/accept-offer`, {
+    method: 'POST',
+    body: JSON.stringify({ responseNote }),
+  });
+}
+
+export async function apiDeclineOffer(applicationId, reason = '') {
+  return request(`/applications/${applicationId}/decline-offer`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+// ─── EMPLOYMENTS ──────────────────────────────────────────────────
+export async function apiGetEmployments(params = {}) {
+  return request(`/employments${buildQueryString(params)}`);
+}
+
+export async function apiGetEmployment(id) {
+  return request(`/employments/${id}`);
+}
+
+export async function apiUpdateEmployment(id, data) {
+  return request(`/employments/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiTerminateEmployment(id, terminationData = {}) {
+  return request(`/employments/${id}/terminate`, {
+    method: 'POST',
+    body: JSON.stringify(terminationData),
+  });
+}
+
+// ─── SHIFT TEMPLATES ──────────────────────────────────────────────
+export async function apiGetShiftTemplates(params = {}) {
+  return request(`/shift-templates${buildQueryString(params)}`);
+}
+
+export async function apiCreateShiftTemplate(data) {
+  return request('/shift-templates', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiUpdateShiftTemplate(id, data) {
+  return request(`/shift-templates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiDeleteShiftTemplate(id) {
+  return request(`/shift-templates/${id}`, {
     method: 'DELETE',
+  });
+}
+
+// ─── TIME OFF REQUESTS ────────────────────────────────────────────
+export async function apiGetTimeOff(params = {}) {
+  return request(`/time-off${buildQueryString(params)}`);
+}
+
+export async function apiSubmitTimeOff(data) {
+  return request('/time-off', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiUpdateTimeOffStatus(id, data) {
+  return request(`/time-off/${id}/status`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   });
 }
 
@@ -236,6 +325,39 @@ export async function apiCreateShift(shiftData) {
   return request('/shifts', {
     method: 'POST',
     body: JSON.stringify(shiftData),
+  });
+}
+
+export async function apiPublishShifts(shiftIds) {
+  return request('/shifts/publish', {
+    method: 'POST',
+    body: JSON.stringify({ shiftIds }),
+  });
+}
+
+export async function apiAcknowledgeShift(shiftId) {
+  return request(`/shifts/${shiftId}/acknowledge`, { method: 'POST' });
+}
+
+export async function apiRescheduleShift(shiftId, scheduleData) {
+  return request(`/shifts/${shiftId}/reschedule`, {
+    method: 'PUT',
+    body: JSON.stringify(scheduleData),
+  });
+}
+
+export async function apiMarkPayrollReady(shiftId) {
+  return request(`/shifts/${shiftId}/payroll-ready`, { method: 'POST' });
+}
+
+export async function apiMarkPaid(shiftId) {
+  return request(`/shifts/${shiftId}/pay`, { method: 'POST' });
+}
+
+export async function apiAdjustShiftTime(shiftId, data) {
+  return request(`/shifts/${shiftId}/adjust`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
   });
 }
 

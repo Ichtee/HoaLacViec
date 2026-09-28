@@ -7,39 +7,88 @@ const applicationSchema = new mongoose.Schema({
   studentEmail: { type: String, default: '' },
   jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', required: true },
   employerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  employerUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   status: {
     type: String,
     enum: [
-      'pending',      // Mới nộp
-      'reviewing',    // Đang xem xét hồ sơ
-      'shortlisted',  // Đạt tiêu chuẩn / vào vòng trong
-      'interview',    // Hẹn phỏng vấn
-      'hired',        // Đã tuyển dụng thành công
-      'accepted',     // Legacy compatibility (tương đương hired)
-      'approved',     // Legacy compatibility (tương đương hired)
-      'rejected',     // Từ chối
-      'withdrawn',    // Sinh viên rút đơn
+      // Standard workflow
+      'submitted',        // Mới nộp (thay thế pending)
+      'screening',        // Đang sàng lọc hồ sơ (thay thế reviewing)
+      'shortlisted',      // Đạt tiêu chuẩn / vào vòng trong
+      'interview',        // Mời/xếp lịch phỏng vấn
+      'offer_sent',       // Đã gửi đề nghị nhận việc (offer)
+      'offer_accepted',   // Ứng viên đã chấp nhận offer
+      'hired',            // Đã tạo Employment và hoàn tất tuyển dụng
+
+      // Terminal / exit branches
+      'rejected',         // Nhà tuyển dụng từ chối
+      'withdrawn',        // Sinh viên rút đơn
+      'offer_declined',   // Ứng viên từ chối offer
+      'offer_expired',    // Offer hết hạn phản hồi
+      'offer_rescinded',  // Nhà tuyển dụng rút lại offer trước khi chấp nhận
+
+      // Legacy compatibility values
+      'pending',
+      'reviewing',
+      'accepted',
+      'approved',
     ],
-    default: 'pending',
+    default: 'submitted',
   },
   selectedPosition: { type: String, default: '' },
   selectedShift: { type: String, default: '' },
   note: { type: String, default: '' }, // Lời nhắn từ sinh viên khi nộp
   employerNote: { type: String, default: '' }, // Legacy employer note
-  internalNote: { type: String, default: '' }, // Ghi chú nội bộ dành riêng cho NTD
-  candidateFeedback: { type: String, default: '' }, // Lời nhắn/phản hồi gửi cho sinh viên
+  internalNote: { type: String, default: '' }, // Ghi chú nội bộ bí mật dành riêng cho NTD
+  candidateFeedback: { type: String, default: '' }, // Lời nhắn công khai gửi cho sinh viên
+
+  // Structured interview scheduling
   interviewSchedule: {
+    startAt: { type: Date, default: null },
+    endAt: { type: Date, default: null },
+    timezone: { type: String, default: 'Asia/Ho_Chi_Minh' },
+    location: { type: String, default: '' },
+    meetingUrl: { type: String, default: '' },
+    contactNote: { type: String, default: '' },
+    // Legacy support
     date: { type: String },
     time: { type: String },
-    location: { type: String },
     note: { type: String },
   },
+
+  // Immutable snapshot of job offer
+  offer: {
+    position: { type: String, default: '' },
+    workplace: { type: String, default: '' },
+    wage: { type: Number, default: 0 },
+    wageUnit: { type: String, enum: ['hour', 'shift', 'month'], default: 'hour' },
+    currency: { type: String, default: 'VND' },
+    expectedSchedule: { type: String, default: '' },
+    proposedStartDate: { type: Date, default: null },
+    expiryDate: { type: Date, default: null },
+    note: { type: String, default: '' },
+    status: {
+      type: String,
+      enum: ['pending', 'sent', 'accepted', 'declined', 'expired', 'rescinded', null],
+      default: null,
+    },
+    sentAt: { type: Date, default: null },
+    respondedAt: { type: Date, default: null },
+    responseNote: { type: String, default: '' },
+  },
+
+  // Comprehensive audit trail
   statusHistory: [{
-    status: { type: String, required: true },
+    fromStatus: { type: String, default: '' },
+    toStatus: { type: String, default: '' },
+    status: { type: String }, // Legacy compatibility
     changedAt: { type: Date, default: Date.now },
     changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    note: { type: String, default: '' },
+    reason: { type: String, default: '' },
+    candidateVisibleMessage: { type: String, default: '' },
+    note: { type: String, default: '' }, // Legacy compatibility
   }],
+
   appliedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
@@ -47,7 +96,7 @@ const applicationSchema = new mongoose.Schema({
 applicationSchema.index({ studentId: 1, jobId: 1 }, { unique: true });
 applicationSchema.index({ studentId: 1 });
 applicationSchema.index({ employerId: 1 });
+applicationSchema.index({ employerUserId: 1 });
 applicationSchema.index({ status: 1 });
 
 export const Application = mongoose.model('Application', applicationSchema);
-

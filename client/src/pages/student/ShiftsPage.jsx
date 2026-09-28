@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getShifts, checkIn, checkOut } from '@/services';
+import { getShifts, checkIn, checkOut, acknowledgeShift } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
@@ -16,15 +16,24 @@ import { useGeolocation } from '@/hooks/useGeolocation.js';
 
 function getShiftStatusBadge(status) {
   switch (status) {
+    case 'paid':
+      return { variant: 'success', label: 'Đã nhận thanh toán 💵' };
+    case 'payroll_ready':
+      return { variant: 'purple', label: 'Sẵn sàng tính lương 💰' };
     case 'approved':
     case 'completed':
       return { variant: 'success', label: 'Đã duyệt công 🎉' };
+    case 'completed_pending_review':
     case 'pending_approval':
       return { variant: 'purple', label: 'Chờ duyệt công ⏳' };
     case 'needs_review':
       return { variant: 'warning', label: 'Cần xem xét GPS ⚠️' };
     case 'checked_in':
-      return { variant: 'info', label: 'Đang trong ca làm' };
+      return { variant: 'info', label: 'Đang trong ca làm ⏱️' };
+    case 'acknowledged':
+      return { variant: 'info', label: 'Đã xác nhận xem lịch 🤝' };
+    case 'published':
+      return { variant: 'warning', label: 'Cần xác nhận lịch 📢' };
     case 'disputed':
       return { variant: 'danger', label: 'Cần đối soát ⚠️' };
     case 'cancelled':
@@ -344,29 +353,63 @@ export default function StudentShiftsPage() {
                 </div>
 
                 {/* Actions Footer */}
-                <div className="pt-4 border-t border-green-50 flex items-center justify-between">
+                <div className="pt-4 border-t border-green-50 flex items-center justify-between gap-2 flex-wrap">
+                  {shift.status === 'published' && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setActionLoading(true);
+                          await acknowledgeShift(shift._id || shift.id);
+                          setShifts((prev) =>
+                            prev.map((s) => ((s._id === shift._id || s.id === shift.id) ? { ...s, status: 'acknowledged' } : s))
+                          );
+                          setToast({ type: 'success', message: 'Bạn đã xác nhận lịch làm việc thành công! 🤝' });
+                        } catch (err) {
+                          setToast({ type: 'error', message: err.message || 'Lỗi khi xác nhận lịch.' });
+                        } finally {
+                          setActionLoading(false);
+                        }
+                      }}
+                      disabled={actionLoading}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" /> Xác nhận đã xem lịch
+                    </button>
+                  )}
+
                   <button
                     onClick={() => handleOpenModal(shift)}
                     className={clsx(
-                      'px-4 py-2.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm',
-                      shift.status === 'approved' || shift.status === 'completed'
-                        ? 'bg-emerald-100 text-emerald-700 cursor-default'
-                        : shift.status === 'pending_approval'
+                      'px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 shadow-sm',
+                      shift.status === 'paid'
+                        ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                        : shift.status === 'payroll_ready' || shift.status === 'approved' || shift.status === 'completed'
+                        ? 'bg-emerald-50 text-emerald-700 cursor-default'
+                        : shift.status === 'completed_pending_review' || shift.status === 'pending_approval'
                         ? 'bg-purple-100 text-purple-700 cursor-default'
                         : shift.status === 'checked_in'
                         ? 'bg-amber-500 text-white hover:bg-amber-600'
                         : 'bg-green-main text-white hover:bg-green-dark'
                     )}
                     disabled={
+                      shift.status === 'paid' ||
+                      shift.status === 'payroll_ready' ||
                       shift.status === 'approved' ||
                       shift.status === 'completed' ||
-                      shift.status === 'pending_approval'
+                      shift.status === 'completed_pending_review' ||
+                      shift.status === 'pending_approval' ||
+                      shift.status === 'cancelled'
                     }
                   >
                     <QrCode className="w-4 h-4" />
-                    {shift.status === 'approved' || shift.status === 'completed'
-                      ? 'Đã duyệt công'
-                      : shift.status === 'pending_approval'
+                    {shift.status === 'paid'
+                      ? 'Đã nhận lương 💵'
+                      : shift.status === 'payroll_ready'
+                      ? 'Sẵn sàng tính lương'
+                      : shift.status === 'approved' || shift.status === 'completed'
+                      ? 'Đã duyệt công 🎉'
+                      : shift.status === 'completed_pending_review' || shift.status === 'pending_approval'
                       ? 'Đang chờ quản lý duyệt'
                       : shift.status === 'checked_in'
                       ? 'Check-out ra ca'

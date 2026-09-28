@@ -3,14 +3,23 @@ import mongoose from 'mongoose';
 import { Shift } from '../models/Shift.js';
 import { Job } from '../models/Job.js';
 import { User } from '../models/User.js';
-import { Application } from '../models/Application.js';
 import { Notification } from '../models/Notification.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { authenticate } from '../middlewares/auth.js';
 import { evaluateAttendanceGPS, clampRadius, evaluateCheckinWindow } from '../utils/geoHelper.js';
+import {
+  createShift,
+  publishShifts,
+  acknowledgeShift,
+  rescheduleShift,
+  cancelShift,
+  approveAttendance,
+  markPayrollReady,
+  markPaid,
+  adjustWorkedTime,
+} from '../services/schedulingService.js';
 
 const router = express.Router();
-
 router.use(authenticate);
 
 async function resolveEmployerUserId(shift) {
@@ -27,10 +36,10 @@ async function resolveEmployerUserId(shift) {
   return employerTarget;
 }
 
-// GET /api/shifts
+// GET /api/shifts (List shifts with filters)
 router.get('/', async (req, res, next) => {
   try {
-    const { studentId, employerId, storeId, storeName, status, date } = req.query;
+    const { studentId, employerId, storeId, storeName, status, date, startDate, endDate } = req.query;
     const filter = {};
 
     if (req.user.role === 'student') {
@@ -38,6 +47,8 @@ router.get('/', async (req, res, next) => {
         { studentUserId: req.user._id },
         { studentId: req.user._id },
       ];
+      // Student only sees published, acknowledged, or active shifts (hide draft shifts)
+      filter.status = { $ne: 'draft' };
     } else if (req.user.role === 'employer') {
       const profile = await EmployerProfile.findOne({ userId: req.user._id });
       const employerIds = [req.user._id];
@@ -60,11 +71,25 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    if (status) filter.status = status;
-    if (date) filter.date = date;
+    if (status) {
+      if (status === 'scheduled') {
+        filter.status = { $in: ['scheduled', 'published', 'acknowledged'] };
+      } else if (status === 'completed' || status === 'approved') {
+        filter.status = { $in: ['approved', 'completed', 'payroll_ready', 'paid'] };
+      } else {
+        filter.status = status;
+      }
+    }
+
+    if (date) {
+      filter.date = date;
+    } else if (startDate && endDate) {
+      filter.date = { $gte: startDate, $lte: endDate };
+    }
 
     const shifts = await Shift.find(filter)
       .populate('jobId', 'title storeName address location')
+      .populate('studentUserId', 'name phone email avatar')
       .sort({ date: -1, startTime: 1 })
       .lean();
 
@@ -115,7 +140,7 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/shifts (Create shift: Employer owner of job only, student must have hired application)
+// POST /api/shifts (Create shift with authoritative eligibility & conflict checks)
 router.post('/', async (req, res, next) => {
   try {
     if (req.user.role !== 'employer' && req.user.role !== 'admin') {
@@ -126,121 +151,92 @@ router.post('/', async (req, res, next) => {
       studentUserId,
       studentId,
       jobId,
-      applicationId,
       date,
       startTime,
       endTime,
       role,
       wageRate,
-      hours,
+      isDraft,
       storeName,
     } = req.body;
 
     const assignedStudentId = studentUserId || studentId;
     if (!assignedStudentId || !mongoose.Types.ObjectId.isValid(assignedStudentId)) {
-      return res.status(400).json({ error: 'Vui lòng chọn sinh viên nhận ca làm việc hợp lệ.', code: 'INVALID_STUDENT' });
-    }
-    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
-      return res.status(400).json({ error: 'Vui lòng chọn công việc phân ca hợp lệ.', code: 'INVALID_JOB' });
+      return res.status(400).json({ error: 'Vui lòng chọn nhân viên nhận ca hợp lệ.', code: 'INVALID_STUDENT' });
     }
     if (!date || !startTime || !endTime) {
       return res.status(400).json({ error: 'Vui lòng cung cấp ngày, giờ bắt đầu và giờ kết thúc ca làm.', code: 'MISSING_SCHEDULE' });
     }
 
-    // Verify Job existence and ownership
-    const job = await Job.findById(jobId);
-    if (!job) {
-      return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
-    }
+    const newShift = await createShift(
+      {
+        studentUserId: assignedStudentId,
+        jobId,
+        date,
+        startTime,
+        endTime,
+        role,
+        wageRate,
+        isDraft: Boolean(isDraft),
+        storeName,
+      },
+      req.user._id
+    );
 
-    if (req.user.role !== 'admin') {
-      const isJobOwner = job.employerUserId && job.employerUserId.toString() === req.user._id.toString();
-      if (!isJobOwner) {
-        return res.status(403).json({
-          error: 'Bạn chỉ có thể tạo ca làm cho tin tuyển dụng do chính mình quản lý.',
-          code: 'FORBIDDEN',
-        });
-      }
-    }
-
-    // Verify student account
-    const student = await User.findById(assignedStudentId);
-    if (!student) {
-      return res.status(404).json({ error: 'Không tìm thấy thông tin tài khoản sinh viên được phân ca.', code: 'STUDENT_NOT_FOUND' });
-    }
-
-    // Verify that student has a HIRED application for this job
-    if (req.user.role !== 'admin') {
-      const hiredApp = await Application.findOne({
-        jobId: job._id,
-        studentId: student._id,
-        status: { $in: ['hired', 'accepted', 'approved'] },
-      });
-
-      if (!hiredApp) {
-        return res.status(400).json({
-          error: 'Sinh viên phải có hồ sơ ứng tuyển ở trạng thái trúng tuyển (hired) cho công việc này mới có thể được xếp ca.',
-          code: 'STUDENT_NOT_HIRED',
-        });
-      }
-    }
-
-    // Calculate planned hours
-    let calculatedHours = hours ? Number(hours) : 4;
-    try {
-      const [sh, sm] = startTime.split(':').map(Number);
-      const [eh, em] = endTime.split(':').map(Number);
-      const diffMinutes = (eh * 60 + em) - (sh * 60 + sm);
-      if (diffMinutes > 0) {
-        calculatedHours = Number((diffMinutes / 60).toFixed(1));
-      }
-    } catch {
-      // fallback
-    }
-
-    const effectiveRate = Number(wageRate) || job.salaryAmount || 25000;
-
-    const newShift = await Shift.create({
-      jobId: job._id,
-      applicationId: applicationId || null,
-      storeName: storeName || job.storeName || 'Cửa hàng tuyển dụng',
-      employerUserId: req.user._id,
-      employerId: req.user._id,
-      studentUserId: student._id,
-      studentId: student._id,
-      studentName: student.name,
-      role: role || job.title || 'Nhân viên bán ca',
-      date,
-      startTime,
-      endTime,
-      hours: calculatedHours,
-      wageRate: effectiveRate,
-      totalPay: Math.round(calculatedHours * effectiveRate),
-      status: 'scheduled',
-      history: [
-        {
-          status: 'scheduled',
-          changedAt: new Date(),
-          changedBy: req.user._id,
-          note: `Phân ca làm ngày ${date} (${startTime} - ${endTime})`,
-        },
-      ],
+    res.status(201).json({
+      message: isDraft ? 'Đã tạo ca làm ở trạng thái nháp.' : 'Phân ca làm việc và công bố lịch thành công!',
+      shift: { ...newShift.toObject(), id: newShift._id },
     });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    // Notify student
-    try {
-      await Notification.create({
-        userId: student._id,
-        title: 'Bạn có lịch phân ca mới! 📅',
-        message: `Quán ${newShift.storeName} đã xếp bạn vào ca làm ngày ${date} từ ${startTime} đến ${endTime}.`,
-        type: 'shift',
-        link: '/student/shifts',
-      });
-    } catch (notifErr) {
-      console.warn('Notification error on shift creation:', notifErr.message);
+// POST /api/shifts/publish (Publish draft shifts in bulk)
+router.post('/publish', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'employer' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ nhà tuyển dụng mới có quyền công bố lịch làm.', code: 'FORBIDDEN' });
     }
 
-    res.status(201).json(newShift);
+    const { shiftIds } = req.body;
+    const result = await publishShifts({ shiftIds, employerUserId: req.user._id });
+
+    res.json({
+      message: `Đã công bố ${result.publishedCount} ca làm việc thành công!`,
+      publishedCount: result.publishedCount,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/shifts/:id/acknowledge (Student acknowledges shift schedule)
+router.post('/:id/acknowledge', async (req, res, next) => {
+  try {
+    const shift = await acknowledgeShift(req.params.id, req.user._id);
+    res.json({ message: 'Đã xác nhận xem lịch ca làm việc thành công.', shift });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PUT /api/shifts/:id/reschedule (Reschedule shift with conflict validation)
+router.put('/:id/reschedule', async (req, res, next) => {
+  try {
+    const shift = await rescheduleShift(req.params.id, req.body, req.user._id);
+    res.json({ message: 'Đã đổi lịch ca làm thành công.', shift });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/shifts/:id/cancel (Cancel shift - soft cancellation)
+router.post('/:id/cancel', async (req, res, next) => {
+  try {
+    const { reason } = req.body;
+    const shift = await cancelShift(req.params.id, req.user._id, reason);
+    res.json({ message: 'Đã hủy ca làm việc thành công.', shift });
   } catch (err) {
     next(err);
   }
@@ -261,9 +257,10 @@ router.post('/:id/checkin', async (req, res, next) => {
       return res.status(403).json({ error: 'Bạn không có quyền điểm danh cho ca làm của người khác.', code: 'FORBIDDEN' });
     }
 
-    if (shift.status !== 'scheduled') {
+    const checkinValidStatuses = ['published', 'acknowledged', 'scheduled'];
+    if (!checkinValidStatuses.includes(shift.status)) {
       return res.status(400).json({
-        error: `Không thể điểm danh vào ca vì ca làm đang ở trạng thái "${shift.status}".`,
+        error: `Không thể điểm danh vào ca vì ca làm đang ở trạng thái "${shift.status}". Chỉ ca đã công bố hoặc xác nhận mới có thể check-in.`,
         code: 'INVALID_STATUS',
       });
     }
@@ -436,7 +433,7 @@ router.post('/:id/checkout', async (req, res, next) => {
     const workedMinutes = Math.max(1, Math.round((checkOutTime - checkInTime) / (1000 * 60)));
     const calculatedPay = Math.round((workedMinutes / 60) * (shift.wageRate || 25000));
 
-    shift.status = 'pending_approval';
+    shift.status = 'completed_pending_review';
     shift.workedMinutes = workedMinutes;
     shift.totalPay = calculatedPay;
 
@@ -457,7 +454,7 @@ router.post('/:id/checkout', async (req, res, next) => {
     shift.attendance.checkOutManualReason = manualReason || null;
 
     shift.history.push({
-      status: 'pending_approval',
+      status: 'completed_pending_review',
       changedAt: new Date(),
       changedBy: req.user._id,
       note: `Check-out ra ca: làm việc ${workedMinutes} phút. ${evaluation.verified ? 'Xác thực GPS hợp lệ tại quán.' : `Chờ duyệt (${evaluation.reasonCode})`}`,
@@ -497,65 +494,42 @@ router.post('/:id/checkout', async (req, res, next) => {
   }
 });
 
-// ACTION: POST /api/shifts/:id/approve (Employer cannot approve before checkout/pending_approval)
+// ACTION: POST /api/shifts/:id/approve (Duyệt công)
 router.post('/:id/approve', async (req, res, next) => {
   try {
-    const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
+    const shift = await approveAttendance(req.params.id, req.user._id);
+    res.json({ message: 'Đã xác nhận duyệt công làm việc thành công', shift });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    if (req.user.role !== 'admin') {
-      const isOwner =
-        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
-        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
+// ACTION: POST /api/shifts/:id/payroll-ready (Sẵn sàng tính lương)
+router.post('/:id/payroll-ready', async (req, res, next) => {
+  try {
+    const shift = await markPayrollReady(req.params.id, req.user._id);
+    res.json({ message: 'Đã chuyển ca làm sang trạng thái sẵn sàng tính lương.', shift });
+  } catch (err) {
+    next(err);
+  }
+});
 
-      if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền duyệt công cho ca làm việc này.', code: 'FORBIDDEN' });
-      }
-    }
+// ACTION: POST /api/shifts/:id/pay (Chi trả lương)
+router.post('/:id/pay', async (req, res, next) => {
+  try {
+    const shift = await markPaid(req.params.id, req.user._id);
+    res.json({ message: 'Đã xác nhận hoàn tất chi trả lương cho ca làm.', shift });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    // Must be in pending_approval or checked_out state
-    if (!['pending_approval', 'checked_out'].includes(shift.status)) {
-      return res.status(400).json({
-        error: 'Không thể duyệt ca làm khi sinh viên chưa check-out hoàn thành ca làm.',
-        code: 'CANNOT_APPROVE_UNFINISHED_SHIFT',
-      });
-    }
-
-    shift.status = 'approved';
-    if (!shift.attendance) shift.attendance = {};
-    if (!shift.attendance.checkOutAt) shift.attendance.checkOutAt = new Date();
-
-    if (!shift.totalPay || shift.totalPay === 0) {
-      const hours = shift.hours || 4;
-      shift.totalPay = Math.round(hours * (shift.wageRate || 25000));
-    }
-
-    shift.history.push({
-      status: 'approved',
-      changedAt: new Date(),
-      changedBy: req.user._id,
-      note: 'Nhà tuyển dụng đã xác nhận duyệt công và chi trả tiền lương.',
-    });
-
-    await shift.save();
-
-    // Notify student
-    try {
-      const studentTarget = shift.studentUserId || shift.studentId;
-      if (studentTarget) {
-        await Notification.create({
-          userId: studentTarget,
-          title: 'Ca làm đã được duyệt công! 💰',
-          message: `Cửa hàng đã duyệt công cho ca làm ngày ${shift.date}. Thu nhập: ${shift.totalPay.toLocaleString('vi-VN')} VNĐ.`,
-          type: 'shift',
-          link: '/student/shifts',
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Shift approval notification error:', notifErr.message);
-    }
-
-    res.json({ message: 'Đã xác nhận hoàn thành công cho sinh viên thành công', shift });
+// ACTION: PUT /api/shifts/:id/adjust (Điều chỉnh giờ làm có audit)
+router.put('/:id/adjust', async (req, res, next) => {
+  try {
+    const { workedMinutes, reason } = req.body;
+    const shift = await adjustWorkedTime(req.params.id, req.user._id, { workedMinutes, reason });
+    res.json({ message: 'Đã điều chỉnh thời gian làm việc thành công', shift });
   } catch (err) {
     next(err);
   }
@@ -568,189 +542,36 @@ router.post('/:id/dispute', async (req, res, next) => {
     const shift = await Shift.findById(req.params.id);
     if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
-    if (req.user.role !== 'admin') {
-      const isOwner =
-        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
-        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
-
-      if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền báo cáo ca làm việc này.', code: 'FORBIDDEN' });
-      }
-    }
-
     shift.status = 'disputed';
-    shift.disputeReason = reason || 'Có sai lệch về thời gian hoặc địa điểm chấm công';
+    shift.disputeReason = reason || 'Có tranh chấp về dữ liệu chấm công hoặc ca làm';
     shift.history.push({
       status: 'disputed',
       changedAt: new Date(),
       changedBy: req.user._id,
-      note: `Báo cáo bất thường: ${shift.disputeReason}`,
+      note: `Báo cáo tranh chấp ca: ${reason || 'Không rõ'}`,
     });
-
     await shift.save();
 
-    // Notify student
-    try {
-      const studentTarget = shift.studentUserId || shift.studentId;
-      if (studentTarget) {
-        await Notification.create({
-          userId: studentTarget,
-          title: 'Lưu ý ca làm việc cần đối soát ⚠️',
-          message: `Quán ${shift.storeName || ''} đã gửi phản hồi đối soát ca làm ngày ${shift.date}: "${shift.disputeReason}".`,
-          type: 'shift',
-          link: '/student/shifts',
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Shift dispute notification error:', notifErr.message);
-    }
-
-    res.json({ message: 'Đã chuyển ca làm sang trạng thái cần đối soát', shift });
+    res.json({ message: 'Đã ghi nhận yêu cầu đối soát ca làm.', shift });
   } catch (err) {
     next(err);
   }
 });
 
-// ACTION: POST /api/shifts/:id/reschedule (Reschedule a scheduled shift)
-router.post('/:id/reschedule', async (req, res, next) => {
-  try {
-    const { date, startTime, endTime, reason } = req.body;
-    if (!date || !startTime || !endTime) {
-      return res.status(400).json({ error: 'Vui lòng cung cấp ngày và thời gian mới.', code: 'MISSING_FIELDS' });
-    }
-
-    const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
-
-    if (req.user.role !== 'admin') {
-      const isOwner =
-        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
-        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
-      if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền đổi lịch ca làm việc này.', code: 'FORBIDDEN' });
-      }
-    }
-
-    if (shift.status !== 'scheduled') {
-      return res.status(400).json({
-        error: 'Chỉ có thể đổi lịch cho ca làm đang ở trạng thái đã xếp lịch (scheduled).',
-        code: 'INVALID_STATUS',
-      });
-    }
-
-    const oldSchedule = `${shift.date} (${shift.startTime} - ${shift.endTime})`;
-    shift.date = date;
-    shift.startTime = startTime;
-    shift.endTime = endTime;
-
-    shift.history.push({
-      status: 'scheduled',
-      changedAt: new Date(),
-      changedBy: req.user._id,
-      note: `Đổi lịch từ ${oldSchedule} sang ${date} (${startTime} - ${endTime}). Lý do: ${reason || 'Điều chỉnh kế hoạch làm việc'}`,
-    });
-
-    await shift.save();
-
-    // Notify student
-    try {
-      const studentTarget = shift.studentUserId || shift.studentId;
-      if (studentTarget) {
-        await Notification.create({
-          userId: studentTarget,
-          title: 'Thay đổi lịch ca làm việc 📅',
-          message: `Quán ${shift.storeName || ''} đã đổi lịch ca làm sang ngày ${date} (${startTime} - ${endTime}).`,
-          type: 'shift',
-          link: '/student/shifts',
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Shift reschedule notification error:', notifErr.message);
-    }
-
-    res.json({ message: 'Đã đổi lịch ca làm thành công.', shift });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ACTION: POST /api/shifts/:id/cancel (Cancel scheduled shift)
-router.post('/:id/cancel', async (req, res, next) => {
-  try {
-    const { reason } = req.body;
-    const shift = await Shift.findById(req.params.id);
-    if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
-
-    if (req.user.role !== 'admin') {
-      const isOwner =
-        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
-        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
-      if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền hủy ca làm việc này.', code: 'FORBIDDEN' });
-      }
-    }
-
-    if (['approved', 'completed'].includes(shift.status)) {
-      return res.status(400).json({ error: 'Không thể hủy ca làm đã được duyệt hoàn thành.', code: 'INVALID_STATUS' });
-    }
-
-    shift.status = 'cancelled';
-    shift.history.push({
-      status: 'cancelled',
-      changedAt: new Date(),
-      changedBy: req.user._id,
-      note: `Hủy ca làm. Lý do: ${reason || 'Nhà tuyển dụng hủy lịch'}`,
-    });
-
-    await shift.save();
-
-    // Notify student
-    try {
-      const studentTarget = shift.studentUserId || shift.studentId;
-      if (studentTarget) {
-        await Notification.create({
-          userId: studentTarget,
-          title: 'Ca làm việc đã bị hủy ⚠️',
-          message: `Ca làm ngày ${shift.date} (${shift.startTime} - ${shift.endTime}) tại quán ${shift.storeName || ''} đã bị hủy: "${reason || 'Nhà tuyển dụng điều chỉnh lịch'}".`,
-          type: 'shift',
-          link: '/student/shifts',
-        });
-      }
-    } catch (notifErr) {
-      console.warn('Shift cancel notification error:', notifErr.message);
-    }
-
-    res.json({ message: 'Đã hủy ca làm việc.', shift });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// DELETE /api/shifts/:id
+// DELETE /api/shifts/:id (Soft cancel only if published; allow delete only if draft)
 router.delete('/:id', async (req, res, next) => {
   try {
     const shift = await Shift.findById(req.params.id);
     if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
 
-    if (req.user.role !== 'admin') {
-      const isOwner =
-        (shift.employerUserId && shift.employerUserId.toString() === req.user._id.toString()) ||
-        (shift.employerId && shift.employerId.toString() === req.user._id.toString());
-
-      if (!isOwner) {
-        return res.status(403).json({ error: 'Bạn không có quyền xóa ca làm việc này.', code: 'FORBIDDEN' });
-      }
+    if (shift.status === 'draft') {
+      await Shift.findByIdAndDelete(req.params.id);
+      return res.json({ message: 'Đã xóa ca nháp thành công', id: req.params.id });
     }
 
-    if (['checked_in', 'checked_out', 'approved', 'completed'].includes(shift.status)) {
-      return res.status(400).json({
-        error: 'Không thể xóa ca làm đã diễn ra hoặc đã hoàn thành. Vui lòng sử dụng tính năng hủy ca.',
-        code: 'CANNOT_DELETE_ACTIVE_SHIFT',
-      });
-    }
-
-    await Shift.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Đã xóa ca làm việc.' });
+    // Published shifts must be cancelled, not hard deleted
+    const cancelled = await cancelShift(req.params.id, req.user._id, req.body?.reason || 'Hủy ca đã công bố');
+    res.json({ message: 'Ca làm đã được chuyển sang trạng thái hủy (không xóa lịch sử).', shift: cancelled });
   } catch (err) {
     next(err);
   }

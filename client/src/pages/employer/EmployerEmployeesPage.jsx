@@ -2,37 +2,39 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   UserCheck, Phone, MessageCircle, Calendar,
-  Search, Trash2, Mail, Clock, AlertTriangle
+  Search, Trash2, Mail, Clock, AlertTriangle, ShieldCheck, UserX, CheckCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getApplications, updateApplication, deleteApplication } from '@/services';
+import { getEmployments, terminateEmployment } from '@/services';
+import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
 export default function EmployerEmployeesPage() {
   const { user } = useAuth();
-  const [applications, setApplications] = useState([]);
+  const [employments, setEmployments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState(null);
 
-  // Delete / Offboard employee modal state
-  const [employeeToDelete, setEmployeeToDelete] = useState(null);
+  // Terminate employee modal state
+  const [terminatingEmp, setTerminatingEmp] = useState(null);
+  const [terminationReason, setTerminationReason] = useState('resigned');
+  const [terminationNote, setTerminationNote] = useState('');
+  const [cancelFutureShifts, setCancelFutureShifts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadEmployments();
   }, [user]);
 
-  async function loadData() {
+  async function loadEmployments() {
     try {
       setLoading(true);
-      const appsData = await getApplications({
-        storeId: user?.id,
-        storeName: user?.name,
+      const data = await getEmployments({
         employerId: user?.id,
       });
-      setApplications(Array.isArray(appsData) ? appsData : []);
+      setEmployments(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
       setToast({ type: 'error', message: 'Không thể tải danh sách nhân viên.' });
@@ -41,48 +43,44 @@ export default function EmployerEmployeesPage() {
     }
   }
 
-  // Filter employees: status is 'hired', 'accepted', or 'approved'
-  const employees = useMemo(() => {
-    return applications.filter(a => ['hired', 'accepted', 'approved'].includes(a.status));
-  }, [applications]);
+  // Active employees
+  const activeEmployees = useMemo(() => {
+    return employments.filter(e => e.status !== 'terminated');
+  }, [employments]);
 
-  // Filtered employees by search
+  // Search filter
   const filteredEmployees = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return employees;
-    return employees.filter(emp => {
-      const name = (emp.studentName || emp.studentId?.name || '').toLowerCase();
-      const phone = (emp.studentPhone || emp.studentId?.phone || '').toLowerCase();
-      const role = (emp.selectedPosition || emp.jobTitle || '').toLowerCase();
-      return name.includes(q) || phone.includes(q) || role.includes(q);
+    if (!q) return activeEmployees;
+    return activeEmployees.filter(emp => {
+      const name = (emp.studentName || '').toLowerCase();
+      const phone = (emp.studentPhone || '').toLowerCase();
+      const pos = (emp.positionTitle || '').toLowerCase();
+      return name.includes(q) || phone.includes(q) || pos.includes(q);
     });
-  }, [employees, searchQuery]);
+  }, [activeEmployees, searchQuery]);
 
-  // Delete employee handler
-  async function handleDeleteEmployee() {
-    if (!employeeToDelete) return;
-    const empId = employeeToDelete._id || employeeToDelete.id;
+  // Handle soft termination
+  async function handleConfirmTerminate() {
+    if (!terminatingEmp) return;
+    const empId = terminatingEmp._id || terminatingEmp.id;
 
     try {
       setSubmitting(true);
-      // Try hard delete first, fallback to status update if needed
-      try {
-        await deleteApplication(empId);
-      } catch {
-        await updateApplication(empId, {
-          status: 'rejected',
-          internalNote: 'Đã xóa khỏi danh sách nhân viên',
-        });
-      }
+      const result = await terminateEmployment(empId, {
+        reasonCode: terminationReason,
+        note: terminationNote,
+        futureShiftAction: cancelFutureShifts ? 'cancel' : 'keep',
+      });
 
-      setApplications(prev => prev.filter(a => (a._id || a.id) !== empId));
+      setEmployments(prev => prev.map(e => (e._id || e.id) === empId ? { ...e, status: 'terminated' } : e));
       setToast({
         type: 'success',
-        message: `Đã xóa nhân viên ${employeeToDelete.studentName} khỏi danh sách quán thành công.`,
+        message: `Đã hoàn tất kết thúc hợp tác đối với nhân viên ${terminatingEmp.studentName}. ${result.cancelledShiftsCount > 0 ? `Đã tự động hủy ${result.cancelledShiftsCount} ca tương lai.` : ''}`,
       });
-      setEmployeeToDelete(null);
+      setTerminatingEmp(null);
     } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Lỗi khi xóa nhân viên.' });
+      setToast({ type: 'error', message: err.message || 'Lỗi khi kết thúc hợp tác với nhân viên.' });
     } finally {
       setSubmitting(false);
     }
@@ -100,11 +98,11 @@ export default function EmployerEmployeesPage() {
               <UserCheck className="w-6 h-6 text-green-dark" /> Danh sách Nhân viên
             </h1>
             <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-extrabold text-xs border border-emerald-200">
-              {employees.length} nhân viên
+              {activeEmployees.length} nhân viên đang làm việc
             </span>
           </div>
           <p className="text-xs text-text-muted mt-1.5">
-            Tất cả ứng viên đã được nhận việc tại quán. Bạn có thể xem danh sách, liên hệ trực tiếp, xếp ca làm hoặc xóa nhân viên khi nghỉ việc.
+            Danh sách nhân viên chính thức từ các ứng viên đã chấp nhận Offer. Bạn có thể xếp ca, liên hệ trực tiếp hoặc cập nhật trạng thái làm việc.
           </p>
         </div>
 
@@ -118,7 +116,7 @@ export default function EmployerEmployeesPage() {
         </div>
       </div>
 
-      {/* SEARCH BAR (Bỏ lọc theo bài đăng vì đã là nhân viên của quán) */}
+      {/* SEARCH BAR */}
       <div className="bg-white p-3.5 rounded-3xl border border-gray-100 shadow-card flex items-center gap-3">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
@@ -141,16 +139,16 @@ export default function EmployerEmployeesPage() {
         )}
       </div>
 
-      {/* EMPLOYEES LIST / GRID */}
+      {/* EMPLOYEES GRID */}
       {loading ? (
         <div className="text-center py-16 text-text-muted">Đang tải danh sách nhân viên...</div>
-      ) : employees.length === 0 ? (
+      ) : activeEmployees.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-card space-y-4">
           <UserCheck className="w-12 h-12 text-gray-300 mx-auto" />
           <div>
             <h3 className="text-base font-bold text-text-main">Chưa có nhân viên nào</h3>
             <p className="text-xs text-text-muted mt-1 max-w-md mx-auto">
-              Khi bạn duyệt trúng tuyển cho ứng viên ở trang <strong>"Ứng viên"</strong>, nhân viên sẽ tự động xuất hiện tại đây.
+              Khi ứng viên chấp nhận <strong>Đề nghị nhận việc (Offer)</strong>, hồ sơ nhân viên sẽ tự động được tạo và hiển thị tại đây.
             </p>
           </div>
           <div className="pt-2">
@@ -158,7 +156,7 @@ export default function EmployerEmployeesPage() {
               to="/employer/applications"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-green-main text-white font-bold text-xs hover:bg-green-dark transition-colors shadow-xs"
             >
-              Xem danh sách ứng viên để xét duyệt
+              Xem danh sách ứng viên để gửi Offer
             </Link>
           </div>
         </div>
@@ -176,7 +174,7 @@ export default function EmployerEmployeesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {filteredEmployees.map(emp => {
-            const joinedDate = emp.updatedAt ? new Date(emp.updatedAt).toLocaleDateString('vi-VN') : 'Gần đây';
+            const startDateFormatted = emp.startDate ? new Date(emp.startDate).toLocaleDateString('vi-VN') : 'Gần đây';
 
             return (
               <div
@@ -196,26 +194,25 @@ export default function EmployerEmployeesPage() {
                             {emp.studentName}
                           </h3>
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200">
-                            Nhân viên chính thức
+                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                            {emp.status === 'onboarding' ? 'Đang thử việc' : 'Nhân viên chính thức'}
                           </span>
                         </div>
                         <p className="text-xs text-gray-400 mt-1">
-                          Ngày nhận việc: <strong className="text-gray-600">{joinedDate}</strong>
+                          Ngày bắt đầu: <strong className="text-gray-600">{startDateFormatted}</strong> • {emp.workplace}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Position & Shift Tag */}
+                  {/* Position & Wage */}
                   <div className="flex flex-wrap items-center gap-2 pt-0.5">
                     <span className="inline-flex items-center gap-1 font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-xl text-xs">
-                      🎯 Vị trí: {emp.selectedPosition || emp.jobTitle || 'Nhân viên'}
+                      🎯 {emp.positionTitle}
                     </span>
-                    {emp.selectedShift && (
-                      <span className="inline-flex items-center gap-1 font-semibold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-xl text-xs">
-                        <Clock className="w-3 h-3 text-green-dark" /> {emp.selectedShift}
-                      </span>
-                    )}
+                    <span className="inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl text-xs">
+                      💰 {(emp.wageRate || 25000).toLocaleString('vi-VN')}đ/{emp.wageUnit === 'hour' ? 'giờ' : emp.wageUnit}
+                    </span>
                   </div>
 
                   {/* Contact Info */}
@@ -257,7 +254,7 @@ export default function EmployerEmployeesPage() {
                     )}
                   </div>
 
-                  {/* Management actions: Xếp ca & Xóa nhân viên */}
+                  {/* Actions: Xếp ca & Kết thúc làm việc */}
                   <div className="flex items-center gap-2">
                     <Link
                       to="/employer/shifts"
@@ -267,10 +264,10 @@ export default function EmployerEmployeesPage() {
                     </Link>
                     <button
                       type="button"
-                      onClick={() => setEmployeeToDelete(emp)}
+                      onClick={() => setTerminatingEmp(emp)}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-red-200 text-xs font-bold text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
                     >
-                      <Trash2 className="w-3.5 h-3.5" /> Xóa nhân viên
+                      <UserX className="w-3.5 h-3.5" /> Kết thúc làm việc
                     </button>
                   </div>
                 </div>
@@ -280,42 +277,78 @@ export default function EmployerEmployeesPage() {
         </div>
       )}
 
-      {/* CONFIRM DELETE EMPLOYEE MODAL */}
-      {employeeToDelete && (
+      {/* TERMINATE EMPLOYMENT MODAL */}
+      {terminatingEmp && (
         <Modal
           isOpen={true}
-          onClose={() => setEmployeeToDelete(null)}
-          title="Xác nhận xóa nhân viên"
+          onClose={() => setTerminatingEmp(null)}
+          title={`Kết thúc hợp tác: ${terminatingEmp.studentName}`}
         >
           <div className="space-y-4 text-xs">
-            <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-red-900 text-sm">
-                  Bạn có chắc chắn muốn xóa nhân viên này khỏi quán?
+                <p className="font-bold text-amber-900 text-sm">
+                  Xác nhận kết thúc làm việc với nhân viên
                 </p>
-                <p className="text-red-700 mt-1">
-                  Nhân viên <strong>{employeeToDelete.studentName}</strong> (Vị trí: {employeeToDelete.selectedPosition || 'Nhân viên'}) sẽ bị gỡ khỏi danh sách nhân viên chính thức của quán.
+                <p className="text-amber-800 mt-1">
+                  Nhân viên <strong>{terminatingEmp.studentName}</strong> ({terminatingEmp.positionTitle}) sẽ được chuyển sang trạng thái kết thúc hợp tác (nghỉ việc). Toàn bộ lịch sử ca làm và bảng công trước đây vẫn được lưu trữ bảo toàn.
                 </p>
               </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-gray-800 block mb-1">Lý do kết thúc *</label>
+              <select
+                value={terminationReason}
+                onChange={e => setTerminationReason(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white font-semibold"
+              >
+                <option value="resigned">Nhân viên xin nghỉ việc theo nguyện vọng</option>
+                <option value="contract_ended">Hết thời hạn hợp đồng / hoàn thành kỳ làm việc</option>
+                <option value="dismissed">Cho thôi việc / không đạt yêu cầu</option>
+                <option value="other">Lý do khác</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="font-bold text-gray-800 block mb-1">Ghi chú chi tiết:</label>
+              <textarea
+                rows={2}
+                value={terminationNote}
+                onChange={e => setTerminationNote(e.target.value)}
+                placeholder="Nhập ghi chú chi tiết bàn giao công việc..."
+                className="w-full p-2.5 rounded-xl border border-gray-200"
+              />
+            </div>
+
+            <div className="p-3 rounded-xl bg-gray-50 border border-gray-200">
+              <label className="flex items-center gap-2 cursor-pointer font-medium text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={cancelFutureShifts}
+                  onChange={e => setCancelFutureShifts(e.target.checked)}
+                  className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4"
+                />
+                <span>Tự động hủy các ca làm trong tương lai của nhân viên này</span>
+              </label>
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
               <button
                 type="button"
-                onClick={() => setEmployeeToDelete(null)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200"
+                onClick={() => setTerminatingEmp(null)}
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold"
               >
                 Hủy bỏ
               </button>
               <button
                 type="button"
                 disabled={submitting}
-                onClick={handleDeleteEmployee}
-                className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1.5 shadow-xs"
+                onClick={handleConfirmTerminate}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold disabled:opacity-50 transition-colors shadow-xs"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                {submitting ? 'Đang xóa...' : 'Xác nhận xóa'}
+                {submitting ? 'Đang xử lý...' : 'Xác nhận kết thúc'}
               </button>
             </div>
           </div>

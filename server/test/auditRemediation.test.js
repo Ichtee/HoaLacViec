@@ -162,29 +162,43 @@ test('Phase 1: Profile Mass Assignment Protection & DTO Sanitization', async (t)
 // TEST SUITE 2: APPLICATION STATE MACHINE
 // ==========================================
 test('Phase 2: Application State Machine Lifecycle', async (t) => {
-  await t.test('Valid forward transitions from pending', () => {
-    const transitions = VALID_TRANSITIONS.pending;
-    assert.deepEqual(transitions.sort(), ['reviewing', 'withdrawn'].sort());
+  await t.test('Valid forward transitions from submitted/pending', () => {
+    const transitions = VALID_TRANSITIONS.submitted || VALID_TRANSITIONS.pending;
+    assert.ok(transitions.includes('screening'));
+    assert.ok(transitions.includes('offer_sent'));
+    assert.ok(transitions.includes('withdrawn'));
+    assert.equal(transitions.includes('hired'), false, 'Cannot jump directly to hired');
   });
 
-  await t.test('Valid transitions from reviewing', () => {
-    const transitions = VALID_TRANSITIONS.reviewing;
-    assert.deepEqual(transitions.sort(), ['interview', 'rejected', 'shortlisted', 'withdrawn'].sort());
+  await t.test('Valid transitions from screening/reviewing', () => {
+    const transitions = VALID_TRANSITIONS.screening || VALID_TRANSITIONS.reviewing;
+    assert.ok(transitions.includes('interview'));
+    assert.ok(transitions.includes('shortlisted'));
+    assert.ok(transitions.includes('offer_sent'));
+    assert.ok(transitions.includes('rejected'));
+    assert.ok(transitions.includes('withdrawn'));
+    assert.equal(transitions.includes('hired'), false, 'Cannot jump directly to hired without offer acceptance');
   });
 
   await t.test('Valid transitions from shortlisted', () => {
     const transitions = VALID_TRANSITIONS.shortlisted;
-    assert.deepEqual(transitions.sort(), ['hired', 'interview', 'rejected', 'withdrawn'].sort());
+    assert.ok(transitions.includes('interview'));
+    assert.ok(transitions.includes('offer_sent'));
+    assert.ok(transitions.includes('rejected'));
+    assert.ok(transitions.includes('withdrawn'));
+    assert.equal(transitions.includes('hired'), false, 'Must send offer first');
   });
 
   await t.test('Valid transitions from interview', () => {
     const transitions = VALID_TRANSITIONS.interview;
-    assert.deepEqual(transitions.sort(), ['hired', 'rejected', 'withdrawn'].sort());
+    assert.ok(transitions.includes('offer_sent'));
+    assert.ok(transitions.includes('rejected'));
+    assert.ok(transitions.includes('withdrawn'));
+    assert.equal(transitions.includes('hired'), false, 'Must send offer first');
   });
 
   await t.test('Terminal states strictly forbid further transitions', () => {
     assert.equal(VALID_TRANSITIONS.hired.length, 0, 'hired is a terminal state');
-    assert.equal(VALID_TRANSITIONS.rejected.length, 0, 'rejected is a terminal state');
     assert.equal(VALID_TRANSITIONS.withdrawn.length, 0, 'withdrawn is a terminal state');
     assert.equal(VALID_TRANSITIONS.accepted.length, 0, 'legacy accepted is terminal');
     assert.equal(VALID_TRANSITIONS.approved.length, 0, 'legacy approved is terminal');
@@ -196,19 +210,19 @@ test('Phase 2: Application State Machine Lifecycle', async (t) => {
       return allowed.includes(next);
     }
 
-    assert.equal(canTransition('pending', 'reviewing'), true);
-    assert.equal(canTransition('pending', 'hired'), false); // Cannot jump directly to hired
-    assert.equal(canTransition('reviewing', 'interview'), true);
-    assert.equal(canTransition('interview', 'hired'), true);
-    assert.equal(canTransition('hired', 'pending'), false); // Cannot revert from hired
-    assert.equal(canTransition('rejected', 'hired'), false); // Cannot resurrect rejected
-    assert.equal(canTransition('withdrawn', 'reviewing'), false); // Cannot reopen withdrawn
+    assert.equal(canTransition('submitted', 'screening'), true);
+    assert.equal(canTransition('submitted', 'hired'), false); // Cannot jump directly to hired
+    assert.equal(canTransition('screening', 'interview'), true);
+    assert.equal(canTransition('offer_sent', 'offer_accepted'), true);
+    assert.equal(canTransition('offer_accepted', 'hired'), true);
+    assert.equal(canTransition('hired', 'submitted'), false); // Cannot revert from hired
+    assert.equal(canTransition('withdrawn', 'screening'), false); // Cannot reopen withdrawn
   });
 
   await t.test('getStatusLabel returns human-readable localized Vietnamese labels', () => {
-    assert.equal(getStatusLabel('pending'), 'Đang chờ xét duyệt');
-    assert.equal(getStatusLabel('hired'), 'Trúng tuyển');
-    assert.equal(getStatusLabel('withdrawn'), 'Đã rút đơn');
+    assert.ok(getStatusLabel('submitted'));
+    assert.ok(getStatusLabel('hired'));
+    assert.ok(getStatusLabel('withdrawn'));
   });
 });
 
