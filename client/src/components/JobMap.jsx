@@ -88,6 +88,7 @@ export function JobMap({
   onSelectJob = null,
   height = '520px',
   singleJob = null,
+  className = '',
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -410,9 +411,16 @@ export function JobMap({
   }, []);
 
   return (
-    <div style={{ minHeight: height }} className="relative rounded-3xl overflow-hidden border-2 border-green-200 shadow-card bg-cream">
+    <div
+      style={height ? { minHeight: height } : undefined}
+      className={`relative rounded-xl overflow-hidden border border-gray-200/90 shadow-card bg-cream ${className}`}
+    >
       {/* Vietmap GL Map Canvas Container */}
-      <div ref={mapContainerRef} style={{ height, minHeight: height }} className="w-full z-0" />
+      <div
+        ref={mapContainerRef}
+        style={height ? { height, minHeight: height } : undefined}
+        className="w-full h-full min-h-[inherit] z-0"
+      />
 
       {/* Fallback banner if missing tile key or 401/403 error */}
       {(!VIETMAP_API_KEY || tileLoadError) && (
@@ -430,18 +438,18 @@ export function JobMap({
       )}
 
       {/* Floating Controls Top-Right: Layer Switcher & GPS Request Button */}
-      <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-2">
+      <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
         {/* Layer Switcher */}
-        <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-green-100 shadow-md flex items-center gap-1">
+        <div className="bg-white/95 p-1 rounded-lg border border-gray-200/90 shadow-xs flex items-center gap-1">
           {Object.entries(MAP_LAYERS).map(([key, cfg]) => (
             <button
               key={key}
               type="button"
               onClick={() => switchLayer(key)}
-              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-colors ${
                 currentLayerKey === key
-                  ? 'bg-green-main text-white shadow-sm'
-                  : 'text-text-muted hover:text-green-dark hover:bg-green-50'
+                  ? 'bg-green-main text-white shadow-xs'
+                  : 'text-text-muted hover:text-green-dark hover:bg-gray-100'
               }`}
             >
               {cfg.name}
@@ -455,32 +463,32 @@ export function JobMap({
             type="button"
             onClick={onRequestGps}
             disabled={isLocating}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-2xl shadow-md text-xs font-bold flex items-center gap-1.5 transition-all disabled:opacity-75"
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-75"
             title="Định vị vị trí GPS thật của thiết bị"
           >
             <Crosshair className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-            <span>{isLocating ? 'Đang lấy GPS...' : hasRealUserLocation ? '📍 Đã có GPS vị trí thật' : '📍 Lấy vị trí GPS của tôi'}</span>
+            <span>{isLocating ? 'Đang lấy GPS...' : hasRealUserLocation ? '📍 Đã có GPS' : '📍 Lấy GPS của tôi'}</span>
           </button>
         )}
       </div>
 
       {/* Floating Map Legend Top-Left */}
-      <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-green-100 shadow-md text-xs space-y-1.5 max-w-[300px]">
+      <div className="absolute top-3 left-3 z-10 bg-white/95 px-3 py-2 rounded-lg border border-gray-200/90 shadow-xs text-xs space-y-1 max-w-[280px]">
         <div className="flex items-center gap-2">
-          <span className={`w-2.5 h-2.5 rounded-full inline-block shadow-sm ${hasRealUserLocation ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
-          <span className="font-bold text-text-main truncate text-[11px]">
+          <span className={`w-2 h-2 rounded-full inline-block ${hasRealUserLocation ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
+          <span className="font-semibold text-text-main truncate text-[11px]">
             {hasRealUserLocation
               ? userLocation?.label || 'Vị trí GPS của bạn'
-              : 'Tâm bản đồ Hòa Lạc (chưa có GPS)'}
+              : 'Tâm bản đồ Hòa Lạc'}
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-[11px]">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-700 inline-block shadow-sm"></span>
+          <span className="w-2 h-2 rounded-full bg-emerald-700 inline-block"></span>
           <span className="text-text-muted font-medium">
             {confirmedCount > 0
-              ? `${confirmedCount} việc làm có vị trí trên Vietmap`
-              : 'Chưa có điểm việc làm nào phù hợp bộ lọc'}
+              ? `${confirmedCount} việc làm trên bản đồ`
+              : 'Chưa có việc làm nào phù hợp'}
           </span>
         </div>
 
@@ -488,45 +496,45 @@ export function JobMap({
           const { lat, lng } = getJobMapCoordinates(job);
           return isValidCoordinate(lat, lng) && job.locationStatus !== 'confirmed';
         }) && (
-          <div className="flex items-center gap-2 text-[10px] text-amber-700">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-600 inline-block shadow-sm"></span>
-            <span>Marker cam: tọa độ chưa được nhà tuyển dụng xác nhận</span>
+          <div className="flex items-center gap-1.5 text-[10px] text-amber-700">
+            <span className="w-2 h-2 rounded-full bg-amber-600 inline-block"></span>
+            <span>Marker cam: tọa độ ước tính</span>
           </div>
         )}
 
         {userDistToHoaLacKm !== null && userDistToHoaLacKm > 15 && (
           <div className="pt-1 border-t border-gray-100 text-[10px] text-amber-700 flex items-start gap-1">
             <span>ℹ️</span>
-            <span>Bạn đang cách Hòa Lạc ~{userDistToHoaLacKm}km. Bản đồ đang hiển thị cụm việc làm Hòa Lạc.</span>
+            <span>Cách Hòa Lạc ~{userDistToHoaLacKm}km. Đang hiển thị cụm việc làm Hòa Lạc.</span>
           </div>
         )}
       </div>
 
       {/* Floating Action Buttons Bottom-Right: Fit Bounds & Recenter */}
-      <div className="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-2">
+      <div className="absolute bottom-3 right-3 z-10 flex flex-col items-end gap-1.5">
         {/* Fit All Jobs Button */}
         {confirmedCount > 0 && !singleJob && (
           <button
             type="button"
             onClick={fitAllJobs}
-            className="px-3.5 py-2 bg-white/95 backdrop-blur-md hover:bg-green-50 text-green-dark rounded-2xl border border-green-200 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+            className="px-3 py-1.5 bg-white/95 hover:bg-gray-50 text-green-dark rounded-lg border border-gray-200/90 shadow-xs font-semibold text-xs flex items-center gap-1.5 transition-colors"
             title="Thu phóng để xem tất cả việc làm trên bản đồ"
           >
-            <Target className="w-4 h-4 text-green-main" />
-            <span>Xem tất cả việc làm ({confirmedCount})</span>
+            <Target className="w-3.5 h-3.5 text-green-main" />
+            <span>Xem tất cả ({confirmedCount})</span>
           </button>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {/* Back to Hoa Lac Center */}
           <button
             type="button"
             onClick={flyToHoaLacCenter}
-            className="px-3 py-2 bg-white/95 backdrop-blur-md hover:bg-green-50 text-text-main rounded-2xl border border-green-200 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+            className="px-2.5 py-1.5 bg-white/95 hover:bg-gray-50 text-text-main rounded-lg border border-gray-200/90 shadow-xs font-medium text-xs flex items-center gap-1 transition-colors"
             title="Về trung tâm khu Công nghệ cao Hòa Lạc"
           >
             <MapPin className="w-3.5 h-3.5 text-emerald-700" />
-            <span className="hidden sm:inline">Về Hòa Lạc</span>
+            <span className="hidden sm:inline">Hòa Lạc</span>
           </button>
 
           {/* User Location Button */}
@@ -534,10 +542,10 @@ export function JobMap({
             <button
               type="button"
               onClick={flyToUserLocation}
-              className="px-3 py-2 bg-white/95 backdrop-blur-md hover:bg-blue-50 text-blue-700 rounded-2xl border border-blue-200 shadow-md font-bold text-xs flex items-center gap-1.5 transition-all active:scale-95"
+              className="px-2.5 py-1.5 bg-white/95 hover:bg-gray-50 text-blue-700 rounded-lg border border-gray-200/90 shadow-xs font-medium text-xs flex items-center gap-1 transition-colors"
               title="Quay về vị trí GPS của bạn"
             >
-              <Compass className="w-4 h-4 text-blue-600" />
+              <Compass className="w-3.5 h-3.5 text-blue-600" />
               <span className="hidden sm:inline">Vị trí của tôi</span>
             </button>
           )}
@@ -546,17 +554,17 @@ export function JobMap({
 
       {/* Selected Job Card Preview Popup at bottom */}
       {activeJob && !singleJob && (
-        <div className="absolute bottom-4 left-4 right-16 sm:right-auto sm:max-w-sm z-10 bg-white/95 backdrop-blur-md p-4 rounded-3xl border border-green-200 shadow-modal animate-slide-up space-y-2.5">
+        <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-sm z-10 bg-white/95 p-3 rounded-lg border border-gray-200/90 shadow-card animate-slide-up space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="text-[10px] font-bold text-green-dark bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+              <span className="text-[10px] font-semibold text-green-dark bg-green-50 px-1.5 py-0.5 rounded border border-green-200/80">
                 {activeJob.storeName}
               </span>
-              <h4 className="font-bold text-sm text-text-main mt-1 line-clamp-1">
+              <h4 className="font-semibold text-sm text-text-main mt-1 line-clamp-1">
                 {activeJob.title}
               </h4>
             </div>
-            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-xl shrink-0 border border-orange-100">
+            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md shrink-0 border border-orange-200/80">
               {formatVND(activeJob.salaryAmount)}{SALARY_UNIT_LABELS[activeJob.salaryUnit] || '/h'}
             </span>
           </div>
@@ -569,7 +577,7 @@ export function JobMap({
           <div className="pt-1 flex items-center gap-2">
             <Link
               to={`/jobs/${activeJob._id || activeJob.id}`}
-              className="flex-1 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs text-center transition-colors shadow-sm"
+              className="flex-1 py-1.5 rounded-lg bg-green-main hover:bg-green-dark text-white font-medium text-xs text-center transition-colors shadow-xs"
             >
               Xem chi tiết việc làm
             </Link>
@@ -582,10 +590,10 @@ export function JobMap({
                   href={directionsUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-2 rounded-xl border border-green-200 text-text-muted hover:text-green-dark hover:bg-green-50 text-xs transition-colors flex items-center gap-1"
+                  className="p-1.5 rounded-lg border border-gray-200 text-text-muted hover:text-green-dark hover:bg-gray-50 text-xs transition-colors flex items-center gap-1"
                   title="Chỉ đường trên Google Maps"
                 >
-                  <Navigation className="w-4 h-4 text-blue-600" />
+                  <Navigation className="w-3.5 h-3.5 text-blue-600" />
                 </a>
               );
             })()}

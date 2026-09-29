@@ -542,111 +542,185 @@ export default function JobListPage() {
         </div>
       )}
 
-      {/* MAP VIEW SECTION */}
+      {/* MAP VIEW: Split View with Sticky Pinned Map */}
       {viewMode === 'map' && (
-        <div className="space-y-3">
-          <JobMap
-            jobs={jobsForMap}
-            userLocation={userLocation}
-            selectedJobId={selectedJobId}
-            onSelectJob={(j) => setSelectedJobId(j._id || j.id)}
-            height="460px"
-          />
-          {jobsForMap.some(j => !isValidCoordinate(
-            j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,
-            j.location?.lng ?? j.geoPoint?.coordinates?.[0] ?? j.mapDisplayLocation?.lng
-          )) && (
-            <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200 p-2.5 rounded-2xl flex items-center gap-1.5">
-              <span>📍</span>
-              Một số tin chưa lưu tọa độ nên chưa thể đánh dấu trên bản đồ. Hãy chỉnh sửa tin và chọn vị trí trên bản đồ.
-            </p>
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)] xl:grid-cols-[minmax(0,1.4fr)_minmax(420px,1fr)] gap-6 items-start">
+          {/* Map Column - Pinned on scroll (sticky) */}
+          <div className="space-y-3 sticky top-16 lg:top-20 z-10">
+            <JobMap
+              jobs={jobsForMap}
+              userLocation={userLocation}
+              selectedJobId={selectedJobId}
+              onSelectJob={(j) => {
+                const id = j._id || j.id;
+                setSelectedJobId(id);
+                const el = document.getElementById(`job-card-${id}`);
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+              }}
+              className="h-[340px] sm:h-[420px] lg:h-[calc(100vh-120px)] lg:min-h-[520px] lg:max-h-[760px]"
+            />
+            {jobsForMap.some(j => !isValidCoordinate(
+              j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,
+              j.location?.lng ?? j.geoPoint?.coordinates?.[0] ?? j.mapDisplayLocation?.lng
+            )) && (
+              <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200/80 p-2.5 rounded-lg flex items-center gap-1.5">
+                <span>📍</span>
+                Một số tin chưa lưu tọa độ nên chưa thể đánh dấu trên bản đồ. Hãy chỉnh sửa tin và chọn vị trí trên bản đồ.
+              </p>
+            )}
+          </div>
+
+          {/* Job Cards Column - Scrolls naturally with the page */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+              <h3 className="font-semibold text-xs text-text-muted flex items-center gap-1.5">
+                <span>
+                  {sorted.length} công việc
+                  {userLocation && matrixStatus === 'success'
+                    ? ' • quãng đường xe máy'
+                    : userLocation && matrixStatus === 'loading'
+                      ? ' • đang tính quãng đường...'
+                      : userLocation
+                        ? ' • khoảng cách ước tính'
+                        : ''}
+                </span>
+                {loading && <Loader2 className="w-3.5 h-3.5 text-green-main animate-spin" />}
+              </h3>
+              <span className="text-[11px] text-text-muted hidden sm:inline">
+                Rê chuột vào tin để ghim vị trí
+              </span>
+            </div>
+
+            {loading && allJobs.length === 0 ? (
+              <LoadingPage />
+            ) : error && allJobs.length === 0 ? (
+              <ErrorAlert message={error} onRetry={run} />
+            ) : sorted.length === 0 ? (
+              <EmptyState
+                icon={<Search className="w-10 h-10" />}
+                title="Không tìm thấy việc phù hợp"
+                description="Thử mở rộng bán kính tìm kiếm hoặc xóa các bộ lọc."
+                action={hasFilters && (
+                  <button onClick={clearFilters} className="btn-outline btn btn-sm">
+                    Xóa bộ lọc
+                  </button>
+                )}
+              />
+            ) : (
+              <div className="space-y-3.5">
+                {sorted.map((job) => (
+                  <div
+                    key={job._id || job.id}
+                    id={`job-card-${job._id || job.id}`}
+                    onMouseEnter={() => setSelectedJobId(job._id || job.id)}
+                    className={clsx(
+                      'rounded-xl transition-all duration-150',
+                      String(selectedJobId) === String(job._id || job.id)
+                        ? 'ring-2 ring-green-main/90 shadow-xs'
+                        : ''
+                    )}
+                  >
+                    <JobCard
+                      job={job}
+                      isSaved={savedJobIds.has(job._id || job.id)}
+                      onSave={isAuthenticated ? handleSave : undefined}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Results Header */}
-      <div className="flex items-center justify-between pt-2">
-        <h3 className="font-bold text-sm text-text-main flex items-center gap-2">
-          <span>
-            Danh sách công việc {userLocation && matrixStatus === 'success'
-              ? '(quãng đường xe máy từ vị trí của bạn)'
-              : userLocation && matrixStatus === 'loading'
-                ? '(đang tính quãng đường xe máy...)'
-                : userLocation
-                  ? '(tạm tính theo đường chim bay)'
-                  : ''}
-          </span>
-          {loading && <Loader2 className="w-4 h-4 text-green-main animate-spin" />}
-        </h3>
-      </div>
-
-      {/* Results Grid */}
-      {loading && allJobs.length === 0 ? (
-        <LoadingPage />
-      ) : error && allJobs.length === 0 ? (
-        <ErrorAlert message={error} onRetry={run} />
-      ) : paginated.length === 0 ? (
-        <EmptyState
-          icon={<Search className="w-10 h-10" />}
-          title="Không tìm thấy việc phù hợp"
-          description="Thử mở rộng bán kính tìm kiếm hoặc xóa các bộ lọc."
-          action={hasFilters && (
-            <button onClick={clearFilters} className="btn-outline btn btn-sm">
-              Xóa bộ lọc
-            </button>
-          )}
-        />
-      ) : (
+      {/* PURE LIST VIEW (WHEN VIEW MODE === 'LIST') */}
+      {viewMode === 'list' && (
         <>
-          <div className={clsx(
-            "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 transition-opacity duration-150 items-stretch",
-            loading && "opacity-60"
-          )}>
-            {paginated.map((job) => (
-              <div
-                key={job._id || job.id}
-                onMouseEnter={() => setSelectedJobId(job._id || job.id)}
-                className="h-full flex flex-col transition-transform"
-              >
-                <JobCard
-                  job={job}
-                  isSaved={savedJobIds.has(job._id || job.id)}
-                  onSave={isAuthenticated ? handleSave : undefined}
-                />
-              </div>
-            ))}
+          <div className="flex items-center justify-between pt-2">
+            <h3 className="font-bold text-sm text-text-main flex items-center gap-2">
+              <span>
+                Danh sách công việc ({sorted.length} việc làm)
+                {userLocation && matrixStatus === 'success'
+                  ? ' • quãng đường xe máy'
+                  : userLocation && matrixStatus === 'loading'
+                    ? ' • đang tính quãng đường xe máy...'
+                    : userLocation
+                      ? ' • khoảng cách ước tính'
+                      : ''}
+              </span>
+              {loading && <Loader2 className="w-4 h-4 text-green-main animate-spin" />}
+            </h3>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-6">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="btn btn-sm btn-outline"
-              >
-                ← Trước
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={clsx(
-                    'w-9 h-9 rounded-xl text-sm font-medium transition-all',
-                    p === page ? 'bg-green-main text-white' : 'hover:bg-green-50 text-text-muted'
-                  )}
-                >
-                  {p}
+          {loading && allJobs.length === 0 ? (
+            <LoadingPage />
+          ) : error && allJobs.length === 0 ? (
+            <ErrorAlert message={error} onRetry={run} />
+          ) : paginated.length === 0 ? (
+            <EmptyState
+              icon={<Search className="w-10 h-10" />}
+              title="Không tìm thấy việc phù hợp"
+              description="Thử mở rộng bán kính tìm kiếm hoặc xóa các bộ lọc."
+              action={hasFilters && (
+                <button onClick={clearFilters} className="btn-outline btn btn-sm">
+                  Xóa bộ lọc
                 </button>
-              ))}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="btn btn-sm btn-outline"
-              >
-                Tiếp →
-              </button>
-            </div>
+              )}
+            />
+          ) : (
+            <>
+              <div className={clsx(
+                "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 transition-opacity duration-150 items-stretch",
+                loading && "opacity-60"
+              )}>
+                {paginated.map((job) => (
+                  <div
+                    key={job._id || job.id}
+                    className="h-full flex flex-col"
+                  >
+                    <JobCard
+                      job={job}
+                      isSaved={savedJobIds.has(job._id || job.id)}
+                      onSave={isAuthenticated ? handleSave : undefined}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-6">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="btn btn-sm btn-outline"
+                  >
+                    ← Trước
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={clsx(
+                        'w-9 h-9 rounded-lg text-sm font-medium transition-colors',
+                        p === page ? 'bg-green-main text-white' : 'hover:bg-gray-100 text-text-muted'
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="btn btn-sm btn-outline"
+                  >
+                    Tiếp →
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
