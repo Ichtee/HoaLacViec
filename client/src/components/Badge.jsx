@@ -1,7 +1,7 @@
 import { clsx } from 'clsx';
 import { CheckCircle2 } from 'lucide-react';
 
-export function Badge({ children, variant = 'gray', className, ...props }) {
+export function Badge({ children, variant = 'green', className, ...props }) {
   const variantClass = {
     green: 'badge-green',
     success: 'badge-green',
@@ -11,11 +11,11 @@ export function Badge({ children, variant = 'gray', className, ...props }) {
     red: 'badge-red',
     danger: 'badge-red',
     gray: 'badge-gray',
-    default: 'badge-gray',
-    outline: 'badge-gray',
+    default: 'badge-green',
+    outline: 'badge-green',
     blue: 'badge-blue',
     info: 'badge-blue',
-  }[variant] || 'badge-gray';
+  }[variant] || 'badge-green';
 
   return (
     <span className={clsx('badge', variantClass, className)} {...props}>
@@ -96,15 +96,12 @@ export function SwapStatusBadge({ status }) {
 
 export function VerifiedBadge({ className }) {
   return (
-    <span
-      className={clsx(
-        'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium bg-green-50 text-green-800 border border-green-200/80',
-        className
-      )}
-      title="Cửa hàng đã được xác minh giấy phép hoặc cơ sở"
-    >
-      <CheckCircle2 className="w-3 h-3 text-green-600 shrink-0" />
-      <span>Xác thực</span>
-    </span>
+    <Badge variant="green" className={clsx('gap-1', className)}>
+      <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+        <path d="M5 8.5L2.5 6 3.5 5 5 6.5 8.5 3 9.5 4 5 8.5Z" fill="currentColor" />
+        <circle cx="6" cy="6" r="5.5" stroke="currentColor" fill="none" />
+      </svg>
+      Đã xác thực
+    </Badge>
   );
 }

@@ -1,6 +1,9 @@
+
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import {
+  Leaf, Menu, X, ChevronDown, LogOut, User, Settings, Bell
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { NotificationDropdown } from './NotificationDropdown.jsx';
@@ -9,13 +12,21 @@ import { UserDropdown } from './UserDropdown.jsx';
 const NAV_PUBLIC = [
   { to: '/jobs', label: 'Tìm Việc' },
   { to: '/tasks', label: 'Chợ Việc Vặt' },
-  { to: '/blogs', label: 'Cẩm Nang' },
+  { to: '/blogs', label: 'Blog Cẩm Nang' },
 ];
 
 export function Navbar({ hideNavLinks = false }) {
-  const { user, role, isAuthenticated } = useAuth();
+  const { user, role, logout, isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dropOpen, setDropOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate('/');
+    setDropOpen(false);
+  }
 
   const isPending = user?.status === 'pending' || role === 'pending';
   const isDetailPage = /^\/(?:student\/)?jobs\/[^/]+$/.test(location.pathname) || /^\/blogs\/[^/]+$/.test(location.pathname);
@@ -30,38 +41,33 @@ export function Navbar({ hideNavLinks = false }) {
       }[role] || '/';
 
   return (
-    <nav className="sticky top-0 z-40 bg-white border-b border-gray-200">
+    <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-green-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-15">
-          {/* Logo - Stable, no hover scale */}
-          <Link to={isAuthenticated ? dashboardPath : '/'} className="flex items-center gap-2 py-1">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to={isAuthenticated ? dashboardPath : '/'} className="flex items-center gap-2 group py-1">
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
-              className="h-10 w-auto object-contain"
+              className="h-12 w-auto object-contain transition-transform group-hover:scale-105"
             />
           </Link>
 
-          {/* Desktop nav - Clean text links with subtle indicator */}
+          {/* Desktop nav (Ẩn khi tài khoản đang pending hoặc đang ở trang chi tiết) */}
           {!isPending && !shouldHideLinks && (
             <div className="hidden md:flex items-center gap-1">
-              {NAV_PUBLIC.map((n) => {
-                const isActive = location.pathname.startsWith(n.to);
-                return (
-                  <Link
-                    key={n.to}
-                    to={n.to}
-                    className={clsx(
-                      'px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-                      isActive
-                        ? 'text-green-dark font-semibold bg-gray-100/80'
-                        : 'text-text-muted hover:text-text-main hover:bg-gray-50'
-                    )}
-                  >
-                    {n.label}
-                  </Link>
-                );
-              })}
+              {NAV_PUBLIC.map((n) => (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  className={clsx(
+                    'px-4 py-2 rounded-xl text-sm font-medium transition-colors',
+                    location.pathname.startsWith(n.to) ? 'bg-green-light text-green-dark font-semibold' : 'text-text-muted hover:text-green-dark hover:bg-green-50'
+                  )}
+                >
+                  {n.label}
+                </Link>
+              ))}
             </div>
           )}
 
@@ -74,19 +80,15 @@ export function Navbar({ hideNavLinks = false }) {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <Link to="/login" className="btn-ghost btn btn-sm hidden sm:inline-flex">
-                  Đăng nhập
-                </Link>
-                <Link to="/register" className="btn-primary btn btn-sm">
-                  Đăng ký
-                </Link>
+                <Link to="/login" className="btn-ghost btn btn-sm hidden sm:inline-flex">Đăng nhập</Link>
+                <Link to="/register" className="btn-primary btn btn-sm">Đăng ký</Link>
               </div>
             )}
 
-            {/* Mobile menu toggle */}
+            {/* Mobile menu toggle (Ẩn khi pending hoặc khi ở trang detail mà đã đăng nhập) */}
             {!isPending && (!shouldHideLinks || !isAuthenticated) && (
               <button
-                className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+                className="md:hidden p-2 rounded-xl hover:bg-green-50 transition-colors"
                 onClick={() => setMenuOpen(!menuOpen)}
                 aria-label="Menu"
               >
@@ -98,28 +100,23 @@ export function Navbar({ hideNavLinks = false }) {
 
         {/* Mobile menu */}
         {!isPending && menuOpen && (!shouldHideLinks || !isAuthenticated) && (
-          <div className="md:hidden border-t border-gray-200 py-2.5 flex flex-col gap-1">
+          <div className="md:hidden border-t border-green-50 py-3 flex flex-col gap-1">
             {!shouldHideLinks && NAV_PUBLIC.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
                 onClick={() => setMenuOpen(false)}
-                className={clsx(
-                  'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  location.pathname.startsWith(n.to)
-                    ? 'text-green-dark font-semibold bg-gray-100'
-                    : 'text-text-muted hover:bg-gray-50 hover:text-text-main'
-                )}
+                className="px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted hover:bg-green-50 hover:text-green-dark"
               >
                 {n.label}
               </Link>
             ))}
             {!isAuthenticated && (
-              <div className="pt-2 border-t border-gray-200 flex flex-col gap-2 px-1">
-                <Link to="/login" onClick={() => setMenuOpen(false)} className="px-3 py-2 text-sm font-medium text-text-muted">
+              <div className="pt-2 border-t border-green-50 flex flex-col gap-2">
+                <Link to="/login" onClick={() => setMenuOpen(false)} className="px-4 py-2 text-sm font-medium text-text-muted">
                   Đăng nhập
                 </Link>
-                <Link to="/register" onClick={() => setMenuOpen(false)} className="btn-primary btn btn-sm text-center">
+                <Link to="/register" onClick={() => setMenuOpen(false)} className="btn-primary btn btn-sm mx-4 text-center">
                   Đăng ký tài khoản
                 </Link>
               </div>
@@ -133,38 +130,40 @@ export function Navbar({ hideNavLinks = false }) {
 
 export function Footer() {
   return (
-    <footer className="bg-white border-t border-gray-200 mt-20 text-text-main">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 text-sm">
+    <footer className="bg-green-dark text-white mt-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
+              <div className="bg-white px-3.5 py-2 rounded-2xl shadow-sm inline-flex items-center">
+                <img src="/logo.png" alt="Hoa Lạc Việc" className="h-11 w-auto object-contain" />
+              </div>
             </div>
-            <p className="text-text-muted text-xs leading-relaxed max-w-sm">
-              Bảng tin việc làm theo ca và việc vặt sinh viên tại Khu Công nghệ cao Hòa Lạc. Hỗ trợ sinh viên FPT, ĐHQG tìm việc gần trường, đúng lịch rảnh.
+            <p className="text-green-200 text-sm leading-relaxed">
+              Nền tảng việc làm & hỗ trợ sinh viên tại Khu Công nghệ cao Hòa Lạc. Kết nối việc làm part-time, ca linh hoạt và dịch vụ việc vặt sinh viên.
             </p>
           </div>
           <div>
-            <h4 className="font-semibold text-text-main text-xs uppercase tracking-wider mb-3">Dành cho Sinh viên</h4>
-            <ul className="space-y-2 text-text-muted text-xs">
-              <li><Link to="/jobs" className="hover:text-green-dark transition-colors">Tìm việc làm gần bạn</Link></li>
-              <li><Link to="/tasks" className="hover:text-green-dark transition-colors">Chợ việc vặt sinh viên</Link></li>
-              <li><Link to="/blogs" className="hover:text-green-dark transition-colors">Cẩm nang & Kinh nghiệm</Link></li>
-              <li><Link to="/register" className="hover:text-green-dark transition-colors">Đăng ký tài khoản</Link></li>
+            <h4 className="font-semibold mb-3">Dành cho Sinh viên</h4>
+            <ul className="space-y-2 text-green-200 text-sm">
+              <li><Link to="/jobs" className="hover:text-white transition-colors">Tìm việc làm gần bạn</Link></li>
+              <li><Link to="/tasks" className="hover:text-white transition-colors">Chợ việc vặt sinh viên</Link></li>
+              <li><Link to="/blogs" className="hover:text-white transition-colors">Cẩm nang & Cảnh giác</Link></li>
+              <li><Link to="/register" className="hover:text-white transition-colors">Đăng ký tài khoản</Link></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-text-main text-xs uppercase tracking-wider mb-3">Dành cho Cửa hàng</h4>
-            <ul className="space-y-2 text-text-muted text-xs">
-              <li><Link to="/employer" className="hover:text-green-dark transition-colors">Đăng tin tuyển ca</Link></li>
-              <li><Link to="/register?role=employer" className="hover:text-green-dark transition-colors">Đăng ký tài khoản tuyển dụng</Link></li>
-              <li><Link to="/login" className="hover:text-green-dark transition-colors">Quản lý ca & nhân viên</Link></li>
+            <h4 className="font-semibold mb-3">Dành cho Cửa hàng</h4>
+            <ul className="space-y-2 text-green-200 text-sm">
+              <li><Link to="/employer" className="hover:text-white transition-colors">Đăng tin tuyển ca</Link></li>
+              <li><Link to="/register?role=employer" className="hover:text-white transition-colors">Đăng ký đối tác cửa hàng</Link></li>
+              <li><Link to="/login" className="hover:text-white transition-colors">Quản lý tuyển dụng</Link></li>
             </ul>
           </div>
         </div>
-        <div className="border-t border-gray-100 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-light">
-          <p>© 2026 Hoa Lạc Việc — Bảng tin việc làm sinh viên Hòa Lạc</p>
-          <span>Khu CNC Hòa Lạc, Thạch Thất, Hà Nội</span>
+        <div className="border-t border-green-700 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-green-300 text-sm">© 2026 Hoa Lạc Việc — Nền tảng việc làm & Hỗ trợ sinh viên Hòa Lạc</p>
+          <span className="text-xs text-green-300 font-medium">Phiên bản chính thức v1.0.0</span>
         </div>
       </div>
     </footer>

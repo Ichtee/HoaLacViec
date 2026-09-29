@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Calendar, Clock, CheckCircle, Bookmark, AlertCircle,
-  MapPin, DollarSign, Briefcase, ChevronRight, ShieldCheck
+  Calendar, Clock, CheckCircle, Bookmark, AlertCircle, ArrowRight,
+  MapPin, DollarSign, Star, Briefcase, ChevronRight, User, ShieldCheck
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getShifts, getApplications, getSavedJobs, getJobs } from '@/services';
+import { JobCard } from '@/components/JobCard.jsx';
 import { Badge } from '@/components/Badge.jsx';
 
 export default function StudentDashboard() {
@@ -40,124 +41,156 @@ export default function StudentDashboard() {
     if (user?.id) loadData();
   }, [user]);
 
-  const upcomingShifts = shifts.filter(s => s.status === 'scheduled' || s.status === 'published' || s.status === 'acknowledged');
-  const pendingApps = applications.filter(a => a.status === 'pending' || a.status === 'submitted' || a.status === 'screening');
-  const acceptedApps = applications.filter(a => a.status === 'approved' || a.status === 'accepted' || a.status === 'hired');
+  const upcomingShifts = shifts.filter(s => s.status === 'scheduled');
+  const pendingApps = applications.filter(a => a.status === 'pending');
+  const acceptedApps = applications.filter(a => a.status === 'approved' || a.status === 'accepted');
   const estimatedEarnings = shifts
     .filter(s => s.status !== 'cancelled' && s.status !== 'absent')
     .reduce((sum, s) => sum + (s.totalPay || ((s.hours || 4) * (s.wageRate || 25000))), 0);
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Editorial Header */}
-      <div className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-bold text-text-main tracking-tight">
-              Xin chào, {user?.name || 'Bạn'}
-            </h1>
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-green-50 text-green-800 border border-green-200">
-              <ShieldCheck className="w-3 h-3 text-green-600" />
-              {user?.role === 'worker' || user?.role === 'freelancer' ? 'Lao động tự do' : 'Sinh viên'}
-            </span>
+    <div className="space-y-6 animate-fade-in">
+      {/* Welcome Banner */}
+      <div className="bg-gradient-to-r from-green-main to-green-dark rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-3">
+            <ShieldCheck className="w-3.5 h-3.5" /> {user?.role === 'worker' || user?.role === 'freelancer' ? 'Lao động tự do đã xác thực' : 'Sinh viên đã xác thực'}
           </div>
-          <p className="text-xs text-text-muted">
-            Hôm nay bạn có <strong className="text-text-main font-semibold">{upcomingShifts.length} ca làm việc</strong> trong lịch và {pendingApps.length} đơn ứng tuyển đang chờ phản hồi.
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Xin chào, {user?.name || 'Bạn'}! 👋
+          </h1>
+          <p className="mt-2 text-green-50 text-sm sm:text-base leading-relaxed">
+            Hôm nay bạn có <span className="font-semibold text-white underline decoration-pink-300 underline-offset-4">{upcomingShifts.length} ca làm việc</span> sắp tới và {pendingApps.length} đơn ứng tuyển đang chờ duyệt.
           </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <Link to="/student/jobs" className="btn-primary btn btn-sm">
-            <Briefcase className="w-3.5 h-3.5" /> Tìm việc làm
-          </Link>
-          <Link to="/student/shifts" className="btn-outline btn btn-sm">
-            <Calendar className="w-3.5 h-3.5" /> Xem lịch ca
-          </Link>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link
+              to="/student/jobs"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-green-dark font-semibold text-sm hover:bg-green-50 transition-all shadow-sm"
+            >
+              <Briefcase className="w-4 h-4" /> Tìm việc gần đây
+            </Link>
+            <Link
+              to="/student/shifts"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 text-white font-medium text-sm hover:bg-white/25 transition-all backdrop-blur-md"
+            >
+              <Calendar className="w-4 h-4" /> Xem lịch ca
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Metrics Row - Clean, minimal */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Ca sắp tới</span>
-          <div className="text-xl font-bold text-text-main mt-1">{upcomingShifts.length}</div>
-          <p className="text-[11px] text-text-light mt-1 flex items-center gap-1">
-            <Clock className="w-3 h-3 text-gray-400" /> Lịch làm trong tuần
-          </p>
-        </div>
-
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Đơn đã nộp</span>
-          <div className="text-xl font-bold text-text-main mt-1">{applications.length}</div>
-          <p className="text-[11px] text-text-light mt-1">
-            {acceptedApps.length} đã nhận • {pendingApps.length} chờ duyệt
-          </p>
-        </div>
-
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Việc đã lưu</span>
-          <div className="text-xl font-bold text-text-main mt-1">{savedJobs.length}</div>
-          <Link to="/student/saved" className="text-[11px] text-green-dark hover:underline mt-1 block font-medium">
-            Xem danh sách →
-          </Link>
-        </div>
-
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Ước tính thu nhập</span>
-          <div className="text-xl font-bold text-text-main mt-1">
-            {estimatedEarnings.toLocaleString('vi-VN')} đ
+      {/* Metrics Row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Ca sắp tới</span>
+            <div className="w-9 h-9 rounded-xl bg-green-50 text-green-main flex items-center justify-center">
+              <Calendar className="w-5 h-5" />
+            </div>
           </div>
-          <p className="text-[11px] text-text-light mt-1">Dự kiến từ các ca</p>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{upcomingShifts.length}</div>
+            <p className="text-xs text-green-dark mt-1 flex items-center gap-1 font-medium">
+              <Clock className="w-3 h-3" /> Trong 7 ngày tới
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Đơn đã nộp</span>
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Briefcase className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{applications.length}</div>
+            <p className="text-xs text-text-muted mt-1">
+              <span className="text-green-600 font-semibold">{acceptedApps.length} đã nhận</span> • {pendingApps.length} chờ
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Việc đã lưu</span>
+            <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-main flex items-center justify-center">
+              <Bookmark className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{savedJobs.length}</div>
+            <Link to="/student/saved" className="text-xs text-pink-main hover:underline mt-1 block font-medium">
+              Xem danh sách →
+            </Link>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Ước tính thu nhập</span>
+            <div className="w-9 h-9 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{estimatedEarnings.toLocaleString('vi-VN')}đ</div>
+            <p className="text-xs text-text-muted mt-1">Tháng này (dự kiến)</p>
+          </div>
         </div>
       </div>
 
-      {/* Main Content Grid: Upcoming Shifts & Active Applications */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left 2 Cols */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Upcoming Shifts */}
-          <div className="card p-5 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <h2 className="text-sm font-bold text-text-main flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-gray-500" /> Ca làm sắp diễn ra
+      {/* Main Content Grid: Next Shift & Application Quick View */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Cols: Next Shifts & Active Applications */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Next Shift Box */}
+          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
+                <Clock className="w-5 h-5 text-green-main" /> Ca làm sắp diễn ra
               </h2>
-              <Link to="/student/shifts" className="text-xs font-semibold text-green-dark hover:underline flex items-center gap-1">
-                Tất cả <ChevronRight className="w-3 h-3" />
+              <Link to="/student/shifts" className="text-xs font-semibold text-green-main hover:underline flex items-center gap-1">
+                Xem tất cả <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {upcomingShifts.length === 0 ? (
-              <div className="text-center py-6 bg-gray-50/50 rounded-lg border border-dashed border-gray-200">
-                <Calendar className="w-8 h-8 text-gray-400 mx-auto mb-1 opacity-60" />
-                <p className="text-xs font-medium text-text-main">Chưa có ca làm nào sắp tới</p>
-                <p className="text-[11px] text-text-muted mt-0.5">Ứng tuyển công việc để nhận phân ca</p>
+              <div className="text-center py-8 bg-cream/50 rounded-2xl border border-dashed border-green-100">
+                <Calendar className="w-10 h-10 text-text-muted mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-medium text-text-main">Bạn chưa có ca làm nào trong lịch</p>
+                <p className="text-xs text-text-muted mt-1">Ứng tuyển công việc để nhận ca phân công</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {upcomingShifts.slice(0, 3).map((shift) => (
+              <div className="space-y-3">
+                {upcomingShifts.slice(0, 2).map((shift) => (
                   <div
                     key={shift.id || shift._id}
-                    className="p-3 rounded-lg bg-gray-50/60 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className="p-4 rounded-2xl bg-cream/60 border border-green-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-green-main transition-colors"
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-text-main text-xs sm:text-sm">{shift.storeName || 'Cửa hàng'}</span>
-                        <Badge variant="success">Đã phân công</Badge>
+                        <span className="font-semibold text-text-main text-base">{shift.storeName || 'Cửa hàng'}</span>
+                        <Badge variant="success" size="sm">Đã phân công</Badge>
                       </div>
                       <p className="text-xs text-text-muted mt-1 flex items-center gap-2">
-                        <span>{shift.date}</span>
-                        <span>•</span>
-                        <span>{shift.startTime} - {shift.endTime}</span>
-                        {shift.role && <span>• {shift.role}</span>}
+                        <span>📅 {shift.date}</span>
+                        <span>⏰ {shift.startTime} - {shift.endTime}</span>
                       </p>
+                      {shift.location && (
+                        <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-red-400" /> {shift.location}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <div className="flex items-center gap-2 self-end sm:self-center">
                       <Link
                         to="/student/shifts"
-                        className="px-2.5 py-1.5 rounded-md bg-green-main text-white text-xs font-medium hover:bg-green-dark transition-colors inline-flex items-center gap-1"
+                        className="px-3.5 py-2 rounded-xl bg-green-main text-white text-xs font-semibold hover:bg-green-dark transition-all shadow-sm flex items-center gap-1.5"
                       >
-                        <CheckCircle className="w-3.5 h-3.5" /> Điểm danh
+                        <CheckCircle className="w-3.5 h-3.5" /> Điểm danh (Check-in)
                       </Link>
                     </div>
                   </div>
@@ -167,36 +200,37 @@ export default function StudentDashboard() {
           </div>
 
           {/* Recent Applications Status */}
-          <div className="card p-5 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <h2 className="text-sm font-bold text-text-main flex items-center gap-1.5">
-                <Briefcase className="w-4 h-4 text-gray-500" /> Tiến độ ứng tuyển gần đây
+          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-green-main" /> Tiến độ ứng tuyển gần đây
               </h2>
-              <Link to="/student/applications" className="text-xs font-semibold text-green-dark hover:underline flex items-center gap-1">
-                Quản lý <ChevronRight className="w-3 h-3" />
+              <Link to="/student/applications" className="text-xs font-semibold text-green-main hover:underline flex items-center gap-1">
+                Quản lý ứng tuyển <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {applications.length === 0 ? (
-              <p className="text-xs text-text-muted text-center py-5">Chưa có đơn ứng tuyển nào</p>
+              <p className="text-sm text-text-muted text-center py-6">Chưa có đơn ứng tuyển nào</p>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-green-50">
                 {applications.slice(0, 4).map((app) => (
-                  <div key={app.id || app._id} className="py-2.5 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-semibold text-text-main truncate">{app.jobTitle || app.title}</h4>
-                      <p className="text-[11px] text-text-muted mt-0.5">{app.storeName} • {app.appliedAt}</p>
+                  <div key={app.id} className="py-3.5 flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-text-main">{app.jobTitle || app.title}</h4>
+                      <p className="text-xs text-text-muted mt-0.5">{app.storeName} • {app.appliedAt}</p>
                     </div>
                     <Badge
                       variant={
-                        app.status === 'approved' || app.status === 'accepted' || app.status === 'hired'
+                        app.status === 'approved' || app.status === 'accepted'
                           ? 'success'
                           : app.status === 'rejected'
                           ? 'danger'
                           : 'warning'
                       }
+                      size="sm"
                     >
-                      {app.status === 'approved' || app.status === 'accepted' || app.status === 'hired'
+                      {app.status === 'approved' || app.status === 'accepted'
                         ? 'Đã nhận việc'
                         : app.status === 'rejected'
                         ? 'Đã từ chối'
@@ -210,40 +244,47 @@ export default function StudentDashboard() {
         </div>
 
         {/* Right Col: Quick Match Profile & Recommended Jobs */}
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* Profile Match Status */}
-          <div className="card p-5 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Lịch rảnh & Hồ sơ</h3>
-            <p className="text-xs text-text-muted leading-relaxed">
-              Cập nhật khung giờ rảnh và khu vực trọ để hệ thống đối chiếu chính xác các ca làm việc gần bạn.
+          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+            <h3 className="text-base font-bold text-text-main mb-2">Độ hoàn thiện hồ sơ</h3>
+            <div className="w-full bg-green-50 h-3 rounded-full overflow-hidden mb-3">
+              <div className="bg-green-main h-full rounded-full transition-all duration-500" style={{ width: '85%' }} />
+            </div>
+            <div className="flex items-center justify-between text-xs text-text-muted mb-4">
+              <span>85% Hoàn thành</span>
+              <span className="text-green-main font-semibold">+Matching cao hơn</span>
+            </div>
+            <p className="text-xs text-text-muted leading-relaxed mb-4">
+              Cập nhật khung giờ rảnh và vị trí ký túc xá để thuật toán gợi ý công việc sát nơi ở nhất.
             </p>
             <Link
               to="/student/profile"
-              className="w-full py-2 px-3 rounded-lg bg-gray-100 text-text-main hover:bg-gray-200 font-medium text-xs text-center block transition-colors"
+              className="w-full py-2.5 px-4 rounded-xl bg-green-50 text-green-dark font-semibold text-xs text-center block hover:bg-green-100 transition-colors"
             >
-              Cập nhật lịch rảnh →
+              Chỉnh sửa hồ sơ rảnh ca →
             </Link>
           </div>
 
           {/* Quick Recommended Jobs */}
-          <div className="card p-5 space-y-3">
-            <div className="flex items-center justify-between pb-1 border-b border-gray-100">
-              <h3 className="text-xs font-bold text-text-main">Việc làm mới gợi ý</h3>
-              <Link to="/student/jobs" className="text-xs text-green-dark hover:underline font-medium">Tất cả</Link>
+          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-text-main">Gợi ý cho bạn</h3>
+              <Link to="/student/jobs" className="text-xs text-green-main hover:underline">Tất cả</Link>
             </div>
 
-            <div className="space-y-2.5">
-              {recommendedJobs.slice(0, 3).map((job) => (
-                <div key={job.id || job._id} className="p-2.5 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
+            <div className="space-y-4">
+              {recommendedJobs.slice(0, 2).map((job) => (
+                <div key={job.id} className="p-3.5 rounded-2xl bg-cream/40 border border-green-50 hover:bg-cream/80 transition-colors">
                   <div className="flex items-start justify-between gap-2">
-                    <h4 className="text-xs font-semibold text-text-main line-clamp-1">{job.title}</h4>
-                    <span className="text-xs font-bold text-green-dark shrink-0">{job.salaryAmount ? `${Number(job.salaryAmount).toLocaleString('vi-VN')}đ` : ''}</span>
+                    <h4 className="text-sm font-semibold text-text-main line-clamp-1">{job.title}</h4>
+                    <span className="text-xs font-bold text-green-dark shrink-0">{job.salaryText}</span>
                   </div>
-                  <p className="text-[11px] text-text-muted mt-0.5">{job.storeName || 'Cửa hàng'}</p>
-                  <div className="mt-2 flex items-center justify-between text-[11px]">
-                    <span className="text-gray-400">{job.type === 'shift' ? 'Theo ca' : 'Part-time'}</span>
-                    <Link to={`/jobs/${job.id || job._id}`} className="font-medium text-green-dark hover:underline">
-                      Chi tiết →
+                  <p className="text-xs text-text-muted mt-1">{job.storeName} • {job.distanceText}</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <Badge variant="outline" size="sm">{job.jobType}</Badge>
+                    <Link to={`/jobs/${job.id}`} className="text-xs font-semibold text-green-main hover:underline">
+                      Xem chi tiết →
                     </Link>
                   </div>
                 </div>

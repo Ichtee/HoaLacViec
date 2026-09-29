@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ShieldCheck, Briefcase, Flag, Users, BookOpen
+  LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, Clock, AlertTriangle, CheckCircle, BookOpen
 } from 'lucide-react';
 import { getVerificationRequests, getReports, adminGetJobs, getAllUsers, getBlogs } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
@@ -43,103 +43,101 @@ export default function AdminDashboardPage() {
   const pendingReports = reports.filter(r => r.status === 'pending');
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto animate-fade-in pb-10">
+    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {/* Header */}
-      <div className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200">
-        <h1 className="text-lg sm:text-xl font-bold text-text-main tracking-tight">
-          Tổng quan Quản trị Hệ thống
-        </h1>
-        <p className="text-xs text-text-muted mt-1">
-          Giám sát tin tuyển dụng địa phương, xác thực giấy phép cơ sở và xử lý các báo cáo vi phạm.
+      <div className="bg-green-dark text-white p-6 sm:p-8 rounded-3xl shadow-card">
+        <h1 className="text-2xl sm:text-3xl font-bold">Tổng quan Quản trị Hoa Lạc Việc 🛡️</h1>
+        <p className="text-xs sm:text-sm text-green-200 mt-1">
+          Hệ thống giám sát chất lượng tin tuyển dụng, xác thực doanh nghiệp địa phương và xử lý tranh chấp.
         </p>
       </div>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="card p-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Chờ xác thực</span>
-            <ShieldCheck className="w-4 h-4 text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500">Doanh nghiệp chờ duyệt</span>
+            <ShieldCheck className="w-5 h-5 text-green-dark" />
           </div>
-          <div className="text-xl font-bold text-text-main mt-1">{pendingVerifications.length}</div>
-          <Link to="/admin/verification" className="text-[11px] text-green-dark font-medium hover:underline mt-1 block">
-            Xem hồ sơ →
+          <div className="text-2xl font-bold text-gray-900 mt-2">{pendingVerifications.length}</div>
+          <Link to="/admin/verification" className="text-xs text-green-dark font-semibold hover:underline mt-1 block">
+            Xem hồ sơ GPKD →
           </Link>
         </div>
 
-        <div className="card p-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Tin đang chạy</span>
-            <Briefcase className="w-4 h-4 text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500">Tin bài đang chạy</span>
+            <Briefcase className="w-5 h-5 text-blue-600" />
           </div>
-          <div className="text-xl font-bold text-text-main mt-1">{jobs.length}</div>
-          <Link to="/admin/jobs" className="text-[11px] text-green-dark font-medium hover:underline mt-1 block">
-            Kiểm duyệt →
+          <div className="text-2xl font-bold text-gray-900 mt-2">{jobs.length}</div>
+          <Link to="/admin/jobs" className="text-xs text-blue-600 font-semibold hover:underline mt-1 block">
+            Kiểm duyệt tin →
           </Link>
         </div>
 
-        <div className="card p-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Báo cáo vi phạm</span>
-            <Flag className="w-4 h-4 text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500">Báo cáo vi phạm</span>
+            <Flag className="w-5 h-5 text-red-500" />
           </div>
-          <div className="text-xl font-bold text-text-main mt-1">{pendingReports.length}</div>
-          <Link to="/admin/reports" className="text-[11px] text-red-600 font-medium hover:underline mt-1 block">
+          <div className="text-2xl font-bold text-gray-900 mt-2">{pendingReports.length}</div>
+          <Link to="/admin/reports" className="text-xs text-red-500 font-semibold hover:underline mt-1 block">
             Xử lý báo cáo →
           </Link>
         </div>
 
-        <div className="card p-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Bài viết Blog</span>
-            <BookOpen className="w-4 h-4 text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500">Bài viết Blog</span>
+            <BookOpen className="w-5 h-5 text-emerald-600" />
           </div>
-          <div className="text-xl font-bold text-text-main mt-1">{blogs.length}</div>
-          <Link to="/admin/blogs" className="text-[11px] text-green-dark font-medium hover:underline mt-1 block">
-            Quản lý bài →
+          <div className="text-2xl font-bold text-gray-900 mt-2">{blogs.length}</div>
+          <Link to="/admin/blogs" className="text-xs text-emerald-600 font-semibold hover:underline mt-1 block">
+            Quản lý Blog →
           </Link>
         </div>
 
-        <div className="card p-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-text-muted">Tổng tài khoản</span>
-            <Users className="w-4 h-4 text-gray-400" />
+            <span className="text-xs font-semibold text-gray-500">Tổng tài khoản</span>
+            <Users className="w-5 h-5 text-purple-600" />
           </div>
-          <div className="text-xl font-bold text-text-main mt-1">{users.length}</div>
-          <Link to="/admin/users" className="text-[11px] text-green-dark font-medium hover:underline mt-1 block">
+          <div className="text-2xl font-bold text-gray-900 mt-2">{users.length}</div>
+          <Link to="/admin/users" className="text-xs text-purple-600 font-semibold hover:underline mt-1 block">
             Quản lý tài khoản →
           </Link>
         </div>
       </div>
 
       {/* Pending Items Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Verification queue */}
-        <div className="card p-5 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-            <h3 className="font-bold text-text-main text-xs sm:text-sm flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-gray-500" /> Yêu cầu xác thực cơ sở
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-green-dark" /> Doanh nghiệp gửi yêu cầu xác thực huy hiệu
             </h3>
-            <Link to="/admin/verification" className="text-xs text-green-dark font-medium hover:underline">
+            <Link to="/admin/verification" className="text-xs text-green-dark font-semibold hover:underline">
               Tất cả
             </Link>
           </div>
 
           {pendingVerifications.length === 0 ? (
-            <p className="text-xs text-text-muted py-6 text-center">Không có yêu cầu chờ duyệt</p>
+            <p className="text-xs text-gray-400 py-4 text-center">Không có yêu cầu chờ duyệt</p>
           ) : (
-            <div className="divide-y divide-gray-100">
-              {pendingVerifications.slice(0, 4).map(item => (
-                <div key={item.id} className="py-2.5 flex items-center justify-between gap-3">
+            <div className="space-y-3">
+              {pendingVerifications.slice(0, 3).map(item => (
+                <div key={item.id} className="p-3.5 rounded-2xl bg-gray-50 flex items-center justify-between">
                   <div>
-                    <h4 className="text-xs font-semibold text-text-main">{item.storeName}</h4>
-                    <p className="text-[11px] text-text-muted">GPKD: {item.businessLicense || 'GPKD'}</p>
+                    <h4 className="text-xs font-bold text-gray-900">{item.storeName}</h4>
+                    <p className="text-[11px] text-gray-500">Mã GPKD: {item.businessLicense || 'GPKD-9988'}</p>
                   </div>
                   <Link
                     to="/admin/verification"
-                    className="px-2.5 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-text-main text-xs font-medium transition-colors"
+                    className="px-3 py-1.5 rounded-xl bg-green-dark text-white text-[11px] font-semibold hover:bg-green-700"
                   >
-                    Xem xét
+                    Duyệt GPKD
                   </Link>
                 </div>
               ))}
@@ -147,30 +145,30 @@ export default function AdminDashboardPage() {
           )}
         </div>
 
-        {/* Pending Reports */}
-        <div className="card p-5 space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-            <h3 className="font-bold text-text-main text-xs sm:text-sm flex items-center gap-1.5">
-              <Flag className="w-4 h-4 text-gray-500" /> Báo cáo cần xử lý
+        {/* Reports Queue */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <Flag className="w-4 h-4 text-red-500" /> Phản hồi & Báo cáo tranh chấp
             </h3>
-            <Link to="/admin/reports" className="text-xs text-red-600 font-medium hover:underline">
+            <Link to="/admin/reports" className="text-xs text-red-500 font-semibold hover:underline">
               Tất cả
             </Link>
           </div>
 
           {pendingReports.length === 0 ? (
-            <p className="text-xs text-text-muted py-6 text-center">Không có báo cáo vi phạm mới</p>
+            <p className="text-xs text-gray-400 py-4 text-center">Không có báo cáo vi phạm mới</p>
           ) : (
-            <div className="divide-y divide-gray-100">
-              {pendingReports.slice(0, 4).map(rep => (
-                <div key={rep.id} className="py-2.5 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-semibold text-text-main truncate">{rep.target || 'Tin tuyển dụng'}</h4>
-                    <p className="text-[11px] text-red-600 truncate">{rep.reason || 'Nghi ngờ gian lận'}</p>
+            <div className="space-y-3">
+              {pendingReports.slice(0, 3).map(rep => (
+                <div key={rep.id} className="p-3.5 rounded-2xl bg-gray-50 flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-900">{rep.reason}</h4>
+                    <p className="text-[11px] text-gray-500">Từ: {rep.reporterName} • {rep.target}</p>
                   </div>
                   <Link
                     to="/admin/reports"
-                    className="px-2.5 py-1 rounded-md bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium transition-colors shrink-0"
+                    className="px-3 py-1.5 rounded-xl bg-red-600 text-white text-[11px] font-semibold hover:bg-red-700"
                   >
                     Xử lý
                   </Link>

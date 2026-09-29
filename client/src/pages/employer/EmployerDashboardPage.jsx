@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Briefcase, Users, Calendar, Clock, Plus, ChevronRight, ShieldCheck, UserCheck
+  Building2, Briefcase, Users, Calendar, ArrowLeftRight, CheckCircle, Clock,
+  Plus, ChevronRight, ShieldCheck, DollarSign, Star
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { getJobs, getApplications, getShifts, getEmployments } from '@/services';
+import { getJobs, getApplications, getShifts } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { formatVND } from '@/utils';
 
@@ -13,23 +14,20 @@ export default function EmployerDashboardPage() {
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [shifts, setShifts] = useState([]);
-  const [employments, setEmployments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboard() {
       try {
         setLoading(true);
-        const [jobsRes, appsRes, shiftsRes, empRes] = await Promise.all([
+        const [jobsRes, appsRes, shiftsRes] = await Promise.all([
           getJobs({ storeName: user?.name, employerId: user?.id }),
           getApplications({ storeId: user?.id, storeName: user?.name, employerId: user?.id }),
           getShifts({ storeId: user?.id, storeName: user?.name, employerId: user?.id }),
-          getEmployments({ employerId: user?.id, status: 'active' }).catch(() => []),
         ]);
         setJobs(jobsRes?.jobs || jobsRes || []);
         setApplications(appsRes || []);
         setShifts(shiftsRes || []);
-        setEmployments(empRes || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -39,112 +37,130 @@ export default function EmployerDashboardPage() {
     if (user) loadDashboard();
   }, [user]);
 
-  const pendingApps = applications.filter(a => a.status === 'pending' || a.status === 'submitted' || a.status === 'screening');
+  const pendingApps = applications.filter(a => a.status === 'pending');
   const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'approved' || !j.status);
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto animate-fade-in pb-10">
-      {/* Editorial Header */}
-      <div className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-bold text-text-main tracking-tight">
-              Quản lý tuyển dụng — {user?.name || 'Cửa hàng'}
+    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
+      {/* Banner */}
+      <div className="bg-gradient-to-r from-pink-main via-pink-dark to-purple-700 rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-3">
+              <ShieldCheck className="w-3.5 h-3.5" /> Nhà tuyển dụng đã xác minh
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+              Quản lý tuyển dụng — {user?.name || 'Cửa hàng'} 🏪
             </h1>
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-green-50 text-green-800 border border-green-200">
-              <ShieldCheck className="w-3 h-3 text-green-600" /> Cửa hàng xác minh
-            </span>
+            <p className="mt-1 text-pink-100 text-xs sm:text-sm">
+              Bạn có <span className="font-bold underline underline-offset-4">{pendingApps.length} đơn ứng tuyển mới</span> từ sinh viên FPT/ĐHQG đang chờ duyệt.
+            </p>
           </div>
-          <p className="text-xs text-text-muted">
-            Bạn có <strong className="text-text-main font-semibold">{pendingApps.length} đơn ứng tuyển</strong> đang chờ xét duyệt và {employments.length} nhân viên đang hoạt động.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2 shrink-0">
           <Link
             to="/employer/jobs"
-            className="btn-primary btn btn-sm"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-pink-dark font-bold text-xs hover:bg-pink-50 transition-all shadow-md shrink-0 self-start sm:self-center"
           >
-            <Plus className="w-3.5 h-3.5" /> Đăng tin tuyển dụng
-          </Link>
-          <Link
-            to="/employer/shifts"
-            className="btn-outline btn btn-sm"
-          >
-            <Calendar className="w-3.5 h-3.5" /> Quản lý ca làm
+            <Plus className="w-4 h-4" /> Đăng tin tuyển ca mới
           </Link>
         </div>
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Tin đang tuyển</span>
-          <div className="text-xl font-bold text-text-main mt-1">{activeJobs.length}</div>
-          <p className="text-[11px] text-text-light mt-1">Tin tuyển hoạt động</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Tin đang tuyển</span>
+            <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-main flex items-center justify-center">
+              <Briefcase className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{activeJobs.length}</div>
+            <p className="text-xs text-text-muted mt-1">Tin tuyển dụng hoạt động</p>
+          </div>
         </div>
 
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Ứng viên chờ duyệt</span>
-          <div className="text-xl font-bold text-text-main mt-1">{pendingApps.length}</div>
-          <Link to="/employer/applications" className="text-[11px] text-green-dark font-medium hover:underline mt-1 block">
-            Duyệt hồ sơ ngay →
-          </Link>
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Ứng viên chờ duyệt</span>
+            <div className="w-9 h-9 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{pendingApps.length}</div>
+            <Link to="/employer/applications" className="text-xs text-pink-main font-semibold hover:underline mt-1 block">
+              Duyệt hồ sơ ngay →
+            </Link>
+          </div>
         </div>
 
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Ca làm hôm nay</span>
-          <div className="text-xl font-bold text-text-main mt-1">{shifts.length}</div>
-          <Link to="/employer/shifts" className="text-[11px] text-green-dark font-medium hover:underline mt-1 block">
-            Xem lịch & điểm danh →
-          </Link>
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Ca làm trong ngày</span>
+            <div className="w-9 h-9 rounded-xl bg-green-50 text-green-main flex items-center justify-center">
+              <Calendar className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{shifts.length}</div>
+            <p className="text-xs text-text-muted mt-1">Đã phân công</p>
+          </div>
         </div>
 
-        <div className="card p-4">
-          <span className="text-xs font-medium text-text-muted">Nhân viên chính thức</span>
-          <div className="text-xl font-bold text-text-main mt-1">{employments.length}</div>
-          <Link to="/employer/employees" className="text-[11px] text-green-dark font-medium hover:underline mt-1 block">
-            Danh sách nhân viên →
-          </Link>
+        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-text-muted">Quản lý nhân viên ca</span>
+            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl font-bold text-text-main">{shifts.length}</div>
+            <Link to="/employer/shifts" className="text-xs text-purple-600 font-semibold hover:underline mt-1 block">
+              Xem lịch ca & điểm danh →
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Applications Pending Approval Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
           {/* Pending Apps Table */}
-          <div className="card p-5 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <h2 className="text-sm font-bold text-text-main flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-gray-500" /> Ứng viên mới nộp đơn
+          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
+                <Users className="w-5 h-5 text-pink-main" /> Ứng viên mới nộp đơn
               </h2>
-              <Link to="/employer/applications" className="text-xs font-semibold text-green-dark hover:underline flex items-center gap-1">
-                Xem tất cả ({applications.length}) <ChevronRight className="w-3 h-3" />
+              <Link to="/employer/applications" className="text-xs font-semibold text-pink-main hover:underline flex items-center gap-1">
+                Xem tất cả ứng viên <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {applications.length === 0 ? (
-              <p className="text-xs text-text-muted text-center py-6">Chưa có ứng viên nộp đơn</p>
+              <p className="text-xs text-text-muted text-center py-8">Chưa có ứng viên nộp đơn</p>
             ) : (
-              <div className="divide-y divide-gray-100">
-                {applications.slice(0, 5).map((app) => (
-                  <div key={app._id || app.id} className="py-2.5 flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-semibold text-text-main truncate">{app.studentName || 'Ứng viên'}</h4>
-                      <p className="text-[11px] text-text-muted mt-0.5 truncate">
+              <div className="divide-y divide-green-50">
+                {applications.slice(0, 4).map((app) => (
+                  <div key={app._id || app.id} className="py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-text-main">{app.studentName || 'Sinh viên FPT'}</h4>
+                      <p className="text-xs text-text-muted mt-0.5">
                         Ứng tuyển: <strong>{app.jobTitle || app.title}</strong> • {app.appliedAt}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant={app.status === 'pending' || app.status === 'submitted' ? 'warning' : 'success'}>
-                        {app.status === 'pending' || app.status === 'submitted' ? 'Chờ duyệt' : 'Đã xét'}
+                    <div className="flex items-center gap-2">
+                      <Badge variant={app.status === 'pending' ? 'warning' : 'success'} size="sm">
+                        {app.status === 'pending' ? 'Chờ duyệt' : 'Đã duyệt'}
                       </Badge>
                       <Link
                         to="/employer/applications"
-                        className="px-2.5 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-xs font-medium text-text-main transition-colors"
+                        className="px-3 py-1.5 rounded-xl bg-pink-50 text-pink-main text-xs font-semibold hover:bg-pink-100"
                       >
-                        Xem
+                        Duyệt
                       </Link>
                     </div>
                   </div>
@@ -155,22 +171,22 @@ export default function EmployerDashboardPage() {
         </div>
 
         {/* Right Col: Active Jobs Summary */}
-        <div className="space-y-5">
-          <div className="card p-5 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
-              <h3 className="text-xs font-bold text-text-main">Tin đăng gần đây</h3>
-              <Link to="/employer/jobs" className="text-xs text-green-dark font-medium hover:underline">Quản lý tin</Link>
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-text-main">Tin đăng gần đây</h3>
+              <Link to="/employer/jobs" className="text-xs text-pink-main font-semibold hover:underline">Quản lý tin</Link>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               {jobs.slice(0, 5).map((job) => (
-                <div key={job._id || job.id} className="p-2.5 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors">
-                  <h4 className="text-xs font-semibold text-text-main line-clamp-1">{job.title}</h4>
-                  <p className="text-[11px] text-green-dark font-medium mt-0.5">
-                    {job.salaryAmount ? `${formatVND(job.salaryAmount)}/giờ` : (job.salaryText || '25.000đ/giờ')}
+                <div key={job._id || job.id} className="p-3.5 rounded-2xl bg-cream/50 border border-green-50">
+                  <h4 className="text-xs font-bold text-text-main line-clamp-1">{job.title}</h4>
+                  <p className="text-[11px] text-green-dark font-medium mt-1">
+                    {job.salaryAmount ? `${formatVND(job.salaryAmount)}/${job.salaryUnit === 'hour' ? 'giờ' : 'ca'}` : (job.salaryText || '25.000đ/giờ')}
                   </p>
-                  <p className="text-[10px] text-text-muted mt-0.5 truncate">
-                    {job.address || 'Hòa Lạc, Thạch Thất'}
+                  <p className="text-[10px] text-text-muted mt-0.5">
+                    📍 {job.address || (typeof job.location === 'string' ? job.location : 'Hòa Lạc, Thạch Thất')}
                   </p>
                 </div>
               ))}

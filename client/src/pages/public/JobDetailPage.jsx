@@ -214,11 +214,11 @@ export default function JobDetailPage() {
               <Info icon={Clock} label="Hạn nộp" value={formatDate(job.closesAt)} />
             </div>
 
-              {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-2.5 mt-5">
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-3 mt-5">
               {!applySuccess ? (
                 isAuthenticated && !isStudent ? (
-                  <div className="flex-1 px-4 py-2.5 bg-gray-100 rounded-lg text-xs text-gray-500 font-medium text-center flex items-center justify-center">
+                  <div className="flex-1 px-4 py-3 bg-gray-100 rounded-2xl text-xs text-gray-500 font-medium text-center flex items-center justify-center">
                     Tài khoản {user?.role === 'employer' ? 'Nhà tuyển dụng' : 'Quản trị viên'} (Chỉ dành cho sinh viên ứng tuyển)
                   </div>
                 ) : (
@@ -233,9 +233,9 @@ export default function JobDetailPage() {
                   </Button>
                 )
               ) : (
-                <div className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 rounded-lg">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                  <span className="font-semibold text-green-800 text-sm">Đã gửi đơn ứng tuyển!</span>
+                <div className="flex-1 flex items-center gap-2 px-6 py-3 bg-green-light rounded-full">
+                  <CheckCircle className="w-5 h-5 text-green-main" />
+                  <span className="font-semibold text-green-dark">Đã gửi đơn thành công!</span>
                 </div>
               )}
               <Button
@@ -254,23 +254,23 @@ export default function JobDetailPage() {
             <div className="card space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="section-title flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-gray-600" /> Vị trí tuyển dụng & Ca làm việc
+                  <Briefcase className="w-5 h-5 text-green-main" /> Vị trí tuyển dụng & Ca làm việc
                 </h2>
                 <span className="text-xs text-text-muted font-medium">
                   {job.positions.length} vị trí
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {job.positions.slice(0, visiblePositionsCount).map((pos, pIdx) => (
-                  <div key={pIdx} className="p-3 rounded-lg bg-gray-50/70 border border-gray-200 flex items-center justify-between gap-3">
+                  <div key={pIdx} className="p-3.5 rounded-2xl bg-cream/70 border border-green-100 flex items-center justify-between gap-3 animate-scale-in">
                     <div>
-                      <h4 className="font-semibold text-sm text-text-main">{pos.title}</h4>
-                      <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-gray-400" /> {pos.shift}
+                      <h4 className="font-bold text-sm text-text-main">{pos.title}</h4>
+                      <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-green-dark" /> {pos.shift}
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-green-50 text-green-800 border border-green-200">
+                      <span className="px-2.5 py-1 rounded-xl bg-green-100 text-green-dark font-bold text-[11px]">
                         Tuyển {pos.quantity || 1} bạn
                       </span>
                     </div>
@@ -284,19 +284,19 @@ export default function JobDetailPage() {
                     <button
                       type="button"
                       onClick={() => setVisiblePositionsCount(prev => prev + Math.min(5, job.positions.length - prev))}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-text-main font-medium text-xs transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold text-xs transition-colors shadow-xs"
                     >
-                      <ChevronDown className="w-3.5 h-3.5" />
+                      <ChevronDown className="w-4 h-4" />
                       Xem thêm ({Math.min(5, job.positions.length - visiblePositionsCount) === job.positions.length - visiblePositionsCount ? `còn lại ${job.positions.length - visiblePositionsCount} vị trí` : `thêm ${Math.min(5, job.positions.length - visiblePositionsCount)} vị trí`})
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setVisiblePositionsCount(5)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium text-xs transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-600 font-semibold text-xs transition-colors"
                     >
-                      <ChevronUp className="w-3.5 h-3.5" />
-                      Thu gọn (5 vị trí)
+                      <ChevronUp className="w-4 h-4" />
+                      Thu gọn (chỉ hiện 5 vị trí)
                     </button>
                   )}
                 </div>
@@ -306,16 +306,16 @@ export default function JobDetailPage() {
 
           {/* Description */}
           <div className="card">
-            <h2 className="section-title mb-3">Mô tả công việc</h2>
-            <p className="text-text-muted leading-relaxed text-sm">{job.description}</p>
+            <h2 className="section-title mb-4">Mô tả công việc</h2>
+            <p className="text-text-muted leading-relaxed">{job.description}</p>
 
             {job.requirements?.length > 0 && (
               <>
-                <h3 className="font-semibold text-text-main mt-5 mb-2.5 text-sm">Yêu cầu</h3>
-                <ul className="space-y-1.5">
+                <h3 className="font-semibold text-text-main mt-5 mb-3">Yêu cầu</h3>
+                <ul className="space-y-2">
                   {job.requirements.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-text-muted text-xs sm:text-sm">
-                      <CheckCircle className="w-3.5 h-3.5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-text-muted text-sm">
+                      <CheckCircle className="w-4 h-4 text-green-main mt-0.5 flex-shrink-0" />
                       {r}
                     </li>
                   ))}
@@ -325,11 +325,11 @@ export default function JobDetailPage() {
 
             {job.benefits?.length > 0 && (
               <>
-                <h3 className="font-semibold text-text-main mt-5 mb-2.5 text-sm">Quyền lợi</h3>
-                <ul className="space-y-1.5">
+                <h3 className="font-semibold text-text-main mt-5 mb-3">Quyền lợi</h3>
+                <ul className="space-y-2">
                   {job.benefits.map((b, i) => (
-                    <li key={i} className="flex items-start gap-2 text-text-muted text-xs sm:text-sm">
-                      <Star className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-green-dark text-sm">
+                      <Star className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
                       {b}
                     </li>
                   ))}
@@ -341,12 +341,12 @@ export default function JobDetailPage() {
           {/* Schedule */}
           {job.schedule?.length > 0 && (
             <div className="card">
-              <h2 className="section-title mb-3">Lịch làm việc</h2>
+              <h2 className="section-title mb-4">Lịch làm việc</h2>
               <div className="space-y-2">
                 {job.schedule.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2.5 p-2.5 bg-gray-50 border border-gray-200 rounded-lg">
-                    <Calendar className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
-                    <span className="font-medium text-text-main text-xs">
+                  <div key={i} className="flex items-center gap-3 p-3 bg-green-50 rounded-2xl">
+                    <Calendar className="w-4 h-4 text-green-main flex-shrink-0" />
+                    <span className="font-medium text-text-main text-sm">
                       {DAYS_OF_WEEK[s.dayOfWeek - 1] || `Thứ ${s.dayOfWeek}` || 'Linh hoạt'}
                     </span>
                     <span className="text-text-muted text-sm">

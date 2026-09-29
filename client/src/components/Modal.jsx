@@ -10,6 +10,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
 
   useEffect(() => {
     if (!isOpen) return;
+    // Only focus the close button when the modal first opens (not on every re-render)
     closeRef.current?.focus();
     const handler = (e) => {
       if (e.key === 'Escape') onCloseRef.current();
@@ -20,7 +21,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
       document.removeEventListener('keydown', handler);
       document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen]); // ← Only depends on isOpen, not onClose
 
   if (!isOpen) return null;
 
@@ -29,12 +30,12 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
-  }[size] || 'max-w-lg';
+  }[size];
 
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
       role="dialog"
       aria-modal="true"
@@ -42,25 +43,25 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
     >
       <div
         className={clsx(
-          'w-full bg-white rounded-xl border border-gray-200 shadow-modal flex flex-col max-h-[90vh]',
+          'w-full bg-white rounded-3xl shadow-modal animate-scale-in flex flex-col max-h-[90vh]',
           sizeClass,
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200/80 flex-shrink-0">
-          <h2 className="text-base font-bold text-text-main">{title}</h2>
+        <div className="flex items-center justify-between p-6 border-b border-green-50 flex-shrink-0">
+          <h2 className="text-lg font-bold text-text-main">{title}</h2>
           <button
             ref={closeRef}
             onClick={onClose}
             aria-label="Đóng"
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
+            className="p-2 rounded-xl hover:bg-green-50 text-text-muted transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
       </div>
     </div>
   );
@@ -69,17 +70,17 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
 export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Xác nhận', danger = false, loading = false }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-      <p className="text-text-muted text-sm mb-5 leading-relaxed">{message}</p>
-      <div className="flex gap-2.5 justify-end pt-2 border-t border-gray-100">
-        <button onClick={onClose} className="btn-outline btn btn-sm" disabled={loading}>
+      <p className="text-text-muted mb-6">{message}</p>
+      <div className="flex gap-3 justify-end">
+        <button onClick={onClose} className="btn-ghost btn btn-md" disabled={loading}>
           Hủy
         </button>
         <button
           onClick={onConfirm}
-          className={clsx('btn btn-sm', danger ? 'btn-danger' : 'btn-primary')}
+          className={clsx('btn btn-md', danger ? 'btn-danger' : 'btn-primary')}
           disabled={loading}
         >
-          {loading ? 'Đang xử lý...' : confirmLabel}
+          {loading ? '...' : confirmLabel}
         </button>
       </div>
     </Modal>

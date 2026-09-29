@@ -35,7 +35,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// POST /api/shift-templates
+// POST /api/shift-templates (Validate jobId ownership, time range and dayOfWeek)
 router.post('/', async (req, res, next) => {
   try {
     if (req.user.role !== 'employer' && req.user.role !== 'admin') {
@@ -51,28 +51,44 @@ router.post('/', async (req, res, next) => {
       requiredHeadcount = 1,
       wageOverride,
       workplace,
+      effectiveFrom,
+      effectiveTo,
     } = req.body;
 
     if (dayOfWeek === undefined || !startTime || !endTime || !positionTitle) {
-      return res.status(400).json({ error: 'Vui lòng cung cấp đầy đủ thông tin mẫu ca.', code: 'MISSING_FIELDS' });
+      return res.status(400).json({ error: 'Vui lòng cung cấp đầy đủ thông tin mẫu ca (vị trí, thứ trong tuần, giờ bắt đầu và kết thúc).', code: 'MISSING_FIELDS' });
+    }
+
+    const numDay = Number(dayOfWeek);
+    if (isNaN(numDay) || numDay < 0 || numDay > 6) {
+      return res.status(400).json({ error: 'Thứ trong tuần không hợp lệ (0 = Chủ Nhật, 1..6 = Thứ Hai..Thứ Bảy).', code: 'INVALID_DAY' });
     }
 
     let defaultWorkplace = workplace || '';
-    if (jobId && !defaultWorkplace) {
+    if (jobId && mongoose.Types.ObjectId.isValid(jobId)) {
+      // Validate that jobId belongs to this employer!
       const job = await Job.findById(jobId);
-      if (job) defaultWorkplace = job.storeName;
+      if (!job) {
+        return res.status(404).json({ error: 'Không tìm thấy công việc tương ứng.', code: 'JOB_NOT_FOUND' });
+      }
+      if (req.user.role !== 'admin' && String(job.employerId) !== String(req.user._id) && String(job.employer) !== String(req.user._id)) {
+        return res.status(403).json({ error: 'Bạn không sở hữu tin tuyển dụng này để gắn vào mẫu ca.', code: 'FORBIDDEN' });
+      }
+      defaultWorkplace = defaultWorkplace || job.storeName || '';
     }
 
     const template = await ShiftTemplate.create({
       employerUserId: req.user._id,
-      jobId: jobId || null,
+      jobId: jobId && mongoose.Types.ObjectId.isValid(jobId) ? jobId : null,
       workplace: defaultWorkplace,
-      positionTitle,
-      dayOfWeek: Number(dayOfWeek),
-      startTime,
-      endTime,
-      requiredHeadcount: Number(requiredHeadcount) || 1,
-      wageOverride: wageOverride ? Number(wageOverride) : null,
+      positionTitle: String(positionTitle).trim(),
+      dayOfWeek: numDay,
+      startTime: String(startTime).trim(),
+      endTime: String(endTime).trim(),
+      requiredHeadcount: Math.max(1, Number(requiredHeadcount) || 1),
+      wageOverride: wageOverride && Number(wageOverride) > 0 ? Number(wageOverride) : null,
+      effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : new Date(),
+      effectiveTo: effectiveTo ? new Date(effectiveTo) : null,
       active: true,
     });
 
@@ -95,13 +111,18 @@ router.put('/:id', async (req, res, next) => {
     }
 
     const updates = req.body;
-    if (updates.positionTitle) template.positionTitle = updates.positionTitle;
-    if (updates.dayOfWeek !== undefined) template.dayOfWeek = Number(updates.dayOfWeek);
-    if (updates.startTime) template.startTime = updates.startTime;
-    if (updates.endTime) template.endTime = updates.endTime;
-    if (updates.requiredHeadcount !== undefined) template.requiredHeadcount = Number(updates.requiredHeadcount);
-    if (updates.wageOverride !== undefined) template.wageOverride = updates.wageOverride;
-    if (updates.workplace) template.workplace = updates.workplace;
+    if (updates.positionTitle) template.positionTitle = String(updates.positionTitle).trim();
+    if (updates.dayOfWeek !== undefined) {
+      const numDay = Number(updates.dayOfWeek);
+      if (!isNaN(numDay) && numDay >= 0 && numDay <= 6) {
+        template.dayOfWeek = numDay;
+      }
+    }
+    if (updates.startTime) template.startTime = String(updates.startTime).trim();
+    if (updates.endTime) template.endTime = String(updates.endTime).trim();
+    if (updates.requiredHeadcount !== undefined) template.requiredHeadcount = Math.max(1, Number(updates.requiredHeadcount) || 1);
+    if (updates.wageOverride !== undefined) template.wageOverride = Number(updates.wageOverride) || null;
+    if (updates.workplace) template.workplace = String(updates.workplace).trim();
     if (updates.active !== undefined) template.active = Boolean(updates.active);
 
     await template.save();
@@ -132,3 +153,4 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 export default router;
+
