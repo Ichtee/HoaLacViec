@@ -409,19 +409,22 @@ export default function JobListPage() {
               setPage(1);
             }}
             placeholder="Tìm theo tên việc, quán cà phê, siêu thị..."
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:border-green-main focus:ring-1 focus:ring-green-main"
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-300 bg-white text-sm focus:outline-none focus:border-green-main focus:ring-1 focus:ring-green-main"
           />
         </div>
 
         <button
+          type="button"
           onClick={() => setFiltersOpen(!filtersOpen)}
           className={clsx(
-            'btn btn-md flex items-center gap-2 font-medium',
-            filtersOpen || hasFilters ? 'btn-secondary' : 'btn-outline'
+            'px-4 py-2.5 rounded-xl border text-sm font-medium flex items-center gap-2 transition-colors',
+            filtersOpen || hasFilters
+              ? 'bg-green-50 border-green-main text-green-dark'
+              : 'border-gray-300 bg-white text-text-main hover:bg-gray-50'
           )}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
-          Bộ lọc
+          <SlidersHorizontal className="w-4 h-4 text-gray-500" />
+          <span>Bộ lọc</span>
           {hasFilters && <span className="w-1.5 h-1.5 rounded-full bg-green-main ml-0.5" />}
         </button>
 
@@ -429,7 +432,7 @@ export default function JobListPage() {
           id="sort-select"
           value={sort}
           onChange={(e) => handleSortChange(e.target.value)}
-          className="w-auto min-w-[170px]"
+          className="w-auto min-w-[160px] !rounded-xl !border-gray-300 !py-2.5"
         >
           <option value="newest">Mới nhất</option>
           <option value="nearest">Gần tôi nhất</option>
@@ -615,15 +618,11 @@ export default function JobListPage() {
                     key={job._id || job.id}
                     id={`job-card-${job._id || job.id}`}
                     onMouseEnter={() => setSelectedJobId(job._id || job.id)}
-                    className={clsx(
-                      'rounded-xl transition-all duration-150',
-                      String(selectedJobId) === String(job._id || job.id)
-                        ? 'ring-2 ring-green-main/90 shadow-xs'
-                        : ''
-                    )}
+                    className="h-full"
                   >
                     <JobCard
                       job={job}
+                      isSelected={String(selectedJobId) === String(job._id || job.id)}
                       isSaved={savedJobIds.has(job._id || job.id)}
                       onSave={isAuthenticated ? handleSave : undefined}
                     />

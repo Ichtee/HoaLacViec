@@ -5,7 +5,7 @@ import { Badge, VerifiedBadge } from './Badge.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS } from '@/constants';
 import { formatVND, formatDate, getGoogleMapsDirectionsUrl } from '@/utils';
 
-export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false }) {
+export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false, compact = false }) {
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
   const unitLabel = SALARY_UNIT_LABELS[job.salaryUnit] || '';
   const employer = job.employer;
@@ -20,13 +20,20 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
 
   return (
     <Link to={`/jobs/${jobId}`} className="group block h-full">
-      <div className="card-hover relative h-full flex flex-col justify-between p-5">
+      <div
+        className={clsx(
+          'relative h-full flex flex-col justify-between p-5 rounded-2xl bg-white transition-all duration-150',
+          isSelected
+            ? 'border-2 border-green-600 shadow-sm'
+            : 'border border-stone-200/90 shadow-xs hover:border-stone-300'
+        )}
+      >
         {/* Save button */}
         {handleSaveClick && (
           <button
             onClick={handleSave}
             aria-label={isSaved ? 'Bỏ lưu' : 'Lưu việc'}
-            className="absolute top-4 right-4 p-2 rounded-xl text-text-muted hover:text-green-main hover:bg-green-50 transition-all z-10"
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-green-main hover:bg-green-50 transition-all z-10"
           >
             {isSaved ? <BookmarkCheck className="w-5 h-5 text-green-main" /> : <Bookmark className="w-5 h-5" />}
           </button>
@@ -34,19 +41,24 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
 
         <div className="flex-1 flex flex-col">
           {/* Top header row: Avatar + Badges + Title + Store */}
-          <div className="flex items-start gap-3 pr-7">
+          <div className="flex items-start gap-3.5 pr-8">
             {/* Store avatar */}
-            <div className="w-12 h-12 rounded-2xl bg-green-light flex items-center justify-center text-green-dark font-bold text-lg flex-shrink-0 shadow-xs">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-800 font-bold text-lg flex-shrink-0 shadow-xs">
               {employer?.storeName?.[0] || job.storeName?.[0] || '?'}
             </div>
 
             <div className="flex-1 min-w-0">
               {/* Badges container with min-height for uniform alignment */}
-              <div className="h-[28px] flex flex-nowrap items-center gap-1.5 mb-1.5 overflow-hidden">
-                <Badge variant="green" className="max-w-[8rem] truncate whitespace-nowrap block" title={typeLabel}>
+              <div className="h-[26px] flex flex-nowrap items-center gap-1.5 mb-1 overflow-hidden">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 whitespace-nowrap">
                   {typeLabel}
-                </Badge>
-                {employer?.verified && <VerifiedBadge className="shrink-0 whitespace-nowrap" />}
+                </span>
+                {employer?.verified && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 whitespace-nowrap">
+                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                    Đã xác thực
+                  </span>
+                )}
                 {job.matchScore && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
                     🎯 Khớp {job.matchScore}%
@@ -64,11 +76,11 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
                 )}
               </div>
 
-              {/* Do not combine line-clamp with flex: flex overrides the clamp display mode. */}
-              <h3 className="font-bold text-text-main text-base leading-snug line-clamp-2 h-[2.65rem] overflow-hidden group-hover:text-green-main transition-colors" title={job.title}>
+              {/* Title & Store */}
+              <h3 className="font-bold text-text-main text-base leading-snug line-clamp-1 group-hover:text-green-main transition-colors" title={job.title}>
                 {job.title}
               </h3>
-              <p className="text-text-muted text-sm mt-0.5 truncate min-h-[1.25rem]">
+              <p className="text-text-muted text-sm mt-0.5 truncate">
                 {employer?.storeName || job.storeName || 'Đang cập nhật'}
               </p>
             </div>
@@ -76,7 +88,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
 
           {/* Details 2x2 Grid */}
           {!compact && (
-            <div className="mt-3.5 pt-3 border-t border-green-50/80 grid grid-cols-2 gap-x-3 gap-y-2 text-xs sm:text-sm text-text-muted">
+            <div className="mt-3.5 pt-3 border-t border-gray-100 grid grid-cols-2 gap-x-3 gap-y-2 text-xs sm:text-sm text-text-muted">
               <div className="flex items-center gap-1.5 min-w-0">
                 <DollarSign className="w-4 h-4 text-green-main flex-shrink-0" />
                 <span className="font-semibold text-text-main truncate">
@@ -108,7 +120,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
         </div>
 
         {/* Footer pinned to bottom with mt-auto */}
-        <div className="flex items-center justify-between mt-auto pt-3 border-t border-green-50/80 min-h-[42px]">
+        <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100 min-h-[40px]">
           <div className="flex items-center gap-2 min-w-0">
             <p className="text-xs text-text-light truncate">Đăng {formatDate(job.postedAt)}</p>
             {(() => {
@@ -123,7 +135,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, compact = false })
                     e.stopPropagation();
                     window.open(directionsUrl, '_blank');
                   }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-semibold transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-semibold transition-colors"
                   title="Chỉ đường trên Google Maps"
                 >
                   <Navigation className="w-3 h-3 text-blue-600" />
