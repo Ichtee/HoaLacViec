@@ -1,59 +1,73 @@
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Leaf, LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, BookOpen, LogOut } from 'lucide-react';
+import { Outlet, NavLink, Link } from 'react-router-dom';
+import { LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, BookOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { UserDropdown } from '@/components/UserDropdown.jsx';
 
 const ADMIN_NAV = [
   { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
-  { to: '/admin/verification', label: 'Xác thực nhà TD', icon: ShieldCheck },
-  { to: '/admin/jobs', label: 'Kiểm duyệt tin', icon: Briefcase },
-  { to: '/admin/blogs', label: 'Quản lý Blog', icon: BookOpen },
-  { to: '/admin/reports', label: 'Báo cáo', icon: Flag },
-  { to: '/admin/users', label: 'Tài khoản', icon: Users },
+  { to: '/admin/verification', label: 'Xác thực cơ sở', icon: ShieldCheck },
+  { to: '/admin/jobs', label: 'Duyệt tin tuyển', icon: Briefcase },
+  { to: '/admin/blogs', label: 'Quản lý bài viết', icon: BookOpen },
+  { to: '/admin/reports', label: 'Báo cáo vi phạm', icon: Flag },
+  { to: '/admin/users', label: 'Tài khoản người dùng', icon: Users },
 ];
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-60 bg-green-dark text-white flex flex-col fixed inset-y-0 left-0 z-30">
-        <div className="px-4 py-3.5 border-b border-green-700 flex items-center justify-between">
-          <Link to="/admin" className="bg-white px-3 py-1.5 rounded-2xl inline-flex items-center shadow-sm">
-            <img src="/logo.png" alt="Hoa Lạc Việc" className="h-10 w-auto object-contain" />
+    <div className="min-h-screen bg-cream flex">
+      <aside className="w-60 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-30">
+        <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
+          <Link to="/admin" className="inline-flex items-center">
+            <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
           </Link>
-          <span className="font-bold text-[11px] uppercase tracking-wider text-green-200">Admin</span>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 uppercase tracking-wider">
+            Admin
+          </span>
         </div>
-        <nav className="flex-1 px-3 py-3 space-y-0.5">
+
+        <div className="px-4 py-3 border-b border-gray-100">
+          <p className="text-[11px] font-medium text-gray-500">Quản trị viên</p>
+          <p className="font-semibold text-text-main text-xs truncate mt-0.5">{user?.name}</p>
+        </div>
+
+        <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
           {ADMIN_NAV.map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               end={n.end}
               className={({ isActive }) =>
-                clsx('flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-                  isActive ? 'bg-white/20' : 'text-green-200 hover:bg-white/10 hover:text-white')
+                clsx(
+                  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-gray-100 text-green-dark font-semibold'
+                    : 'text-text-muted hover:bg-gray-50 hover:text-text-main'
+                )
               }
             >
-              <n.icon className="w-4 h-4 flex-shrink-0" />
-              {n.label}
+              <n.icon className="w-4 h-4 flex-shrink-0 text-gray-500" />
+              <span className="truncate">{n.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 border-t border-green-700">
-          <p className="text-xs text-green-300 px-3 truncate">{user?.name}</p>
-        </div>
       </aside>
-      <div className="flex-1 ml-60 flex flex-col min-w-0">
-        <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-gray-100 h-16 flex items-center justify-between px-6">
-          <span className="font-bold text-gray-800 text-sm">Hệ Thống Quản Trị Hoa Lạc Việc</span>
+
+      <div className="flex-1 lg:pl-60 flex flex-col min-w-0">
+        <header className="sticky top-0 z-20 bg-white border-b border-gray-200 h-14 flex items-center justify-between px-6">
+          <span className="font-semibold text-text-main text-xs">
+            Hệ Thống Quản Trị Hoa Lạc Việc
+          </span>
           <div className="flex items-center gap-3 ml-auto">
             <UserDropdown showWelcome={true} />
           </div>
         </header>
-        <main className="p-6 lg:p-8 flex-1"><Outlet /></main>
+
+        <main className="p-4 sm:p-6 lg:p-8 flex-1 max-w-6xl w-full mx-auto">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

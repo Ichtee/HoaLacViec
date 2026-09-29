@@ -1,48 +1,30 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  Search, MapPin, Clock, Shield, Zap, ChevronRight, Star,
-  Coffee, ShoppingBag, Dumbbell, BookOpen, Music, Leaf, ArrowRight
+  Search, MapPin, Clock, ShieldCheck, ChevronRight,
+  Coffee, ShoppingBag, Utensils, Zap, BookOpen, ArrowRight, CheckCircle2
 } from 'lucide-react';
-import { JOB_TYPES, JOB_TYPE_LABELS } from '@/constants';
 import { useAsync } from '@/hooks';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getJobs } from '@/services';
 import { JobCard } from '@/components/JobCard.jsx';
 import { LoadingPage } from '@/components/Feedback.jsx';
-import { formatVND } from '@/utils';
+
+const SHORTCUTS = [
+  { label: 'Pha chế', query: 'Pha chế' },
+  { label: 'Thu ngân', query: 'Thu ngân' },
+  { label: 'Phục vụ', query: 'Phục vụ' },
+  { label: 'Bán hàng', query: 'Bán hàng' },
+  { label: 'Gần FPT / ĐHQG', query: 'Hòa Lạc' },
+];
 
 const CATEGORIES = [
-  { icon: Coffee, label: 'Café & Trà sữa', to: '/jobs?search=Cafe', color: 'bg-amber-100 text-amber-700' },
-  { icon: ShoppingBag, label: 'Bách hóa & Bán lẻ', to: '/jobs?search=Bán hàng', color: 'bg-blue-100 text-blue-700' },
-  { icon: Clock, label: 'Việc theo ca', to: '/jobs?type=shift', color: 'bg-emerald-100 text-emerald-700' },
-  { icon: Dumbbell, label: 'Gym & Thể thao', to: '/jobs?search=Gym', color: 'bg-green-light text-green-dark' },
-  { icon: Zap, label: 'Chợ việc vặt SV', to: '/tasks', color: 'bg-purple-100 text-purple-700' },
-  { icon: BookOpen, label: 'Cẩm nang & Kinh nghiệm', to: '/blogs', color: 'bg-pink-light text-pink-700' },
-];
-
-const FEATURES = [
-  {
-    icon: Clock,
-    title: 'Ghép lịch học thông minh',
-    desc: 'Hệ thống so sánh lịch học và thời gian rảnh của bạn với lịch làm của việc — chỉ gợi ý những việc thực sự phù hợp.',
-  },
-  {
-    icon: Zap,
-    title: 'Ứng tuyển nhanh, không cần CV',
-    desc: 'Hoàn thiện hồ sơ một lần, ứng tuyển ngay bằng vài cú nhấp. Nhà tuyển dụng thấy thông tin bạn chọn chia sẻ.',
-  },
-  {
-    icon: Shield,
-    title: 'Nhà tuyển dụng xác thực',
-    desc: 'Chúng tôi kiểm tra cửa hàng trước khi đăng tin. Huy hiệu xác thực giúp bạn biết đâu là nơi đáng tin cậy.',
-  },
-];
-
-const STEPS = [
-  { num: '01', title: 'Tạo hồ sơ', desc: 'Điền thông tin, kỹ năng và lịch rảnh của bạn.' },
-  { num: '02', title: 'Tìm việc', desc: 'Duyệt danh sách hoặc để hệ thống gợi ý việc phù hợp.' },
-  { num: '03', title: 'Ứng tuyển', desc: 'Gửi đơn và nhận phản hồi từ nhà tuyển dụng.' },
+  { icon: Coffee, label: 'Café & Trà sữa', to: '/jobs?search=Cafe' },
+  { icon: Utensils, label: 'Quán ăn & Nhà hàng', to: '/jobs?search=Phục vụ' },
+  { icon: ShoppingBag, label: 'Cửa hàng & Bán lẻ', to: '/jobs?search=Bán hàng' },
+  { icon: Clock, label: 'Việc làm theo ca', to: '/jobs?type=shift' },
+  { icon: Zap, label: 'Chợ việc vặt sinh viên', to: '/tasks' },
+  { icon: BookOpen, label: 'Cẩm nang & Kinh nghiệm', to: '/blogs' },
 ];
 
 export default function HomePage() {
@@ -51,7 +33,7 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   const { data: latestJobsData, loading } = useAsync(
-    () => getJobs({ public: true, limit: 12, sort: 'featured' }),
+    () => getJobs({ public: true, limit: 8, sort: 'newest' }),
     [],
     { initialData: [] }
   );
@@ -61,110 +43,106 @@ export default function HomePage() {
 
   function handleSearch(e) {
     e.preventDefault();
-    navigate(`/jobs?search=${encodeURIComponent(search)}`);
+    if (!search.trim()) {
+      navigate('/jobs');
+      return;
+    }
+    navigate(`/jobs?search=${encodeURIComponent(search.trim())}`);
   }
 
   return (
     <div>
-      {/* ── Hero ─────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-green-light via-cream to-pink-light py-20 sm:py-32">
-        {/* Decorative blobs */}
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-green-200 opacity-20 translate-x-1/3 -translate-y-1/3 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-pink-200 opacity-20 -translate-x-1/3 translate-y-1/3 pointer-events-none" />
+      {/* ── Editorial Hero ─────────────────────────────────────── */}
+      <section className="bg-white border-b border-gray-200 py-10 sm:py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="space-y-3 mb-6">
+            <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-dark">
+              <span className="w-2 h-2 rounded-full bg-green-main"></span>
+              Bảng tin việc làm sinh viên Hòa Lạc
+            </div>
 
-        {/* Leaf decorations */}
-        <div className="absolute top-16 left-10 text-green-300 opacity-40 pointer-events-none">
-          <Leaf className="w-8 h-8 rotate-12" />
-        </div>
-        <div className="absolute top-32 right-20 text-green-200 opacity-30 pointer-events-none">
-          <Leaf className="w-6 h-6 -rotate-20" />
-        </div>
+            <h1 className="text-2xl sm:text-4xl font-bold text-text-main tracking-tight leading-tight">
+              Tìm việc theo ca, vừa lịch học quanh Hòa Lạc
+            </h1>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/70 backdrop-blur-sm border border-green-200 text-green-dark text-sm font-medium mb-6">
-            <Leaf className="w-4 h-4" />
-            Nền tảng việc làm khu vực Hòa Lạc
+            <p className="text-sm sm:text-base text-text-muted leading-relaxed max-w-2xl">
+              Nền tảng kết nối sinh viên FPT, ĐHQG và khu Công nghệ cao với các cửa hàng, quán cà phê địa phương. Tìm việc theo ca rảnh, rõ địa chỉ và mức lương.
+            </p>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-green-dark leading-tight mb-6">
-            Việc gần trường,{' '}
-            <span className="relative">
-              <span className="text-green-main">vừa lịch học</span>
-              <svg className="absolute -bottom-2 left-0 w-full h-2" viewBox="0 0 200 8" fill="none" preserveAspectRatio="none">
-                <path d="M2 6 Q50 2 100 5 Q150 8 198 4" stroke="#4D9363" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-              </svg>
-            </span>
-            .
-          </h1>
-          <p className="text-lg sm:text-xl text-text-muted mb-10 max-w-2xl mx-auto leading-relaxed">
-            Kết nối sinh viên Hòa Lạc với việc làm bán thời gian, ca và thực tập tại các cửa hàng xung quanh trường.
-          </p>
-
           {/* Search bar */}
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2.5">
             <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
                 id="hero-search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm theo tên việc, cửa hàng..."
-                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-green-100 bg-white text-text-main placeholder:text-text-light focus:outline-none focus:border-green-main focus:ring-2 focus:ring-green-main/20 shadow-card text-base"
+                placeholder="Tìm theo vị trí (pha chế, thu ngân, phục vụ) hoặc tên quán..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 bg-white text-text-main placeholder:text-gray-400 focus:outline-none focus:border-green-main focus:ring-1 focus:ring-green-main text-sm"
               />
             </div>
-            <button type="submit" className="btn-primary btn btn-lg flex-shrink-0 px-8">
-              Tìm việc
+            <button type="submit" className="btn-primary btn btn-md shrink-0">
+              Tìm việc làm
             </button>
           </form>
 
-          <div className="mt-4 flex flex-wrap justify-center gap-2 text-sm text-text-muted">
-            <span>Phổ biến:</span>
-            {['Pha chế', 'Thu ngân', 'Phục vụ', 'Gym PT', 'Sự kiện'].map((k) => (
+          {/* Shortcuts */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-text-muted">
+            <span className="text-gray-400">Gợi ý tìm nhanh:</span>
+            {SHORTCUTS.map((s) => (
               <button
-                key={k}
-                onClick={() => navigate(`/jobs?search=${encodeURIComponent(k)}`)}
-                className="hover:text-green-main hover:underline transition-colors"
+                key={s.label}
+                type="button"
+                onClick={() => navigate(`/jobs?search=${encodeURIComponent(s.query)}`)}
+                className="px-2 py-0.5 rounded border border-gray-200 hover:border-gray-300 hover:text-green-dark transition-colors bg-gray-50/60"
               >
-                {k}
+                {s.label}
               </button>
             ))}
           </div>
-
-
         </div>
       </section>
 
-      {/* ── Categories ───────────────────────────────────────── */}
-      <section className="py-14 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="section-title mb-6">Nhóm việc phổ biến</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* ── Category Shortcuts ──────────────────────────────────── */}
+      <section className="py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
           {CATEGORIES.map((c) => (
             <Link
               key={c.label}
               to={c.to}
-              className="card-sm hover:shadow-card-hover transition-all duration-200 flex flex-col items-center gap-2 py-5 text-center hover:-translate-y-0.5"
+              className="p-3 rounded-lg border border-gray-200/90 bg-white hover:border-gray-300 transition-colors flex items-center gap-2.5 text-text-main group"
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${c.color}`}>
-                <c.icon className="w-6 h-6" />
-              </div>
-              <span className="text-sm font-semibold text-text-main">{c.label}</span>
+              <c.icon className="w-4 h-4 text-gray-500 group-hover:text-green-dark shrink-0 transition-colors" />
+              <span className="text-xs font-medium truncate">{c.label}</span>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* ── Featured Jobs ─────────────────────────────────────── */}
-      <section className="py-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="section-title">Việc nổi bật</h2>
-          <Link to="/jobs" className="flex items-center gap-1 text-green-main text-sm font-semibold hover:underline">
-            Xem tất cả <ChevronRight className="w-4 h-4" />
+      {/* ── Featured Jobs List ─────────────────────────────────── */}
+      <section className="py-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+          <div>
+            <h2 className="section-title">Việc làm mới đăng</h2>
+            <p className="text-xs text-text-muted mt-0.5">Tuyển ca trực tiếp tại các cửa hàng khu vực Hòa Lạc</p>
+          </div>
+          <Link
+            to="/jobs"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-green-dark hover:underline"
+          >
+            Xem tất cả tin tuyển dụng <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
+
         {loading ? (
           <LoadingPage />
+        ) : jobsList.length === 0 ? (
+          <div className="p-8 text-center bg-white border border-gray-200 rounded-xl text-xs text-text-muted">
+            Hiện chưa có việc làm mới. Bạn có thể quay lại sau ít phút.
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-stretch">
             {featured.map((job) => (
               <div key={job._id || job.id} className="h-full flex flex-col">
                 <JobCard job={job} />
@@ -174,74 +152,77 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* ── Features ──────────────────────────────────────────── */}
-      <section className="py-16 bg-green-light">
+      {/* ── Local Utility Notes (Editorial 3-row) ────────────────── */}
+      <section className="py-12 bg-white border-y border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-green-dark mb-3">Tại sao chọn Hoa Lạc Việc?</h2>
-            <p className="text-text-muted">Được xây dựng riêng cho sinh viên khu vực Hòa Lạc.</p>
+          <div className="max-w-2xl mb-8">
+            <h2 className="text-xl font-bold text-text-main tracking-tight">
+              Quy trình tìm việc thực tế cho sinh viên Hòa Lạc
+            </h2>
+            <p className="text-xs sm:text-sm text-text-muted mt-1">
+              Hệ thống được thiết kế tinh giản để bạn tìm được việc phù hợp mà không mất thời gian chuẩn bị CV rườm rà.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="card text-center">
-                <div className="w-14 h-14 rounded-2xl bg-green-main/10 flex items-center justify-center mx-auto mb-4">
-                  <f.icon className="w-7 h-7 text-green-main" />
-                </div>
-                <h3 className="font-bold text-text-main mb-2">{f.title}</h3>
-                <p className="text-text-muted text-sm leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* ── How it works ────────────────────────────────────────── */}
-      <section className="py-20 max-w-5xl mx-auto px-4 sm:px-6">
-        <h2 className="text-3xl font-bold text-green-dark text-center mb-14">3 bước để có việc làm</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {STEPS.map((s, i) => (
-            <div key={s.num} className="relative flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-full bg-green-main text-white text-2xl font-bold flex items-center justify-center mb-4 shadow-lg">
-                {s.num}
-              </div>
-              {i < 2 && (
-                <div className="hidden md:block absolute top-8 left-[calc(50%+32px)] right-[-calc(50%-32px)] border-t-2 border-dashed border-green-200 w-full" />
-              )}
-              <h3 className="font-bold text-text-main mb-2">{s.title}</h3>
-              <p className="text-text-muted text-sm">{s.desc}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div className="space-y-1.5 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+              <span className="text-xs font-bold text-green-dark">01. Tra cứu ca rảnh</span>
+              <h3 className="font-semibold text-text-main text-sm">Xem giờ ca trước khi nộp</h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                Mỗi tin tuyển dụng đều ghi rõ khung ca sáng, chiều hoặc tối để bạn đối chiếu ngay với thời khóa biểu trên trường.
+              </p>
             </div>
-          ))}
-        </div>
-        <div className="text-center mt-12">
-          <Link to="/jobs" className="btn-primary btn btn-lg inline-flex items-center gap-2">
-            Khám phá việc làm ngay <ArrowRight className="w-5 h-5" />
-          </Link>
+
+            <div className="space-y-1.5 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+              <span className="text-xs font-bold text-green-dark">02. Xác nhận khoảng cách</span>
+              <h3 className="font-semibold text-text-main text-sm">Biết chính xác vị trí quán</h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                Khoảng cách được ước tính trực tiếp đến các điểm quen thuộc như KTX FPT, KTX ĐHQG, ngã ba Hòa Lạc hoặc đường 21.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+              <span className="text-xs font-bold text-green-dark">03. Đi làm & chấm công</span>
+              <h3 className="font-semibold text-text-main text-sm">Duyệt ca và tính công minh bạch</h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                Sau khi được nhận, ca làm được xếp lịch trên hệ thống, có xác nhận và ghi nhận giờ công chi tiết từng buổi.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ── Employer CTA ────────────────────────────────────────── */}
-      <section className="py-16 bg-pink-light">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl font-bold text-text-main mb-4">Bạn có cửa hàng tại Hòa Lạc?</h2>
-          <p className="text-text-muted mb-8 text-lg">
-            Đăng tin tuyển dụng miễn phí và tiếp cận hàng nghìn sinh viên đang tìm việc bán thời gian.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+      <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-1.5 max-w-xl">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+              Dành cho chủ quán & cơ sở kinh doanh
+            </span>
+            <h2 className="text-lg sm:text-xl font-bold text-text-main tracking-tight">
+              Cần tuyển nhân viên bán thời gian tại Hòa Lạc?
+            </h2>
+            <p className="text-xs sm:text-sm text-text-muted leading-relaxed">
+              Đăng tin tuyển theo ca, nhận hồ sơ từ sinh viên gần quán, xếp lịch và duyệt công làm việc hàng ngày ngay trên nền tảng.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             {isAuthenticated && role === 'employer' ? (
               <>
-                <Link to="/employer/jobs" className="btn-primary btn btn-lg">
-                  Đăng tin tuyển dụng mới
+                <Link to="/employer/jobs" className="btn-primary btn btn-md">
+                  Đăng tin mới
                 </Link>
-                <Link to="/employer" className="btn-outline btn btn-lg">
-                  Quản lý tin & Ứng viên
+                <Link to="/employer" className="btn-outline btn btn-md">
+                  Vào trang quản lý
                 </Link>
               </>
             ) : (
               <>
-                <Link to="/register?role=employer" className="btn-primary btn btn-lg">
-                  Đăng tin tuyển dụng ngay
+                <Link to="/register?role=employer" className="btn-primary btn btn-md">
+                  Đăng ký tuyển dụng
                 </Link>
-                <Link to="/login" className="btn-outline btn btn-lg">
+                <Link to="/login" className="btn-outline btn btn-md">
                   Đăng nhập chủ quán
                 </Link>
               </>

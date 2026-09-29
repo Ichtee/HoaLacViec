@@ -1,4 +1,3 @@
-
 import { clsx } from 'clsx';
 
 export function Input({ label, error, hint, id, className, required, ...props }) {
@@ -54,7 +53,7 @@ export function Select({ label, error, hint, id, className, required, options, c
       <div className="relative">
         <select
           id={id}
-          className={clsx('input appearance-none cursor-pointer pr-10 bg-white', error && 'input-error', className)}
+          className={clsx('input appearance-none cursor-pointer pr-9 bg-white', error && 'input-error', className)}
           {...props}
         >
           {options
@@ -69,7 +68,7 @@ export function Select({ label, error, hint, id, className, required, options, c
               })
             : children}
         </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
           </svg>
@@ -87,10 +86,10 @@ export function Checkbox({ label, id, error, className, ...props }) {
       <input
         type="checkbox"
         id={id}
-        className={clsx('w-4 h-4 rounded accent-green-main cursor-pointer', className)}
+        className={clsx('w-4 h-4 rounded border-gray-300 text-green-main focus:ring-green-main/30 cursor-pointer', className)}
         {...props}
       />
-      {label && <span className="text-sm text-text-main">{label}</span>}
+      {label && <span className="text-sm text-text-main font-normal">{label}</span>}
       {error && <p className="error-msg">{error}</p>}
     </label>
   );

@@ -19,13 +19,13 @@ export function Button({
     danger: 'btn-danger',
     ghost: 'btn-ghost',
     pink: 'btn-pink',
-  }[variant];
+  }[variant] || 'btn-primary';
 
   const sizeClass = {
     sm: 'btn-sm',
     md: 'btn-md',
     lg: 'btn-lg',
-  }[size];
+  }[size] || 'btn-md';
 
   return (
     <button
@@ -33,7 +33,7 @@ export function Button({
       className={clsx(variantClass, sizeClass, className)}
       {...props}
     >
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : leftIcon}
+      {loading ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : leftIcon}
       {children}
       {!loading && rightIcon}
     </button>
@@ -41,17 +41,18 @@ export function Button({
 }
 
 export function IconButton({ icon, label, variant = 'ghost', size = 'md', className, ...props }) {
-  const sizeClass = { sm: 'p-1.5', md: 'p-2', lg: 'p-3' }[size];
+  const sizeClass = { sm: 'p-1.5', md: 'p-2', lg: 'p-2.5' }[size] || 'p-2';
   const variantClass = {
-    ghost: 'text-text-muted hover:bg-green-50 hover:text-green-dark rounded-xl',
-    primary: 'text-white bg-green-main hover:bg-green-dark rounded-xl',
-    danger: 'text-red-500 hover:bg-red-50 rounded-xl',
-  }[variant];
+    ghost: 'text-text-muted hover:bg-gray-100 hover:text-text-main rounded-lg border border-transparent',
+    primary: 'text-white bg-green-main hover:bg-green-dark rounded-lg shadow-xs',
+    danger: 'text-red-600 hover:bg-red-50 rounded-lg border border-transparent',
+    outline: 'text-text-main border border-gray-200 hover:bg-gray-50 rounded-lg',
+  }[variant] || 'text-text-muted hover:bg-gray-100 rounded-lg';
 
   return (
     <button
       aria-label={label}
-      className={clsx('transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-main', sizeClass, variantClass, className)}
+      className={clsx('inline-flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-green-main', sizeClass, variantClass, className)}
       {...props}
     >
       {icon}

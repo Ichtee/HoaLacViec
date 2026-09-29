@@ -348,59 +348,59 @@ export default function JobListPage() {
       {/* Page Header + View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-text-main flex items-center gap-2">
-            Tìm việc quanh Hòa Lạc 📍
+          <h1 className="text-xl sm:text-2xl font-bold text-text-main tracking-tight">
+            Tìm việc làm quanh Hòa Lạc
           </h1>
-          <p className="text-text-muted text-xs sm:text-sm mt-1 flex items-center gap-1.5 flex-wrap">
+          <p className="text-text-muted text-xs sm:text-sm mt-0.5 flex items-center gap-1.5 flex-wrap">
             {userLocation ? (
-              <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-green-dark font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-main"></span>
                 Đang định vị quanh {userLocation.label} • {sorted.length} công việc có sẵn
               </span>
             ) : geoStatus === 'requesting' ? (
-              <span className="text-blue-600 font-medium flex items-center gap-1.5">
+              <span className="text-blue-700 font-medium flex items-center gap-1.5">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Đang xin quyền vị trí từ trình duyệt... • {sorted.length} công việc có sẵn
+                Đang lấy tọa độ trình duyệt... • {sorted.length} việc làm
               </span>
             ) : (
-              <span>Định vị khu vực Hòa Lạc • {sorted.length} công việc có sẵn</span>
+              <span>Khu vực Hòa Lạc • {sorted.length} việc làm</span>
             )}
           </p>
         </div>
 
         {/* View Mode Toggle */}
         <div className="flex items-center gap-2 self-start sm:self-center">
-          <div className="flex bg-white p-1 rounded-2xl border border-green-100 shadow-sm">
+          <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200/80">
             <button
               onClick={() => setViewMode('map')}
               className={clsx(
-                'flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all',
+                'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors',
                 viewMode === 'map'
-                  ? 'bg-green-main text-white shadow-sm'
-                  : 'text-text-muted hover:text-green-dark'
+                  ? 'bg-white text-text-main shadow-xs font-semibold'
+                  : 'text-text-muted hover:text-text-main'
               )}
             >
-              <Map className="w-4 h-4" /> Bản đồ & Vị trí
+              <Map className="w-3.5 h-3.5" /> Bản đồ
             </button>
             <button
               onClick={() => setViewMode('list')}
               className={clsx(
-                'flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all',
+                'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors',
                 viewMode === 'list'
-                  ? 'bg-green-main text-white shadow-sm'
-                  : 'text-text-muted hover:text-green-dark'
+                  ? 'bg-white text-text-main shadow-xs font-semibold'
+                  : 'text-text-muted hover:text-text-main'
               )}
             >
-              <List className="w-4 h-4" /> Danh sách
+              <List className="w-3.5 h-3.5" /> Danh sách
             </button>
           </div>
         </div>
       </div>
 
       {/* Search + Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2.5">
         <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
             id="job-search"
             value={search}
@@ -409,42 +409,42 @@ export default function JobListPage() {
               setPage(1);
             }}
             placeholder="Tìm theo tên việc, quán cà phê, siêu thị..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-green-100 bg-white text-sm focus:outline-none focus:border-green-main focus:ring-2 focus:ring-green-main/20"
+            className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:border-green-main focus:ring-1 focus:ring-green-main"
           />
         </div>
 
         <button
           onClick={() => setFiltersOpen(!filtersOpen)}
           className={clsx(
-            'btn btn-md flex items-center gap-2 font-bold',
+            'btn btn-md flex items-center gap-2 font-medium',
             filtersOpen || hasFilters ? 'btn-secondary' : 'btn-outline'
           )}
         >
-          <SlidersHorizontal className="w-4 h-4" />
-          Bộ lọc tìm kiếm
-          {hasFilters && <span className="w-2 h-2 rounded-full bg-green-main ml-1" />}
+          <SlidersHorizontal className="w-3.5 h-3.5 text-gray-500" />
+          Bộ lọc
+          {hasFilters && <span className="w-1.5 h-1.5 rounded-full bg-green-main ml-0.5" />}
         </button>
 
         <Select
           id="sort-select"
           value={sort}
           onChange={(e) => handleSortChange(e.target.value)}
-          className="w-auto min-w-[190px]"
+          className="w-auto min-w-[170px]"
         >
-          <option value="newest">🕒 Mới nhất</option>
-          <option value="nearest">📍 Gần tôi nhất</option>
-          <option value="featured">⭐ Việc nổi bật</option>
-          <option value="rating">🌟 Đánh giá cao nhất</option>
-          <option value="salary_desc">💰 Lương cao nhất</option>
-          <option value="salary_asc">💵 Lương thấp đến cao</option>
-          <option value="oldest">⏳ Cũ nhất</option>
+          <option value="newest">Mới nhất</option>
+          <option value="nearest">Gần tôi nhất</option>
+          <option value="featured">Việc nổi bật</option>
+          <option value="rating">Đánh giá cao nhất</option>
+          <option value="salary_desc">Lương cao nhất</option>
+          <option value="salary_asc">Lương thấp đến cao</option>
+          <option value="oldest">Cũ nhất</option>
         </Select>
       </div>
 
       {/* Expanded Filters Panel */}
       {filtersOpen && (
-        <div className="card mb-2 animate-fade-in bg-white border border-green-100 p-5 rounded-3xl shadow-card space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        <div className="card mb-2 animate-fade-in bg-white border border-gray-200 p-4 rounded-xl shadow-xs space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
             <Select
               id="filter-salary"
               label="Mức lương tối thiểu"
@@ -494,7 +494,7 @@ export default function JobListPage() {
             </Select>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-2xl bg-cream/70 hover:bg-green-50 border border-green-100 transition-colors flex-1">
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex-1">
                 <input
                   type="checkbox"
                   checked={verifiedOnly}
@@ -504,12 +504,12 @@ export default function JobListPage() {
                   }}
                   className="w-4 h-4 accent-green-main rounded"
                 />
-                <span className="text-xs font-bold text-text-main select-none">
-                  🛡️ Quán xác thực
+                <span className="text-xs font-medium text-text-main select-none">
+                  Cửa hàng xác thực
                 </span>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-2xl bg-cream/70 hover:bg-pink-50 border border-pink-100 transition-colors flex-1">
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors flex-1">
                 <input
                   type="checkbox"
                   checked={featuredOnly}
@@ -517,10 +517,10 @@ export default function JobListPage() {
                     setFeaturedOnly(e.target.checked);
                     setPage(1);
                   }}
-                  className="w-4 h-4 accent-pink-600 rounded"
+                  className="w-4 h-4 accent-green-main rounded"
                 />
-                <span className="text-xs font-bold text-text-main select-none">
-                  ⭐ Việc nổi bật
+                <span className="text-xs font-medium text-text-main select-none">
+                  Việc ưu tiên
                 </span>
               </label>
             </div>

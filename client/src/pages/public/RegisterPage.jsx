@@ -81,31 +81,35 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-cream to-pink-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <Link to="/" className="inline-block group mb-2">
+    <div className="min-h-screen bg-cream flex items-center justify-center p-4">
+      <div className="w-full max-w-sm space-y-5 animate-fade-in">
+        <div className="text-center space-y-1.5">
+          <Link to="/" className="inline-block py-1">
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
-              className="h-20 sm:h-24 w-auto mx-auto object-contain transition-transform group-hover:scale-105"
+              className="h-12 w-auto mx-auto object-contain"
             />
           </Link>
-          <h1 className="text-2xl font-bold text-green-dark">Đăng ký tài khoản</h1>
-          <p className="text-text-muted text-xs mt-1">Kết nối việc làm & hỗ trợ sinh viên tại khu vực Hòa Lạc</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-text-main tracking-tight">
+            Đăng ký tài khoản
+          </h1>
+          <p className="text-text-muted text-xs">
+            Nền tảng việc làm theo ca cho sinh viên khu vực Hòa Lạc
+          </p>
         </div>
 
-        <div className="card shadow-modal bg-white rounded-3xl p-6 border border-green-100">
-          <div className="mb-5 p-3 rounded-2xl bg-green-50/60 border border-green-100 text-center">
-            <p className="text-xs font-semibold text-green-dark">
-              Tạo tài khoản thành viên Hoa Lạc Việc
+        <div className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200 shadow-sm space-y-4">
+          <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-center">
+            <p className="text-xs font-semibold text-text-main">
+              Tạo tài khoản Hoa Lạc Việc
             </p>
             <p className="text-[11px] text-text-muted mt-0.5">
-              Sau khi đăng ký, bạn có thể xác minh thẻ sinh viên để tìm việc ngay, hoặc nộp hồ sơ mở cửa hàng tuyển dụng.
+              Sau khi đăng ký, bạn có thể hoàn tất thông tin để tìm việc hoặc mở tài khoản tuyển dụng.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
+          <form onSubmit={handleSubmit} className="space-y-3" noValidate>
             <Input
               id="reg-name"
               label="Họ và tên của bạn"
@@ -169,22 +173,22 @@ export default function RegisterPage() {
             </div>
 
             {errors.submit && (
-              <p className="p-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-semibold">{errors.submit}</p>
+              <p className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium">{errors.submit}</p>
             )}
 
-            <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full mt-2">
+            <Button type="submit" variant="primary" size="md" loading={loading} className="w-full mt-2 justify-center">
               Tiếp tục & Xác minh tài khoản
             </Button>
             {slowNotice && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-center mt-2.5 animate-fade-in">
-                ⏳ Máy chủ Render đang thức dậy (mất ~30s sau thời gian nghỉ). Vui lòng đợi trong giây lát...
+              <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 text-center mt-2 animate-fade-in">
+                Máy chủ đang khởi động lại. Vui lòng đợi trong giây lát...
               </p>
             )}
           </form>
 
-          <p className="text-center text-xs text-text-muted mt-5">
+          <p className="text-center text-xs text-text-muted pt-2 border-t border-gray-100">
             Đã có tài khoản?{' '}
-            <Link to="/login" className="text-green-main font-bold hover:underline">Đăng nhập ngay</Link>
+            <Link to="/login" className="text-green-dark font-semibold hover:underline">Đăng nhập ngay</Link>
           </p>
         </div>
       </div>

@@ -12,110 +12,105 @@
     scroll-behavior: smooth;
   }
   body {
-    font-family: 'Be Vietnam Pro', sans-serif;
-    background-color: #FFFDF6;
-    color: #243C2C;
+    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #F9FAF9;
+    color: #1A2E22;
     -webkit-font-smoothing: antialiased;
   }
 }
 
 @layer components {
-  /* Buttons */
+  /* Buttons - Clean, rectangular with subtle rounded corners (8-10px) */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-full transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-sm {
-    @apply px-4 py-1.5 text-sm;
+    @apply px-3 py-1.5 text-xs sm:text-sm;
   }
   .btn-md {
-    @apply px-6 py-2.5 text-sm;
+    @apply px-4 py-2 text-sm;
   }
   .btn-lg {
-    @apply px-8 py-3 text-base;
+    @apply px-5 py-2.5 text-sm sm:text-base;
   }
   .btn-primary {
-    @apply btn bg-green-main text-white hover:bg-green-dark focus-visible:ring-green-main active:scale-95;
+    @apply btn bg-green-main text-white hover:bg-green-dark focus-visible:ring-green-main shadow-xs;
   }
   .btn-secondary {
-    @apply btn bg-green-light text-green-dark hover:bg-green-100 focus-visible:ring-green-main active:scale-95;
+    @apply btn bg-gray-100 text-text-main hover:bg-gray-200 border border-gray-200/80 focus-visible:ring-gray-300;
   }
   .btn-outline {
-    @apply btn border-2 border-green-main text-green-dark hover:bg-green-light focus-visible:ring-green-main active:scale-95;
+    @apply btn border border-gray-300 text-text-main hover:bg-gray-50 hover:border-gray-400 focus-visible:ring-gray-300;
   }
   .btn-danger {
-    @apply btn bg-red-500 text-white hover:bg-red-600 focus-visible:ring-red-500 active:scale-95;
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500 shadow-xs;
   }
   .btn-ghost {
-    @apply btn text-green-dark hover:bg-green-light focus-visible:ring-green-main active:scale-95;
+    @apply btn text-text-muted hover:text-text-main hover:bg-gray-100/80 focus-visible:ring-gray-300;
   }
   .btn-pink {
-    @apply btn bg-pink-main text-text-main hover:bg-pink-400 focus-visible:ring-pink-main active:scale-95;
+    @apply btn bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200/60 focus-visible:ring-pink-300;
   }
 
-  /* Cards */
+  /* Cards - Editorial, structured, subtle border, no heavy drop-shadows */
   .card {
-    @apply bg-white rounded-3xl shadow-card p-6;
+    @apply bg-white rounded-xl border border-gray-200/80 shadow-xs p-5;
   }
   .card-sm {
-    @apply bg-white rounded-2xl shadow-card p-4;
+    @apply bg-white rounded-lg border border-gray-200/80 shadow-xs p-3.5;
   }
   .card-hover {
-    @apply card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer;
+    @apply card transition-colors duration-150 hover:border-gray-300 cursor-pointer;
   }
 
-  /* Inputs */
+  /* Inputs - Crisp 8px radius, standard focus rings */
   .input {
-    @apply w-full px-4 py-2.5 rounded-2xl border border-green-100 bg-white text-text-main placeholder:text-text-light focus:outline-none focus:border-green-main focus:ring-2 focus:ring-green-main/20 transition-all duration-150;
+    @apply w-full px-3.5 py-2 rounded-lg border border-gray-300 bg-white text-text-main placeholder:text-gray-400 focus:outline-none focus:border-green-main focus:ring-1 focus:ring-green-main text-sm transition-colors duration-150;
   }
   .input-error {
-    @apply border-red-400 focus:border-red-500 focus:ring-red-200;
+    @apply border-red-400 focus:border-red-500 focus:ring-red-500;
   }
   .label {
-    @apply block text-sm font-semibold text-text-main mb-1.5;
+    @apply block text-xs font-semibold text-text-main mb-1;
   }
   .error-msg {
-    @apply text-xs text-red-500 mt-1;
+    @apply text-xs text-red-600 mt-1 font-medium;
   }
 
-  /* Badges */
+  /* Badges - Functional, compact, semantic tags */
   .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border;
   }
   .badge-green {
-    @apply badge bg-green-light text-green-dark;
+    @apply badge bg-green-50 text-green-800 border-green-200/80;
   }
   .badge-pink {
-    @apply badge bg-pink-light text-pink-700;
+    @apply badge bg-pink-50 text-pink-800 border-pink-200/80;
   }
   .badge-yellow {
-    @apply badge bg-yellow-100 text-yellow-800;
+    @apply badge bg-amber-50 text-amber-800 border-amber-200/80;
   }
   .badge-red {
-    @apply badge bg-red-100 text-red-700;
+    @apply badge bg-red-50 text-red-800 border-red-200/80;
   }
   .badge-gray {
-    @apply badge bg-gray-100 text-gray-600;
+    @apply badge bg-gray-50 text-gray-700 border-gray-200;
   }
   .badge-blue {
-    @apply badge bg-blue-100 text-blue-700;
+    @apply badge bg-blue-50 text-blue-800 border-blue-200/80;
   }
 
-  /* Section */
+  /* Section Typography */
   .section-title {
-    @apply text-xl font-bold text-text-main;
+    @apply text-lg sm:text-xl font-bold text-text-main tracking-tight;
   }
   .page-title {
-    @apply text-2xl font-bold text-text-main;
+    @apply text-xl sm:text-2xl font-bold text-text-main tracking-tight;
   }
 
   /* Divider */
   .divider {
-    @apply border-t border-green-50;
-  }
-
-  /* Decorative blobs */
-  .blob {
-    @apply absolute rounded-full opacity-20 pointer-events-none;
+    @apply border-t border-gray-200/80;
   }
 }
 
@@ -125,26 +120,21 @@
   }
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #4D9363 transparent;
+    scrollbar-color: #55665B transparent;
   }
 }
 
-/* Animations */
+/* Animations - Subtle, unobtrusive */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-.animate-fade-in { animation: fadeIn 0.25s ease both; }
-.animate-slide-up { animation: slideUp 0.3s ease both; }
-.animate-scale-in { animation: scaleIn 0.2s ease both; }
+.animate-fade-in { animation: fadeIn 0.15s ease both; }
+.animate-slide-up { animation: slideUp 0.2s ease both; }
 
 /* Custom Vietmap GL Map Markers */
 .vietmap-job-marker,
@@ -178,4 +168,3 @@
   left: 0 !important;
   will-change: transform !important;
 }
-
