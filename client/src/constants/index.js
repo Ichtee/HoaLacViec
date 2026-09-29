@@ -77,12 +77,6 @@ export const SHIFT_STATUS_LABELS = {
   [SHIFT_STATUS.CANCELLED]: 'Đã hủy',
 };
 
-// Attendance status
-export const ATTENDANCE_STATUS = {
-  PENDING: 'pending',
-  APPROVED: 'approved',
-  DISPUTED: 'disputed',
-};
 
 // Swap request status
 export const SWAP_STATUS = {
@@ -126,3 +120,67 @@ export const CHECKIN_RADIUS_METERS = 200; // default check-in radius
 
 export const DAYS_OF_WEEK = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
 export const DAYS_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+
+// Canonical workforce scheduling lifecycles
+export const SCHEDULE_STATUS = {
+  DRAFT: 'draft',
+  PUBLISHED: 'published',
+  CANCELLED: 'cancelled',
+};
+
+export const SCHEDULE_STATUS_LABELS = {
+  [SCHEDULE_STATUS.DRAFT]: 'Lịch nháp',
+  [SCHEDULE_STATUS.PUBLISHED]: 'Đã công bố',
+  [SCHEDULE_STATUS.CANCELLED]: 'Đã hủy ca',
+};
+
+export const ASSIGNMENT_STATUS = {
+  UNASSIGNED: 'unassigned',
+  ASSIGNED: 'assigned',
+  ACKNOWLEDGED: 'acknowledged',
+  ACCEPTED: 'accepted',
+  DECLINED: 'declined',
+};
+
+export const ASSIGNMENT_STATUS_LABELS = {
+  [ASSIGNMENT_STATUS.UNASSIGNED]: 'Chưa phân công',
+  [ASSIGNMENT_STATUS.ASSIGNED]: 'Đã phân ca',
+  [ASSIGNMENT_STATUS.ACKNOWLEDGED]: 'Đã xem lịch',
+  [ASSIGNMENT_STATUS.ACCEPTED]: 'Đã nhận ca',
+  [ASSIGNMENT_STATUS.DECLINED]: 'Đã từ chối',
+};
+
+export const ATTENDANCE_STATUS = {
+  NOT_STARTED: 'not_started',
+  CHECKED_IN: 'checked_in',
+  CHECKED_OUT: 'checked_out',
+  NEEDS_REVIEW: 'needs_review',
+  COMPLETED_PENDING_REVIEW: 'completed_pending_review',
+  APPROVED: 'approved',
+  DISPUTED: 'disputed',
+  NO_SHOW: 'no_show',
+};
+
+export const ATTENDANCE_STATUS_LABELS = {
+  [ATTENDANCE_STATUS.NOT_STARTED]: 'Chưa vào ca',
+  [ATTENDANCE_STATUS.CHECKED_IN]: 'Đang làm việc',
+  [ATTENDANCE_STATUS.CHECKED_OUT]: 'Đã tan ca',
+  [ATTENDANCE_STATUS.NEEDS_REVIEW]: 'Chờ xem xét GPS',
+  [ATTENDANCE_STATUS.COMPLETED_PENDING_REVIEW]: 'Chờ duyệt công',
+  [ATTENDANCE_STATUS.APPROVED]: 'Đã duyệt công',
+  [ATTENDANCE_STATUS.DISPUTED]: 'Đang đối soát',
+  [ATTENDANCE_STATUS.NO_SHOW]: 'Vắng mặt',
+};
+
+export const PAYROLL_STATUS = {
+  NOT_READY: 'not_ready',
+  READY: 'ready',
+  PAID: 'paid',
+};
+
+export const PAYROLL_STATUS_LABELS = {
+  [PAYROLL_STATUS.NOT_READY]: 'Chưa tính lương',
+  [PAYROLL_STATUS.READY]: 'Sẵn sàng tính lương',
+  [PAYROLL_STATUS.PAID]: 'Đã thanh toán',
+};
+

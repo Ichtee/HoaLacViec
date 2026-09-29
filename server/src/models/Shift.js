@@ -1,4 +1,12 @@
 import mongoose from 'mongoose';
+import {
+  SCHEDULE_STATUSES,
+  ASSIGNMENT_STATUSES,
+  ATTENDANCE_STATUSES,
+  PAYROLL_STATUSES,
+  computeLegacyStatus,
+  migrateLegacyStatusToCanonical,
+} from '../domain/shiftLifecycle.js';
 
 /**
  * Helper to compute Date (UTC) from Vietnam date string (YYYY-MM-DD) and time string (HH:mm)
@@ -28,6 +36,7 @@ const shiftSchema = new mongoose.Schema({
   studentUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Legacy alias for studentUserId
   studentName: { type: String, default: '' },
+  studentPhone: { type: String, default: '' },
   role: { type: String, default: 'Nhân viên bán ca' },
 
   // Precise UTC timestamps for conflict checking & scheduling
@@ -43,39 +52,84 @@ const shiftSchema = new mongoose.Schema({
   workedMinutes: { type: Number, default: 0 },
   totalPay: { type: Number, default: 0 }, // Calculated on server
 
+  // -----------------------------------------------------------------
+  // CANONICAL SEPARATED LIFECYCLE STATES
+  // -----------------------------------------------------------------
+  scheduleStatus: {
+    type: String,
+    enum: Object.values(SCHEDULE_STATUSES),
+    default: SCHEDULE_STATUSES.PUBLISHED,
+    index: true,
+  },
+  assignmentStatus: {
+    type: String,
+    enum: Object.values(ASSIGNMENT_STATUSES),
+    default: ASSIGNMENT_STATUSES.ASSIGNED,
+    index: true,
+  },
+  attendanceStatus: {
+    type: String,
+    enum: Object.values(ATTENDANCE_STATUSES),
+    default: ATTENDANCE_STATUSES.NOT_STARTED,
+    index: true,
+  },
+  payrollStatus: {
+    type: String,
+    enum: Object.values(PAYROLL_STATUSES),
+    default: PAYROLL_STATUSES.NOT_READY,
+    index: true,
+  },
+
+  // Schedule revisions & audits
+  scheduleRevision: { type: Number, default: 1 },
+  publishedAt: { type: Date, default: null },
+  publishedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  acknowledgedAt: { type: Date, default: null },
+  acknowledgedRevision: { type: Number, default: 0 },
+  cancelReason: { type: String, default: '' },
+
+  // Snapshot of wage rate and planned pay at time of schedule creation
+  wageSnapshot: {
+    hourlyRate: { type: Number, default: 25000 },
+    estimatedHours: { type: Number, default: 4 },
+    estimatedPay: { type: Number, default: 100000 },
+  },
+
+  // Dispute resolution audit
+  disputeResolution: {
+    resolvedAt: { type: Date, default: null },
+    resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    resolution: { type: String, enum: ['accepted', 'rejected', null], default: null },
+    note: { type: String, default: '' },
+    adjustedMinutes: { type: Number, default: null },
+  },
+
+  // Legacy compatibility status (derived and synchronized)
   status: {
     type: String,
     enum: [
-      // Standard workflow
-      'draft',                      // Ca nháp (chưa thông báo cho nhân viên)
-      'published',                  // Đã công bố lịch (nhân viên nhận thông báo)
-      'acknowledged',               // Nhân viên đã xác nhận xem lịch
-      'checked_in',                 // Đang làm ca
-      'checked_out',                // Đã ra ca
-      'completed_pending_review',   // Hoàn thành, chờ duyệt công
-      'approved',                   // Quản lý đã duyệt công
-      'payroll_ready',              // Sẵn sàng tính lương
-      'paid',                       // Đã chi trả lương
-
-      // Exceptional statuses
-      'disputed',                   // Có khiếu nại / tranh chấp công
-      'cancelled',                  // Đã hủy ca
-      'no_show',                    // Vắng mặt không phép
-
-      // Legacy compatibility values
-      'scheduled',                  // Map to published
+      'draft',
+      'published',
+      'acknowledged',
+      'checked_in',
+      'checked_out',
+      'completed_pending_review',
+      'approved',
+      'payroll_ready',
+      'paid',
+      'disputed',
+      'cancelled',
+      'no_show',
+      // Legacy compatibility
+      'scheduled',
       'needs_review',
-      'pending_approval',           // Map to completed_pending_review
-      'completed',                  // Map to approved
-      'absent',                     // Map to no_show
+      'pending_approval',
+      'completed',
+      'absent',
     ],
     default: 'published',
     index: true,
   },
-
-  publishedAt: { type: Date, default: null },
-  acknowledgedAt: { type: Date, default: null },
-  cancelReason: { type: String, default: '' },
 
   attendance: {
     checkInAt: { type: Date, default: null },
@@ -130,6 +184,9 @@ const shiftSchema = new mongoose.Schema({
   history: [
     {
       status: { type: String },
+      scheduleStatus: { type: String },
+      attendanceStatus: { type: String },
+      payrollStatus: { type: String },
       changedAt: { type: Date, default: Date.now },
       changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       note: { type: String, default: '' },
@@ -137,7 +194,7 @@ const shiftSchema = new mongoose.Schema({
   ],
 }, { timestamps: true });
 
-// Pre-validate hook to calculate startAt and endAt if not explicitly set
+// Pre-validate hook to calculate startAt, endAt, totalPay and two-way sync canonical states
 shiftSchema.pre('validate', function (next) {
   if (this.date && this.startTime && this.endTime) {
     const isOvernight = this.endTime <= this.startTime;
@@ -148,11 +205,43 @@ shiftSchema.pre('validate', function (next) {
       this.endAt = parseVietnamDateTime(this.date, this.endTime, isOvernight);
     }
   }
+
+  // Ensure hours is calculated
+  if (this.startAt && this.endAt) {
+    const diffHours = (new Date(this.endAt).getTime() - new Date(this.startAt).getTime()) / (1000 * 60 * 60);
+    if (diffHours > 0) {
+      this.hours = Math.round(diffHours * 100) / 100;
+    }
+  }
+
+  // Ensure wage snapshot
+  if (!this.wageSnapshot || !this.wageSnapshot.hourlyRate) {
+    this.wageSnapshot = {
+      hourlyRate: this.wageRate || 25000,
+      estimatedHours: this.hours || 4,
+      estimatedPay: (this.hours || 4) * (this.wageRate || 25000),
+    };
+  }
+
+  // Two-way synchronization between canonical fields and legacy status
+  if (this.isModified('scheduleStatus') || this.isModified('assignmentStatus') || this.isModified('attendanceStatus') || this.isModified('payrollStatus')) {
+    this.status = computeLegacyStatus(this);
+  } else if (this.isModified('status') && !this.scheduleStatus) {
+    const canonical = migrateLegacyStatusToCanonical(this.status);
+    this.scheduleStatus = canonical.scheduleStatus;
+    this.assignmentStatus = canonical.assignmentStatus;
+    this.attendanceStatus = canonical.attendanceStatus;
+    this.payrollStatus = canonical.payrollStatus;
+  } else {
+    this.status = computeLegacyStatus(this);
+  }
+
   // Sync legacy aliases
   if (this.studentUserId && !this.studentId) this.studentId = this.studentUserId;
   if (this.studentId && !this.studentUserId) this.studentUserId = this.studentId;
   if (this.employerUserId && !this.employerId) this.employerId = this.employerUserId;
   if (this.employerId && !this.employerUserId) this.employerUserId = this.employerId;
+
   next();
 });
 
@@ -161,5 +250,6 @@ shiftSchema.index({ studentUserId: 1, startAt: 1, endAt: 1 });
 shiftSchema.index({ employerUserId: 1, startAt: 1, endAt: 1 });
 shiftSchema.index({ studentUserId: 1, date: -1 });
 shiftSchema.index({ employerUserId: 1, date: -1 });
+shiftSchema.index({ scheduleStatus: 1, attendanceStatus: 1, payrollStatus: 1 });
 
 export const Shift = mongoose.model('Shift', shiftSchema);

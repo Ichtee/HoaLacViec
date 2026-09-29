@@ -328,15 +328,41 @@ export async function apiCreateShift(shiftData) {
   });
 }
 
-export async function apiPublishShifts(shiftIds) {
+export async function apiPublishShifts(payload) {
+  const body = Array.isArray(payload) ? { shiftIds: payload } : payload;
   return request('/shifts/publish', {
     method: 'POST',
-    body: JSON.stringify({ shiftIds }),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiPreflightPublish(data) {
+  return request('/shifts/preflight', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiGenerateFromTemplates(data) {
+  return request('/shifts/generate-from-templates', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 
 export async function apiAcknowledgeShift(shiftId) {
   return request(`/shifts/${shiftId}/acknowledge`, { method: 'POST' });
+}
+
+export async function apiAcceptShift(shiftId) {
+  return request(`/shifts/${shiftId}/accept`, { method: 'POST' });
+}
+
+export async function apiDeclineShift(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/decline`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
 export async function apiRescheduleShift(shiftId, scheduleData) {
@@ -346,12 +372,22 @@ export async function apiRescheduleShift(shiftId, scheduleData) {
   });
 }
 
+export async function apiCancelShift(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function apiMarkPayrollReady(shiftId) {
   return request(`/shifts/${shiftId}/payroll-ready`, { method: 'POST' });
 }
 
-export async function apiMarkPaid(shiftId) {
-  return request(`/shifts/${shiftId}/pay`, { method: 'POST' });
+export async function apiMarkPaid(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/pay`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
 export async function apiAdjustShiftTime(shiftId, data) {
@@ -375,26 +411,30 @@ export async function apiCheckOut(shiftId, coords = {}) {
   });
 }
 
-export async function apiApproveAttendance(shiftId) {
-  return request(`/shifts/${shiftId}/approve`, { method: 'POST' });
+export async function apiApproveAttendance(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
 }
 
-export async function apiDisputeShift(shiftId, reason) {
+export async function apiDisputeShift(shiftId, payload) {
+  const body = typeof payload === 'string' ? { disputeReason: payload, reason: payload } : payload;
   return request(`/shifts/${shiftId}/dispute`, {
     method: 'POST',
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify(body),
+  });
+}
+
+export async function apiResolveDispute(shiftId, data) {
+  return request(`/shifts/${shiftId}/resolve-dispute`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 
 export async function apiDeleteShift(shiftId) {
   return request(`/shifts/${shiftId}`, { method: 'DELETE' });
-}
-
-export async function apiCancelShift(shiftId, reason = '') {
-  return request(`/shifts/${shiftId}/cancel`, {
-    method: 'POST',
-    body: JSON.stringify({ reason }),
-  });
 }
 
 // ─── MICRO-TASKS (VIỆC VẶT SINH VIÊN) ─────────────────────────────

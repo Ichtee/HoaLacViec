@@ -58,8 +58,11 @@ export function ShiftStatusBadge({ status }) {
     paid: { variant: 'green', label: 'Đã trả lương' },
     completed: { variant: 'green', label: 'Hoàn thành' },
     absent: { variant: 'red', label: 'Vắng mặt' },
+    no_show: { variant: 'red', label: 'Vắng mặt' },
+    accepted: { variant: 'green', label: 'Đã nhận ca' },
+    declined: { variant: 'red', label: 'Từ chối ca' },
     cancelled: { variant: 'gray', label: 'Đã hủy' },
-    disputed: { variant: 'red', label: 'Khiếu nại' },
+    disputed: { variant: 'red', label: 'Khiếu nại / Đối soát' },
   };
   const { variant = 'gray', label = status } = map[status] || {};
   return <Badge variant={variant}>{label}</Badge>;
