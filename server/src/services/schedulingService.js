@@ -3,6 +3,7 @@ import { Shift, parseVietnamDateTime } from '../models/Shift.js';
 import { Employment } from '../models/Employment.js';
 import { Job } from '../models/Job.js';
 import { User } from '../models/User.js';
+import { EmployerProfile } from '../models/EmployerProfile.js';
 import { TimeOffRequest } from '../models/TimeOffRequest.js';
 import { Notification } from '../models/Notification.js';
 import { ShiftTemplate } from '../models/ShiftTemplate.js';
@@ -25,6 +26,12 @@ export function assertIsEmployerOwnerOrAdmin(shift, actor) {
     err.code = 'UNAUTHORIZED';
     throw err;
   }
+  if (['student', 'worker', 'freelancer'].includes(actor.role)) {
+    const err = new Error('Người lao động không có quyền thực hiện thao tác quản lý lịch và chấm công.');
+    err.status = 403;
+    err.code = 'FORBIDDEN';
+    throw err;
+  }
   if (actor.role === 'admin') return true;
 
   const actorIdStr = String(actor._id || actor.id);
@@ -41,7 +48,7 @@ export function assertIsEmployerOwnerOrAdmin(shift, actor) {
 }
 
 /**
- * Strict Authorization Assertion: Assigned Student
+ * Strict Authorization Assertion: Assigned Student / Employee (Read-only access)
  */
 export function assertIsAssignedStudent(shift, actor) {
   if (!actor) {
@@ -51,9 +58,9 @@ export function assertIsAssignedStudent(shift, actor) {
     throw err;
   }
   const actorIdStr = String(actor._id || actor.id);
-  const studentUserIdStr = String(shift.studentUserId?._id || shift.studentUserId || shift.studentId || '');
+  const employeeUserIdStr = String(shift.employeeUserId?._id || shift.employeeUserId || shift.studentUserId?._id || shift.studentUserId || shift.studentId || '');
 
-  if (actorIdStr !== studentUserIdStr) {
+  if (actorIdStr !== employeeUserIdStr) {
     const err = new Error('Bạn không có quyền thao tác trên ca làm của người khác.');
     err.status = 403;
     err.code = 'FORBIDDEN';
@@ -79,17 +86,17 @@ export async function validateShiftEligibilityAndConflict({
     throw err;
   }
 
-  // 1. Verify Active Employment if student is assigned
+  // 1. Verify Active Employment if employee is assigned
   let employment = null;
   if (studentUserId) {
     employment = await Employment.findOne({
       employeeUserId: studentUserId,
       employerUserId: employerUserId,
-      status: { $in: ['active', 'onboarding'] },
+      status: 'active',
     });
 
     if (!employment) {
-      const err = new Error('Sinh viên không có quan hệ nhân viên đang hoạt động (active employment) tại cơ sở này.');
+      const err = new Error('Nhân viên không có quan hệ việc làm đang hoạt động (active employment) tại cơ sở này.');
       err.code = 'EMPLOYMENT_INACTIVE';
       err.status = 400;
       throw err;
@@ -104,7 +111,7 @@ export async function validateShiftEligibilityAndConflict({
     });
 
     if (approvedTimeOff) {
-      const err = new Error('Sinh viên đã được duyệt nghỉ phép trong khoảng thời gian này.');
+      const err = new Error('Nhân viên đã được duyệt nghỉ phép trong khoảng thời gian này.');
       err.code = 'TIME_OFF_CONFLICT';
       err.status = 409;
       throw err;
@@ -112,7 +119,10 @@ export async function validateShiftEligibilityAndConflict({
 
     // 3. Strict Shift Overlap Conflict Check
     const conflictFilter = {
-      studentUserId: studentUserId,
+      $or: [
+        { employeeUserId: studentUserId },
+        { studentUserId: studentUserId },
+      ],
       scheduleStatus: { $ne: SCHEDULE_STATUSES.CANCELLED },
       status: { $nin: ['cancelled'] },
       startAt: { $lt: endAt },
@@ -129,10 +139,10 @@ export async function validateShiftEligibilityAndConflict({
       const conflictDate = conflictingShift.date || '';
       const conflictStart = conflictingShift.startTime || '';
       const conflictEnd = conflictingShift.endTime || '';
-      const conflictRole = conflictingShift.role || 'Ca làm';
+      const conflictRole = conflictingShift.positionTitle || conflictingShift.role || 'Ca làm';
 
       const err = new Error(
-        `Xung đột lịch làm việc! Sinh viên đã có ca "${conflictRole}" vào ngày ${conflictDate} (${conflictStart} - ${conflictEnd}). Không thể xếp 2 ca trùng giờ.`
+        `Xung đột lịch làm việc! Nhân viên đã có ca "${conflictRole}" vào ngày ${conflictDate} (${conflictStart} - ${conflictEnd}). Không thể xếp 2 ca trùng giờ.`
       );
       err.code = 'SHIFT_CONFLICT';
       err.status = 409;
@@ -145,42 +155,65 @@ export async function validateShiftEligibilityAndConflict({
 }
 
 /**
- * Create a shift (draft or published)
+ * Create a shift (draft or published) - decoupled from Job, based on active Employment
  */
 export async function createShift(data, actor) {
   const {
+    employmentId,
     studentUserId,
+    employeeUserId,
     jobId,
     date,
     startTime,
     endTime,
     role,
+    positionTitle,
     wageRate,
     isDraft = false,
     shiftTemplateId = null,
   } = data;
 
-  if (!jobId || !date || !startTime || !endTime) {
-    const err = new Error('Vui lòng cung cấp đầy đủ thông tin ca làm việc (jobId, ngày, giờ bắt đầu, kết thúc).');
+  if (!date || !startTime || !endTime) {
+    const err = new Error('Vui lòng cung cấp đầy đủ thông tin ca làm việc (ngày, giờ bắt đầu, giờ kết thúc).');
     err.code = 'MISSING_FIELDS';
     err.status = 400;
     throw err;
   }
 
-  const job = await Job.findById(jobId);
-  if (!job) {
-    const err = new Error('Không tìm thấy thông tin công việc/cơ sở tuyển dụng.');
-    err.code = 'JOB_NOT_FOUND';
+  // 1. Resolve Employment
+  let employment = null;
+  const targetEmployeeId = employeeUserId || studentUserId;
+
+  if (employmentId && mongoose.Types.ObjectId.isValid(employmentId)) {
+    employment = await Employment.findById(employmentId);
+  } else if (targetEmployeeId) {
+    employment = await Employment.findOne({
+      employerUserId: actor._id,
+      employeeUserId: targetEmployeeId,
+      status: 'active',
+    });
+  }
+
+  if (!employment) {
+    const err = new Error('Vui lòng chọn nhân viên đang làm việc (Employment) để xếp ca.');
+    err.code = 'EMPLOYMENT_NOT_FOUND';
     err.status = 404;
     throw err;
   }
 
   const actorIdStr = String(actor._id || actor.id);
-  const jobEmployerIdStr = String(job.employerId?._id || job.employerId);
-  if (actor.role !== 'admin' && actorIdStr !== jobEmployerIdStr) {
-    const err = new Error('Bạn không có quyền tạo ca làm việc cho cơ sở này.');
+  const empEmployerIdStr = String(employment.employerUserId);
+  if (actor.role !== 'admin' && actorIdStr !== empEmployerIdStr) {
+    const err = new Error('Bạn không có quyền tạo ca làm việc cho nhân viên của cơ sở khác.');
     err.status = 403;
     err.code = 'FORBIDDEN';
+    throw err;
+  }
+
+  if (employment.status !== 'active') {
+    const err = new Error('Chỉ có thể xếp ca cho nhân viên đang ở trạng thái làm việc (active).');
+    err.code = 'EMPLOYMENT_INACTIVE';
+    err.status = 400;
     throw err;
   }
 
@@ -188,37 +221,47 @@ export async function createShift(data, actor) {
   const startAt = parseVietnamDateTime(date, startTime, false);
   const endAt = parseVietnamDateTime(date, endTime, isOvernight);
 
-  const { employment } = await validateShiftEligibilityAndConflict({
-    studentUserId,
-    employerUserId: job.employerId,
+  await validateShiftEligibilityAndConflict({
+    studentUserId: employment.employeeUserId,
+    employerUserId: actor._id,
     startAt,
     endAt,
   });
 
   const diffHours = (endAt.getTime() - startAt.getTime()) / (1000 * 60 * 60);
   const hours = Math.round(diffHours * 100) / 100;
-  const rate = Number(wageRate) || job.salaryAmount || 25000;
 
-  const scheduleStatus = isDraft ? SCHEDULE_STATUSES.DRAFT : SCHEDULE_STATUSES.PUBLISHED;
-  const assignmentStatus = studentUserId ? ASSIGNMENT_STATUSES.ASSIGNED : ASSIGNMENT_STATUSES.UNASSIGNED;
-
-  let studentUser = null;
-  if (studentUserId) {
-    studentUser = await User.findById(studentUserId);
+  // Snapshot store name from Employment.workplace, or fallback to EmployerProfile
+  let workplaceName = employment.workplace || '';
+  if (!workplaceName) {
+    const employerProfile = await EmployerProfile.findOne({ userId: actor._id });
+    workplaceName = employerProfile?.storeName || 'Cơ sở làm việc';
   }
 
+  const position = String(positionTitle || role || employment.positionTitle || 'Nhân viên bán ca').trim();
+  const rate = Number(wageRate) > 0 ? Number(wageRate) : (employment.wageRate || 25000);
+
+  const employeeUser = await User.findById(employment.employeeUserId);
+
+  const scheduleStatus = isDraft ? SCHEDULE_STATUSES.DRAFT : SCHEDULE_STATUSES.PUBLISHED;
+  const assignmentStatus = ASSIGNMENT_STATUSES.ASSIGNED;
+
   const shift = await Shift.create({
-    jobId: job._id,
-    employmentId: employment?._id || null,
+    employmentId: employment._id,
+    jobId: employment.jobId || (jobId && mongoose.Types.ObjectId.isValid(jobId) ? jobId : null),
     shiftTemplateId,
-    storeName: job.storeName || job.title,
-    employerUserId: job.employerId,
-    employerId: job.employerId,
-    studentUserId: studentUserId || null,
-    studentId: studentUserId || null,
-    studentName: studentUser?.name || data.studentName || '',
-    studentPhone: studentUser?.phone || data.studentPhone || '',
-    role: role || 'Nhân viên bán ca',
+    storeName: workplaceName,
+    workplaceName,
+    employerUserId: actor._id,
+    employerId: actor._id,
+    employeeUserId: employment.employeeUserId,
+    employeeName: employeeUser?.name || '',
+    studentUserId: employment.employeeUserId,
+    studentId: employment.employeeUserId,
+    studentName: employeeUser?.name || '',
+    studentPhone: employeeUser?.phone || '',
+    role: position,
+    positionTitle: position,
     date,
     startTime,
     endTime,
@@ -240,7 +283,7 @@ export async function createShift(data, actor) {
     },
     history: [
       {
-        status: scheduleStatus,
+        status: isDraft ? 'draft' : 'published',
         scheduleStatus,
         attendanceStatus: ATTENDANCE_STATUSES.NOT_STARTED,
         payrollStatus: PAYROLL_STATUSES.NOT_READY,
@@ -251,13 +294,13 @@ export async function createShift(data, actor) {
     ],
   });
 
-  // Notify student if published immediately
-  if (!isDraft && studentUserId) {
+  // Notify employee if published immediately
+  if (!isDraft) {
     try {
       await Notification.create({
-        userId: studentUserId,
+        userId: employment.employeeUserId,
         title: 'Ca làm việc mới được công bố 📅',
-        message: `Bạn đã được xếp ca làm ngày ${date} (${startTime} - ${endTime}) tại ${shift.storeName}.`,
+        message: `Bạn đã được xếp ca làm ngày ${date} (${startTime} - ${endTime}) tại ${workplaceName}.`,
         type: 'shift',
         link: '/student/shifts',
       });
@@ -707,6 +750,248 @@ export async function cancelShift(shiftId, actor, reason = '') {
 }
 
 /**
+ * Record Employee Attendance Start (Check-in / Có mặt) - Performed authoritatively by employer
+ */
+export async function recordAttendanceStart(shiftId, actor, { actualTime, note = '' } = {}) {
+  const shift = await Shift.findById(shiftId);
+  if (!shift) {
+    const err = new Error('Không tìm thấy ca làm việc.');
+    err.status = 404;
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  assertIsEmployerOwnerOrAdmin(shift, actor);
+
+  if (shift.scheduleStatus !== SCHEDULE_STATUSES.PUBLISHED) {
+    const err = new Error(`Chỉ có thể ghi nhận có mặt cho ca làm đã công bố (trạng thái hiện tại: ${shift.scheduleStatus}).`);
+    err.status = 400;
+    err.code = 'INVALID_STATUS';
+    throw err;
+  }
+
+  if (shift.payrollStatus === PAYROLL_STATUSES.PAID) {
+    const err = new Error('Ca làm việc đã được chi trả lương, không thể thay đổi thông tin chấm công.');
+    err.status = 400;
+    err.code = 'ALREADY_PAID';
+    throw err;
+  }
+
+  // Idempotent: If already checked in, return current shift
+  if (shift.attendanceStatus === ATTENDANCE_STATUSES.CHECKED_IN) {
+    return { shift: { ...shift.toObject(), id: shift._id }, alreadyCheckedIn: true };
+  }
+
+  assertCanTransition('attendance', shift.attendanceStatus, ATTENDANCE_STATUSES.CHECKED_IN);
+
+  const checkInTime = actualTime ? new Date(actualTime) : new Date();
+
+  shift.attendanceStatus = ATTENDANCE_STATUSES.CHECKED_IN;
+  shift.assignmentStatus = ASSIGNMENT_STATUSES.ACCEPTED;
+  shift.attendance = {
+    ...shift.attendance,
+    checkInAt: checkInTime,
+    checkInVerified: true,
+    checkInVerificationStatus: 'verified',
+    checkInManualReason: note || 'Nhà tuyển dụng xác nhận có mặt',
+  };
+
+  shift.history.push({
+    status: shift.status,
+    scheduleStatus: shift.scheduleStatus,
+    attendanceStatus: ATTENDANCE_STATUSES.CHECKED_IN,
+    payrollStatus: shift.payrollStatus,
+    changedAt: new Date(),
+    changedBy: actor._id,
+    note: note ? `Nhà tuyển dụng ghi nhận có mặt: ${note}` : 'Nhà tuyển dụng ghi nhận nhân viên có mặt vào ca',
+  });
+
+  await shift.save();
+
+  // Notify employee
+  const targetEmployeeId = shift.employeeUserId || shift.studentUserId;
+  if (targetEmployeeId) {
+    try {
+      await Notification.create({
+        userId: targetEmployeeId,
+        title: 'Chấm công: Đã vào ca làm việc ⏱️',
+        message: `Quản lý đã ghi nhận bạn vào ca ngày ${shift.date} (${shift.startTime}-${shift.endTime}).`,
+        type: 'shift',
+        link: '/student/shifts',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to notify employee of attendance start:', notifErr.message);
+    }
+  }
+
+  return { shift: { ...shift.toObject(), id: shift._id } };
+}
+
+/**
+ * Record Employee Attendance End (Check-out / Hoàn thành ca) - Performed authoritatively by employer
+ */
+export async function recordAttendanceEnd(shiftId, actor, { actualTime, note = '' } = {}) {
+  const shift = await Shift.findById(shiftId);
+  if (!shift) {
+    const err = new Error('Không tìm thấy ca làm việc.');
+    err.status = 404;
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  assertIsEmployerOwnerOrAdmin(shift, actor);
+
+  if (shift.payrollStatus === PAYROLL_STATUSES.PAID) {
+    const err = new Error('Ca làm việc đã được chi trả lương, không thể thay đổi thông tin chấm công.');
+    err.status = 400;
+    err.code = 'ALREADY_PAID';
+    throw err;
+  }
+
+  if (shift.attendanceStatus !== ATTENDANCE_STATUSES.CHECKED_IN) {
+    const err = new Error('Chỉ có thể ghi nhận kết thúc ca cho nhân viên đang trong ca làm việc (đã ghi nhận vào ca).');
+    err.status = 400;
+    err.code = 'INVALID_STATUS';
+    throw err;
+  }
+
+  const checkOutTime = actualTime ? new Date(actualTime) : new Date();
+  const checkInTime = shift.attendance?.checkInAt ? new Date(shift.attendance.checkInAt) : new Date(shift.startAt);
+
+  if (checkOutTime.getTime() < checkInTime.getTime()) {
+    const err = new Error('Thời điểm kết thúc ca không được trước thời điểm vào ca.');
+    err.status = 400;
+    err.code = 'INVALID_TIME_ORDER';
+    throw err;
+  }
+
+  const diffMs = checkOutTime.getTime() - checkInTime.getTime();
+  const workedMinutes = Math.max(0, Math.round(diffMs / (1000 * 60)));
+  const hours = Math.round((workedMinutes / 60) * 100) / 100;
+  const rate = shift.wageRate || 25000;
+  const totalPay = Math.round(hours * rate);
+
+  shift.attendanceStatus = ATTENDANCE_STATUSES.COMPLETED_PENDING_REVIEW;
+  shift.workedMinutes = workedMinutes;
+  shift.hours = hours;
+  shift.totalPay = totalPay;
+  shift.attendance = {
+    ...shift.attendance,
+    checkOutAt: checkOutTime,
+    checkOutVerified: true,
+    checkOutVerificationStatus: 'verified',
+    checkOutManualReason: note || 'Nhà tuyển dụng xác nhận tan ca',
+  };
+
+  shift.history.push({
+    status: shift.status,
+    scheduleStatus: shift.scheduleStatus,
+    attendanceStatus: ATTENDANCE_STATUSES.COMPLETED_PENDING_REVIEW,
+    payrollStatus: shift.payrollStatus,
+    changedAt: new Date(),
+    changedBy: actor._id,
+    note: note
+      ? `Nhà tuyển dụng ghi nhận tan ca: ${note} (${workedMinutes} phút, ${totalPay.toLocaleString('vi-VN')}đ)`
+      : `Nhà tuyển dụng ghi nhận kết thúc ca: ${workedMinutes} phút (${hours}h), tổng công: ${totalPay.toLocaleString('vi-VN')}đ`,
+  });
+
+  await shift.save();
+
+  // Notify employee
+  const targetEmployeeId = shift.employeeUserId || shift.studentUserId;
+  if (targetEmployeeId) {
+    try {
+      await Notification.create({
+        userId: targetEmployeeId,
+        title: 'Chấm công: Đã kết thúc ca làm việc 🏁',
+        message: `Quản lý đã ghi nhận bạn hoàn thành ca ngày ${shift.date}. Tổng thời gian: ${workedMinutes} phút (~${totalPay.toLocaleString('vi-VN')}đ).`,
+        type: 'shift',
+        link: '/student/shifts',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to notify employee of attendance end:', notifErr.message);
+    }
+  }
+
+  return { shift: { ...shift.toObject(), id: shift._id } };
+}
+
+/**
+ * Record Employee No-Show (Vắng mặt) - Performed authoritatively by employer
+ */
+export async function recordAttendanceNoShow(shiftId, actor, { reason = '', note = '' } = {}) {
+  const shift = await Shift.findById(shiftId);
+  if (!shift) {
+    const err = new Error('Không tìm thấy ca làm việc.');
+    err.status = 404;
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+
+  assertIsEmployerOwnerOrAdmin(shift, actor);
+
+  if (shift.scheduleStatus === SCHEDULE_STATUSES.CANCELLED) {
+    const err = new Error('Không thể đánh dấu vắng mặt cho ca làm đã bị hủy.');
+    err.status = 400;
+    err.code = 'ALREADY_CANCELLED';
+    throw err;
+  }
+
+  if (shift.payrollStatus === PAYROLL_STATUSES.PAID) {
+    const err = new Error('Ca làm việc đã được chi trả lương, không thể thay đổi thành vắng mặt.');
+    err.status = 400;
+    err.code = 'ALREADY_PAID';
+    throw err;
+  }
+
+  if (['approved', 'completed_pending_review', 'checked_out'].includes(shift.attendanceStatus)) {
+    const err = new Error('Không thể đánh dấu vắng mặt cho ca làm đã hoàn tất hoặc đã duyệt công.');
+    err.status = 400;
+    err.code = 'ALREADY_COMPLETED';
+    throw err;
+  }
+
+  assertCanTransition('attendance', shift.attendanceStatus, ATTENDANCE_STATUSES.NO_SHOW);
+
+  const absenceReason = reason || note || 'Vắng mặt không phép';
+
+  shift.attendanceStatus = ATTENDANCE_STATUSES.NO_SHOW;
+  shift.workedMinutes = 0;
+  shift.totalPay = 0;
+  shift.employerNotes = absenceReason;
+
+  shift.history.push({
+    status: shift.status,
+    scheduleStatus: shift.scheduleStatus,
+    attendanceStatus: ATTENDANCE_STATUSES.NO_SHOW,
+    payrollStatus: shift.payrollStatus,
+    changedAt: new Date(),
+    changedBy: actor._id,
+    note: `Nhà tuyển dụng đánh dấu nhân viên vắng mặt. Lý do: ${absenceReason}`,
+  });
+
+  await shift.save();
+
+  // Notify employee
+  const targetEmployeeId = shift.employeeUserId || shift.studentUserId;
+  if (targetEmployeeId) {
+    try {
+      await Notification.create({
+        userId: targetEmployeeId,
+        title: 'Chấm công: Ghi nhận vắng mặt ⚠️',
+        message: `Quản lý đã ghi nhận bạn vắng mặt trong ca ngày ${shift.date} (${shift.startTime}-${shift.endTime}). Lý do: ${absenceReason}`,
+        type: 'shift',
+        link: '/student/shifts',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to notify employee of no-show:', notifErr.message);
+    }
+  }
+
+  return { shift: { ...shift.toObject(), id: shift._id } };
+}
+
+/**
  * Approve attendance & lock timesheet
  */
 export async function approveAttendance(shiftId, actor, { approvedMinutes, managerNote = '' } = {}) {
@@ -1048,15 +1333,21 @@ export async function markPaid(shiftId, actor, { paymentReference = '', note = '
  * Generate draft shifts from ShiftTemplate
  */
 export async function generateDraftShiftsFromTemplates({ employerId, startDate, endDate, jobId }) {
-  const filter = { employerUserId: employerId, isActive: true };
-  if (jobId) {
+  const filter = {
+    employerUserId: employerId,
+    $or: [{ active: true }, { isActive: true }],
+  };
+  if (jobId && mongoose.Types.ObjectId.isValid(jobId)) {
     filter.jobId = jobId;
   }
 
-  const templates = await ShiftTemplate.find(filter).populate('jobId');
+  const templates = await ShiftTemplate.find(filter).lean();
   if (templates.length === 0) {
     return { generatedCount: 0, message: 'Chưa có mẫu ca làm định kỳ nào được kích hoạt.' };
   }
+
+  const employerProfile = await EmployerProfile.findOne({ userId: employerId });
+  const defaultStoreName = employerProfile?.storeName || 'Cơ sở làm việc';
 
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -1069,7 +1360,12 @@ export async function generateDraftShiftsFromTemplates({ employerId, startDate, 
     const dayNum = String(d.getDate()).padStart(2, '0');
     const dateStr = `${y}-${m}-${dayNum}`;
 
-    const matchingTemplates = templates.filter((t) => t.dayOfWeek === dayOfWeek);
+    const matchingTemplates = templates.filter((t) => {
+      if (t.dayOfWeek !== dayOfWeek) return false;
+      if (t.effectiveFrom && new Date(t.effectiveFrom) > d) return false;
+      if (t.effectiveTo && new Date(t.effectiveTo) < d) return false;
+      return true;
+    });
 
     for (const tmpl of matchingTemplates) {
       // Check if draft or published shift already exists for this template & date
@@ -1085,17 +1381,22 @@ export async function generateDraftShiftsFromTemplates({ employerId, startDate, 
         const endAt = parseVietnamDateTime(dateStr, tmpl.endTime, isOvernight);
         const diffHours = (endAt.getTime() - startAt.getTime()) / (1000 * 60 * 60);
         const hours = Math.round(diffHours * 100) / 100;
-        const rate = tmpl.wageRate || tmpl.jobId?.salaryAmount || 25000;
+        const rate = tmpl.wageOverride || tmpl.wageRate || 25000;
+        const workplace = tmpl.workplace || defaultStoreName;
+        const position = tmpl.positionTitle || tmpl.role || 'Nhân viên bán ca';
 
         const newShift = await Shift.create({
-          jobId: tmpl.jobId?._id || tmpl.jobId,
+          jobId: tmpl.jobId || null,
           shiftTemplateId: tmpl._id,
-          storeName: tmpl.jobId?.storeName || tmpl.name || 'Cửa hàng',
+          storeName: workplace,
+          workplaceName: workplace,
           employerUserId: employerId,
           employerId,
           studentUserId: tmpl.defaultEmployeeUserId || null,
           studentId: tmpl.defaultEmployeeUserId || null,
-          role: tmpl.role || 'Nhân viên bán ca',
+          employeeUserId: tmpl.defaultEmployeeUserId || null,
+          role: position,
+          positionTitle: position,
           date: dateStr,
           startTime: tmpl.startTime,
           endTime: tmpl.endTime,

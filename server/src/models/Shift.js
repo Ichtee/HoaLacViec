@@ -28,16 +28,20 @@ export function parseVietnamDateTime(dateStr, timeStr, isOvernightNextDay = fals
 const shiftSchema = new mongoose.Schema({
   jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' },
   applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Application', default: null },
-  employmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employment', default: null, index: true },
+  employmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employment', default: null },
   shiftTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'ShiftTemplate', default: null },
   storeName: { type: String, default: '' },
+  workplaceName: { type: String, default: '' },
   employerUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   employerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Legacy alias for employerUserId
-  studentUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  employeeUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  employeeName: { type: String, default: '' },
+  studentUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Legacy alias for studentUserId
   studentName: { type: String, default: '' },
   studentPhone: { type: String, default: '' },
   role: { type: String, default: 'Nhân viên bán ca' },
+  positionTitle: { type: String, default: 'Nhân viên bán ca' },
 
   // Precise UTC timestamps for conflict checking & scheduling
   startAt: { type: Date, required: true, index: true },
@@ -236,18 +240,34 @@ shiftSchema.pre('validate', function (next) {
     this.status = computeLegacyStatus(this);
   }
 
-  // Sync legacy aliases
+  // Sync employeeUserId and studentUserId / studentId aliases
+  if (this.employeeUserId && !this.studentUserId) this.studentUserId = this.employeeUserId;
+  if (this.studentUserId && !this.employeeUserId) this.employeeUserId = this.studentUserId;
   if (this.studentUserId && !this.studentId) this.studentId = this.studentUserId;
-  if (this.studentId && !this.studentUserId) this.studentUserId = this.studentId;
+  if (this.studentId && !this.studentUserId) {
+    this.studentUserId = this.studentId;
+    this.employeeUserId = this.studentId;
+  }
   if (this.employerUserId && !this.employerId) this.employerId = this.employerUserId;
   if (this.employerId && !this.employerUserId) this.employerUserId = this.employerId;
+
+  // Sync snapshot field aliases
+  if (this.studentName && !this.employeeName) this.employeeName = this.studentName;
+  if (this.employeeName && !this.studentName) this.studentName = this.employeeName;
+  if (this.storeName && !this.workplaceName) this.workplaceName = this.storeName;
+  if (this.workplaceName && !this.storeName) this.storeName = this.workplaceName;
+  if (this.role && !this.positionTitle) this.positionTitle = this.role;
+  if (this.positionTitle && !this.role) this.role = this.positionTitle;
 
   next();
 });
 
 // Scheduling & Conflict detection indexes
+shiftSchema.index({ employeeUserId: 1, startAt: 1, endAt: 1 });
 shiftSchema.index({ studentUserId: 1, startAt: 1, endAt: 1 });
+shiftSchema.index({ employmentId: 1 });
 shiftSchema.index({ employerUserId: 1, startAt: 1, endAt: 1 });
+shiftSchema.index({ employeeUserId: 1, date: -1 });
 shiftSchema.index({ studentUserId: 1, date: -1 });
 shiftSchema.index({ employerUserId: 1, date: -1 });
 shiftSchema.index({ scheduleStatus: 1, attendanceStatus: 1, payrollStatus: 1 });

@@ -253,12 +253,19 @@ export function getAllowedShiftActions(shift, actor, now = new Date()) {
   const actions = [];
   if (!shift || !actor) return actions;
 
+  // Employees (student, worker, freelancer) are strictly read-only on shifts
+  if (['student', 'worker', 'freelancer'].includes(actor.role)) {
+    return [];
+  }
+
   const isOwner = String(shift.employerUserId?._id || shift.employerUserId || shift.employerId) === String(actor._id || actor.id);
-  const isAssigned = String(shift.studentUserId?._id || shift.studentUserId || shift.studentId) === String(actor._id || actor.id);
   const isAdmin = actor.role === 'admin';
 
+  if (!isOwner && !isAdmin) {
+    return [];
+  }
+
   const scheduleStatus = shift.scheduleStatus || 'published';
-  const assignmentStatus = shift.assignmentStatus || 'assigned';
   const attendanceStatus = shift.attendanceStatus || 'not_started';
   const payrollStatus = shift.payrollStatus || 'not_ready';
 
@@ -267,57 +274,52 @@ export function getAllowedShiftActions(shift, actor, now = new Date()) {
     return actions; // No further mutations
   }
 
-  // Employer & Admin Permissions
-  if (isOwner || isAdmin) {
-    if (scheduleStatus === SCHEDULE_STATUSES.DRAFT) {
-      actions.push('publish', 'edit', 'cancel', 'assign');
-    }
-
-    if (scheduleStatus === SCHEDULE_STATUSES.PUBLISHED) {
-      // Reschedule or cancel allowed prior to attendance lock (before checked-in or if not paid)
-      if (attendanceStatus === ATTENDANCE_STATUSES.NOT_STARTED && payrollStatus === PAYROLL_STATUSES.NOT_READY) {
-        actions.push('reschedule', 'cancel', 'reassign');
-      }
-
-      // Timesheet review actions
-      if (['completed_pending_review', 'needs_review', 'disputed'].includes(attendanceStatus) && payrollStatus === PAYROLL_STATUSES.NOT_READY) {
-        actions.push('approve_attendance', 'adjust_time');
-      }
-
-      if (attendanceStatus === ATTENDANCE_STATUSES.DISPUTED) {
-        actions.push('resolve_dispute');
-      }
-
-      // Payroll actions
-      if (attendanceStatus === ATTENDANCE_STATUSES.APPROVED && payrollStatus === PAYROLL_STATUSES.NOT_READY) {
-        actions.push('mark_payroll_ready');
-      }
-      if (payrollStatus === PAYROLL_STATUSES.READY) {
-        actions.push('mark_paid');
-      }
-    }
+  // Once paid, all mutations are permanently locked
+  if (payrollStatus === PAYROLL_STATUSES.PAID) {
+    return actions;
   }
 
-  // Student / Employee Permissions
-  if (isAssigned) {
-    if (scheduleStatus === SCHEDULE_STATUSES.PUBLISHED) {
-      if (assignmentStatus !== ASSIGNMENT_STATUSES.ACCEPTED && assignmentStatus !== ASSIGNMENT_STATUSES.DECLINED) {
-        actions.push('accept', 'decline', 'acknowledge');
-      }
+  // 1. Draft Schedule Actions
+  if (scheduleStatus === SCHEDULE_STATUSES.DRAFT) {
+    actions.push('publish', 'edit', 'cancel', 'delete');
+    return actions;
+  }
 
-      // Attendance check-in window: between 30m before startAt and 60m after startAt
-      if (attendanceStatus === ATTENDANCE_STATUSES.NOT_STARTED) {
-        actions.push('check_in');
-      }
+  // 2. Published Shift Actions
+  if (scheduleStatus === SCHEDULE_STATUSES.PUBLISHED) {
+    // Schedule modifications prior to check-in
+    if (attendanceStatus === ATTENDANCE_STATUSES.NOT_STARTED && payrollStatus === PAYROLL_STATUSES.NOT_READY) {
+      actions.push('reschedule', 'cancel');
+    }
 
-      if (attendanceStatus === ATTENDANCE_STATUSES.CHECKED_IN) {
-        actions.push('check_out');
-      }
+    // Employer Attendance Recording
+    if (attendanceStatus === ATTENDANCE_STATUSES.NOT_STARTED) {
+      actions.push('record_start', 'record_no_show');
+    } else if (attendanceStatus === ATTENDANCE_STATUSES.CHECKED_IN) {
+      actions.push('record_end', 'adjust_time');
+    } else if (attendanceStatus === ATTENDANCE_STATUSES.NO_SHOW) {
+      actions.push('adjust_time', 'record_start');
+    }
 
-      // Dispute allowed on completed or approved shifts if not yet paid
-      if (['completed_pending_review', 'needs_review', 'approved'].includes(attendanceStatus) && payrollStatus !== PAYROLL_STATUSES.PAID) {
-        actions.push('dispute');
-      }
+    // Timesheet Review & Adjustments
+    if (['completed_pending_review', 'needs_review'].includes(attendanceStatus) && payrollStatus === PAYROLL_STATUSES.NOT_READY) {
+      actions.push('approve_attendance', 'adjust_time');
+    }
+
+    if (attendanceStatus === ATTENDANCE_STATUSES.APPROVED && payrollStatus === PAYROLL_STATUSES.NOT_READY) {
+      actions.push('adjust_time');
+    }
+
+    if (attendanceStatus === ATTENDANCE_STATUSES.DISPUTED) {
+      actions.push('resolve_dispute', 'adjust_time', 'approve_attendance');
+    }
+
+    // Payroll Transitions
+    if (attendanceStatus === ATTENDANCE_STATUSES.APPROVED && payrollStatus === PAYROLL_STATUSES.NOT_READY) {
+      actions.push('mark_payroll_ready');
+    }
+    if (payrollStatus === PAYROLL_STATUSES.READY) {
+      actions.push('mark_paid');
     }
   }
 

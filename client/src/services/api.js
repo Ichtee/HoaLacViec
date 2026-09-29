@@ -397,17 +397,38 @@ export async function apiAdjustShiftTime(shiftId, data) {
   });
 }
 
-export async function apiCheckIn(shiftId, coords = {}) {
-  return request(`/shifts/${shiftId}/checkin`, {
+export async function apiRecordAttendanceStart(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/attendance/start`, {
     method: 'POST',
-    body: JSON.stringify(coords),
+    body: JSON.stringify(data),
   });
 }
 
-export async function apiCheckOut(shiftId, coords = {}) {
-  return request(`/shifts/${shiftId}/checkout`, {
+export async function apiRecordAttendanceEnd(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/attendance/end`, {
     method: 'POST',
-    body: JSON.stringify(coords),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiRecordAttendanceNoShow(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/attendance/no-show`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiCheckIn(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/attendance/start`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function apiCheckOut(shiftId, data = {}) {
+  return request(`/shifts/${shiftId}/attendance/end`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }
 
