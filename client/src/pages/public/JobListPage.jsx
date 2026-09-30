@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, Map, List, Loader2 } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Map, List, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { JobCard } from '@/components/JobCard.jsx';
 import { JobMap } from '@/components/JobMap.jsx';
@@ -25,6 +25,7 @@ export default function JobListPage() {
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
   const [viewMode, setViewMode] = useState('map'); // Keep map visible by default on top
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [savedJobIds, setSavedJobIds] = useState(new Set());
@@ -345,7 +346,7 @@ export default function JobListPage() {
   const hasFilters = Boolean(search || type || area || verifiedOnly || featuredOnly || minSalary || sort !== 'newest');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Page Header + View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -546,32 +547,61 @@ export default function JobListPage() {
         </div>
       )}
 
-      {/* MAP ON TOP (WHEN VIEW MODE === 'MAP') */}
+      {/* MAP ON TOP (STICKY WHEN VIEW MODE === 'MAP') */}
       {viewMode === 'map' && (
-        <div className="space-y-3">
-          <JobMap
-            jobs={jobsForMap}
-            userLocation={userLocation}
-            selectedJobId={selectedJobId}
-            onSelectJob={(j) => {
-              const id = j._id || j.id;
-              setSelectedJobId(id);
-              const el = document.getElementById(`job-card-${id}`);
-              if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-              }
-            }}
-            className="w-full h-[360px] sm:h-[460px] rounded-2xl overflow-hidden shadow-xs border border-stone-200/80"
-          />
-          {jobsForMap.some(j => !isValidCoordinate(
-            j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,
-            j.location?.lng ?? j.geoPoint?.coordinates?.[0] ?? j.mapDisplayLocation?.lng
-          )) && (
-            <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200/80 p-2.5 rounded-lg flex items-center gap-1.5">
-              <span>📍</span>
-              Một số tin chưa lưu tọa độ nên chưa thể đánh dấu trên bản đồ. Hãy chỉnh sửa tin và chọn vị trí trên bản đồ.
-            </p>
-          )}
+        <div className="sticky top-16 z-30 bg-[#FFFDF6]/95 backdrop-blur-md pt-2 pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 border-b border-stone-200/80 shadow-xs transition-all">
+          <div className="max-w-7xl mx-auto space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
+                <Map className="w-3.5 h-3.5 text-green-main" />
+                Bản đồ vị trí việc làm ({jobsForMap.length} điểm)
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsMapExpanded((prev) => !prev)}
+                className="text-xs font-medium text-text-muted hover:text-green-dark flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-xs"
+                title={isMapExpanded ? 'Thu gọn bản đồ để xem nhiều việc hơn' : 'Mở rộng bản đồ'}
+              >
+                {isMapExpanded ? (
+                  <>
+                    <Minimize2 className="w-3 h-3" /> Thu gọn
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="w-3 h-3" /> Mở rộng
+                  </>
+                )}
+              </button>
+            </div>
+
+            <JobMap
+              jobs={jobsForMap}
+              userLocation={userLocation}
+              selectedJobId={selectedJobId}
+              onSelectJob={(j) => {
+                const id = j._id || j.id;
+                setSelectedJobId(id);
+                const el = document.getElementById(`job-card-${id}`);
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+              }}
+              className={clsx(
+                'w-full rounded-2xl overflow-hidden shadow-xs border border-stone-200/80 transition-all duration-200',
+                isMapExpanded ? 'h-[380px] sm:h-[460px]' : 'h-[240px] sm:h-[320px]'
+              )}
+            />
+
+            {jobsForMap.some(j => !isValidCoordinate(
+              j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,
+              j.location?.lng ?? j.geoPoint?.coordinates?.[0] ?? j.mapDisplayLocation?.lng
+            )) && (
+              <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200/80 p-2 rounded-lg flex items-center gap-1.5">
+                <span>📍</span>
+                Một số tin chưa lưu tọa độ nên chưa thể đánh dấu trên bản đồ. Hãy chỉnh sửa tin và chọn vị trí trên bản đồ.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -624,7 +654,7 @@ export default function JobListPage() {
                   key={job._id || job.id}
                   id={`job-card-${job._id || job.id}`}
                   onMouseEnter={() => setSelectedJobId(job._id || job.id)}
-                  className="h-full flex flex-col"
+                  className="h-full flex flex-col scroll-mt-[360px] sm:scroll-mt-[440px]"
                 >
                   <JobCard
                     job={job}
