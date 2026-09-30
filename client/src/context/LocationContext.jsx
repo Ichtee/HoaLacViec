@@ -65,8 +65,7 @@ export function LocationProvider({ children }) {
       setStatus('requesting');
       setError(null);
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
+      const onSuccess = (position) => {
           if (seq !== requestSeqRef.current) return resolve(null);
 
           const lat = position?.coords?.latitude;
@@ -106,9 +105,20 @@ export function LocationProvider({ children }) {
           setErrorCode(null);
           setCoords(parsedCoords);
           return resolve(parsedCoords);
-        },
-        (err) => {
+        };
+
+      const onError = (err, canRetry) => {
           if (seq !== requestSeqRef.current) return resolve(null);
+
+          // A coarse fix can work when the high accuracy provider times out.
+          if (canRetry && (err?.code === 2 || err?.code === 3)) {
+            navigator.geolocation.getCurrentPosition(
+              onSuccess,
+              (retryError) => onError(retryError, false),
+              { ...finalOptions, enableHighAccuracy: false, timeout: 20000 }
+            );
+            return;
+          }
 
           let newStatus = 'unavailable';
           let msg = 'Không thể xác định vị trí hiện tại của thiết bị.';
@@ -121,11 +131,11 @@ export function LocationProvider({ children }) {
               break;
             case 2: // POSITION_UNAVAILABLE
               newStatus = 'unavailable';
-              msg = 'Thiết bị không bắt được sóng GPS. Hãy thử bật vị trí (Location Services) trên thiết bị.';
+              msg = 'Thiết bị chưa xác định được vị trí. Hãy bật dịch vụ vị trí và Wi-Fi, rồi thử lại; một số mạng có thể chặn dịch vụ định vị của trình duyệt.';
               break;
             case 3: // TIMEOUT
               newStatus = 'timeout';
-              msg = 'Hết thời gian chờ phản hồi GPS (timeout). Vui lòng thử lại.';
+              msg = 'Hết thời gian chờ định vị. Hãy bật dịch vụ vị trí và Wi-Fi, rồi thử lại trên mạng khác nếu cần.';
               break;
             default:
               newStatus = 'unavailable';
@@ -138,7 +148,11 @@ export function LocationProvider({ children }) {
           setErrorCode(err?.code || 'UNAVAILABLE');
           setCoords(null);
           return resolve(null);
-        },
+        };
+
+      navigator.geolocation.getCurrentPosition(
+        onSuccess,
+        (err) => onError(err, finalOptions.enableHighAccuracy),
         finalOptions
       );
     });

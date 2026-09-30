@@ -27,6 +27,7 @@ export function LocationPermissionBootstrap() {
     status,
     setStatus,
     coords,
+    error,
     setError,
     permissionState,
     setPermissionState,
@@ -228,7 +229,7 @@ export function LocationPermissionBootstrap() {
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0" />
-            <span>Hết thời gian chờ phản hồi GPS (timeout). Vui lòng thử lại.</span>
+            <span>{error || 'Hết thời gian chờ định vị. Vui lòng thử lại.'}</span>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -256,7 +257,7 @@ export function LocationPermissionBootstrap() {
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-gray-500 flex-shrink-0" />
-            <span>Không thể xác định vị trí hiện tại hoặc trình duyệt chưa bật dịch vụ định vị.</span>
+            <span>{error || 'Không thể xác định vị trí hiện tại hoặc trình duyệt chưa bật dịch vụ định vị.'}</span>
           </div>
           <div className="flex items-center gap-2">
             <button
