@@ -185,10 +185,11 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       verified,
       minSalary,
       sort,
+      status,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
+    const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 50));
     const skip = (pageNum - 1) * limitNum;
     const validTypes = new Set(['part_time', 'shift', 'hourly', 'event']);
     const validSorts = new Set(['newest', 'oldest', 'salary_desc', 'salary_asc', 'featured', 'rating', 'nearest', 'match']);
@@ -210,8 +211,12 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
 
     const andConditions = [];
 
-    // Security & Visibility: Public visitors only see approved, unexpired, active jobs
-    andConditions.push({ status: 'approved' });
+    // Security & Visibility: Support fetching all jobs or approved + pending jobs
+    if (status && status !== 'all') {
+      andConditions.push({ status });
+    } else if (status !== 'all') {
+      andConditions.push({ status: { $in: ['approved', 'pending'] } });
+    }
     andConditions.push({ archivedAt: null });
     andConditions.push({
       $or: [
@@ -490,12 +495,10 @@ router.post('/', authenticate, async (req, res, next) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Status: draft if explicitly requested, otherwise pending for admin approval; admin can directly approve
-    if (req.user.role === 'admin') {
-      data.status = data.status || 'approved';
+    // Status: draft if explicitly requested, otherwise approved
+    if (req.user.role === 'admin' || req.user.role === 'employer') {
+      data.status = data.status === 'draft' ? 'draft' : 'approved';
     } else {
-      // All employers (verified or not) can post jobs for admin review (pending)
-      // Only explicitly passing status=draft saves as draft
       data.status = data.status === 'draft' ? 'draft' : 'pending';
     }
 
