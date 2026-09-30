@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // Layouts
 import PublicLayout from '@/layouts/PublicLayout.jsx';
@@ -21,6 +20,7 @@ import HomePage from '@/pages/public/HomePage.jsx';
 import JobListPage from '@/pages/public/JobListPage.jsx';
 import JobDetailPage from '@/pages/public/JobDetailPage.jsx';
 import LoginPage from '@/pages/public/LoginPage.jsx';
+import ResetPasswordPage from '@/pages/public/ResetPasswordPage.jsx';
 import RegisterPage from '@/pages/public/RegisterPage.jsx';
 import NotFoundPage from '@/pages/public/NotFoundPage.jsx';
 import BlogListPage from '@/pages/public/BlogListPage.jsx';
@@ -100,6 +100,7 @@ export default function App() {
                 </RedirectIfAuthenticated>
               }
             />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route
               path="/register"
               element={

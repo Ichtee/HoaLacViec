@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema(
       default: 'pending',
     },
     emailVerifiedAt: { type: Date, default: null },
+    passwordResetTokenHash: { type: String, default: null, select: false },
+    passwordResetExpiresAt: { type: Date, default: null, select: false },
+    passwordResetRequestedAt: { type: Date, default: null, select: false },
+    tokenVersion: { type: Number, default: 0 },
   },
   {
     timestamps: true,
@@ -37,6 +41,9 @@ const userSchema = new mongoose.Schema(
       transform: (doc, ret) => {
         delete ret.password;
         delete ret.googleId;
+        delete ret.passwordResetTokenHash;
+        delete ret.passwordResetExpiresAt;
+        delete ret.passwordResetRequestedAt;
         return ret;
       },
     },

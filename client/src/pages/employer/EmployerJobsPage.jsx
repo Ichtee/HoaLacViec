@@ -9,7 +9,10 @@ import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
   getEmployerMyJobs,
-  updateJob,
+  submitJobForReview,
+  pauseJob,
+  closeJob,
+  reopenJob,
   deleteJob,
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
@@ -44,11 +47,29 @@ export default function EmployerJobsPage() {
 
   async function handleToggleStatus(job) {
     const targetId = job._id || job.id;
-    const isClosed = job.status === 'closed';
-    const newStatus = isClosed ? 'approved' : 'closed';
-    await updateJob(targetId, { status: newStatus });
-    setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? { ...j, status: newStatus } : j));
-    setToast({ type: 'info', message: `Đã cập nhật trạng thái tin tuyển dụng: ${newStatus === 'approved' ? 'Hoạt động' : 'Tạm đóng'}` });
+    try {
+      const result = job.status === 'draft'
+        ? await submitJobForReview(targetId)
+        : job.status === 'approved'
+          ? await pauseJob(targetId)
+          : await reopenJob(targetId);
+      const updated = result.job;
+      setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? updated : j));
+      setToast({ type: 'success', message: result.message });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Không thể đổi trạng thái tin.' });
+    }
+  }
+
+  async function handleCloseJob(job) {
+    try {
+      const targetId = job._id || job.id;
+      const result = await closeJob(targetId);
+      setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? result.job : j));
+      setToast({ type: 'success', message: result.message });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Không thể đóng tin.' });
+    }
   }
 
   async function handleDeleteJob(job) {
@@ -197,7 +218,7 @@ export default function EmployerJobsPage() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-green-dark shrink-0" />
-                      <span>Cần tuyển: {job.slots || 1} bạn</span>
+                      <span>Còn tuyển: {job.slots ?? 0} bạn</span>
                     </div>
                   </div>
 
@@ -205,7 +226,7 @@ export default function EmployerJobsPage() {
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {job.positions.map((pos, pIdx) => (
                         <span key={pIdx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-100">
-                          🎯 {pos.title}: {pos.shift.split('(')[0].trim()}
+                          🎯 {pos.title}: {String(pos.shift || '').split('(')[0].trim()}
                         </span>
                       ))}
                     </div>
@@ -213,7 +234,7 @@ export default function EmployerJobsPage() {
                 </div>
 
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs gap-2">
-                  {['approved', 'paused', 'closed'].includes(job.status) && (
+                  {['draft', 'approved', 'paused', 'closed'].includes(job.status) && (
                     <button
                       onClick={() => handleToggleStatus(job)}
                       className={clsx(
@@ -223,11 +244,16 @@ export default function EmployerJobsPage() {
                           : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
                       )}
                     >
-                      {isClosed ? (
-                        <><PlayCircle className="w-4 h-4" /> Mở lại tin</>
-                      ) : (
-                        <><PauseCircle className="w-4 h-4 text-amber-700" /> Tạm dừng tuyển</>
-                      )}
+                      {job.status === 'draft' ? 'Gửi duyệt tin'
+                        : job.status === 'approved' ? <><PauseCircle className="w-4 h-4 text-amber-700" /> Tạm dừng tuyển</>
+                          : job.status === 'paused' ? 'Mở lại để duyệt'
+                            : <><PlayCircle className="w-4 h-4" /> Mở lại để duyệt</>}
+                    </button>
+                  )}
+
+                  {['approved', 'paused'].includes(job.status) && (
+                    <button onClick={() => handleCloseJob(job)} className="px-2 py-1.5 text-xs text-gray-600 hover:text-red-700" title="Đóng tin tuyển dụng">
+                      Đóng tin
                     </button>
                   )}
 

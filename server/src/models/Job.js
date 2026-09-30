@@ -70,7 +70,7 @@ const jobSchema = new mongoose.Schema({
   }],
   slots: { type: Number, default: 1 }, // Legacy compatibility: equals remainingOpenings
   headcountTarget: { type: Number, default: 1, min: 1 }, // Total openings originally requested
-  hiredCount: { type: Number, default: 0, min: 0 },       // Total candidates hired into active Employment
+  hiredCount: { type: Number, default: 0, min: 0 },       // Successful hires for this posting (historical, including terminated)
   remainingOpenings: { type: Number, default: 1, min: 0 },// headcountTarget - hiredCount
   recruitmentStatus: {
     type: String,

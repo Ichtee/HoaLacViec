@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth.jsx';
 import {
   getJob,
   createJob,
+  submitJobForReview,
   updateJob,
   getEmployerProfile,
   updateUserProfile,
@@ -74,7 +75,7 @@ export default function EmployerJobFormPage() {
     description: '',
     requirements: '',
     benefits: '',
-    status: 'approved',
+    status: 'pending',
   });
 
   function buildFullAddress(detail, ward, district, province) {
@@ -188,11 +189,11 @@ export default function EmployerJobFormPage() {
           locationSource: job.locationSource || (hasValidCoords ? 'map_pin' : null),
           shiftDetail: job.shiftDetail || 'Sáng: 7h-12h | Tối: 17h-22h',
           positions: initialPositions,
-          slots: initialSlots,
+          slots: computedSlots,
           description: job.description || '',
           requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : (job.requirements || ''),
           benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : (job.benefits || ''),
-          status: job.status || 'approved',
+          status: job.status || 'pending',
         });
       } catch (err) {
         setToast({ type: 'error', message: err.message || 'Lỗi khi tải thông tin việc làm' });
@@ -403,19 +404,22 @@ export default function EmployerJobFormPage() {
           ? formData.requirements.split('\n').map(s => s.trim()).filter(Boolean)
           : [],
         benefits: [],
-        status: isEditing ? formData.status : 'approved',
+        status: 'pending',
       };
 
       if (isEditing) {
         await updateJob(jobId, payload);
-        setToast({ type: 'success', message: 'Cập nhật tin tuyển dụng thành công!' });
+        if (['draft', 'rejected'].includes(formData.status)) {
+          await submitJobForReview(jobId);
+        }
+        setToast({ type: 'success', message: 'Đã lưu thay đổi. Nếu tin đang hoạt động, nội dung mới sẽ chờ quản trị viên duyệt lại.' });
       } else {
         await createJob(payload);
         setToast({
           type: 'success',
           message: isConfirmed
-            ? 'Tạo tin tuyển dụng thành công! Đã ghim vị trí quán lên Bản đồ việc làm.'
-            : 'Đã lưu tin tuyển dụng thành công!'
+            ? 'Đã gửi tin chờ duyệt và lưu vị trí quán.'
+            : 'Đã gửi tin tuyển dụng chờ quản trị viên duyệt.'
         });
       }
 

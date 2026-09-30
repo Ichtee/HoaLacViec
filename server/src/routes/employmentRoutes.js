@@ -19,11 +19,14 @@ router.get('/', async (req, res, next) => {
 
     if (req.user.role === 'employer') {
       filter.employerUserId = req.user._id;
-    } else if (req.user.role === 'student') {
+    } else if (['student', 'worker', 'freelancer'].includes(req.user.role)) {
       filter.employeeUserId = req.user._id;
     } else if (req.user.role === 'admin') {
       if (employerId) filter.employerUserId = employerId;
       if (employeeId) filter.employeeUserId = employeeId;
+    } else if (!['employer', 'admin'].includes(req.user.role)) {
+      // Unknown role — deny completely
+      return res.status(403).json({ error: 'Không có quyền truy cập.', code: 'FORBIDDEN' });
     }
 
     const employments = await getEmployments(filter);

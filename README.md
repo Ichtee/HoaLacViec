@@ -10,15 +10,24 @@
 - **Tìm Kiếm Địa Điểm & Định Vị Thông Minh (Vietmap v4):** Hỗ trợ tra cứu địa điểm, tự động phân giải tọa độ chính xác qua Vietmap Autocomplete & Place v4, ước tính lộ trình xe máy qua Vietmap Route v4 và tính khoảng cách hàng loạt qua Matrix v4.
 - **Liên Hệ Nhanh 2 Chiều (Phone & Zalo):** Sinh viên và nhà tuyển dụng có thể gọi điện trực tiếp (`tel:...`) hoặc nhắn tin Zalo (`zalo.me/...`) ngay trên thẻ hồ sơ và trang chi tiết việc làm.
 - **Khớp Lịch Học & Ca Làm Tự Động:** Tính toán tỷ lệ trùng khớp (% matching) giữa thời gian rảnh của sinh viên và ca tuyển của quán, cảnh báo xung đột lịch học.
-- **Quản Lý Ca Làm & Điểm Danh GPS:** Hỗ trợ sinh viên check-in / check-out ca làm việc và chủ quán phê duyệt chấm công theo thời gian thực.
+- **Quản Lý Ca Làm & Chấm Công:** Nhà tuyển dụng ghi nhận giờ bắt đầu/kết thúc, duyệt công và xác nhận thanh toán. Người lao động xem lịch và trạng thái ca.
+- **Duyệt Tin Tuyển Dụng:** Nhà tuyển dụng đã xác minh gửi tin chờ duyệt; quản trị viên duyệt trước khi tin hiển thị công khai.
 - **Chợ Việc Vặt Sinh Viên (Micro-Tasks):** Nền tảng trao đổi các công việc nhỏ trong khuôn viên trường (xe ôm sinh viên, nhận hộ đồ ship, đi chợ, gia sư,...).
+
+**Vai trò và quy trình:** `student`, `worker`, `freelancer` là các vai trò người tìm việc; họ chỉ xem hồ sơ, đơn ứng tuyển và ca của mình. Nhà tuyển dụng đã xác minh tạo tin chờ duyệt; chỉ quản trị viên phê duyệt tin. Sau khi ứng viên chấp nhận đề nghị nhận việc, hệ thống tạo quan hệ làm việc. Quan hệ đã kết thúc không được kích hoạt lại; tuyển dụng lại cần một quan hệ mới.
+
+`hiredCount` đếm số lần tuyển thành công từ một tin, kể cả nhân viên đã nghỉ. Kết thúc quan hệ làm việc không tự mở lại tin hoặc tăng chỉ tiêu; nhà tuyển dụng phải chỉnh tin và gửi duyệt lại nếu muốn tuyển bổ sung.
+
+Với tin cũ có `slots` và `remainingOpenings` lệch nhau, xem trước bằng `cd server && npm run migrate:job-capacity`; chỉ sau khi kiểm tra danh sách mới chạy `npm run migrate:job-capacity -- --apply`. Script không chạy tự động khi khởi động ứng dụng.
+
+**Đặt lại mật khẩu:** Cấu hình `FRONTEND_URL`, `RESEND_API_KEY` và `PASSWORD_RESET_FROM_EMAIL` trên server để gửi email. Token chỉ dùng một lần và hết hạn sau 30 phút. Khi thiếu cấu hình, trang sẽ báo chức năng chưa sẵn sàng. Các thao tác duyệt đơn nghỉ có sửa ca cần MongoDB hỗ trợ transaction (ví dụ MongoDB Atlas hoặc replica set).
 
 ---
 
 ## 🏗️ Cấu Trúc Dự Án
 
 ```
-├── client/                 # Frontend (React 18 + Vite + Tailwind CSS)
+├── client/                 # Frontend (React 19 + Vite + Tailwind CSS)
 │   ├── src/
 │   │   ├── components/     # UI Components (JobCard, JobMap, Modal, Badge,...)
 │   │   ├── layouts/        # Layouts cho Student, Employer, Public
@@ -95,6 +104,8 @@ Client sẽ hoạt động tại `http://localhost:5173`.
 | `VIETMAP_API_BASE_URL` | Base URL Vietmap API | `https://maps.vietmap.vn` |
 | `ENABLE_VIETMAP` | Bật tích hợp Vietmap (`true`/`false`) | `false` |
 | `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID | Tùy chọn |
+| `RESEND_API_KEY` | Khóa API gửi email đặt lại mật khẩu | Cần cho luồng quên mật khẩu |
+| `PASSWORD_RESET_FROM_EMAIL` | Địa chỉ gửi thuộc domain đã xác minh ở Resend | Cần cho luồng quên mật khẩu |
 
 ### Client (`client/.env`)
 | Tên Biến | Mô Tả | Mặc Định |

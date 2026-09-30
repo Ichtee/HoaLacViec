@@ -1,11 +1,11 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import { User } from '../models/User.js';
 import { Application } from '../models/Application.js';
 import { Job } from '../models/Job.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate } from '../middlewares/auth.js';
+import { LABOR_ROLES, toApplicationDTO } from '../utils/applicationDto.js';
 import {
   VALID_TRANSITIONS,
   getStatusLabel,
@@ -13,7 +13,6 @@ import {
   rescindOffer,
   studentAcceptOffer,
   studentDeclineOffer,
-  finalizeHire,
   assertEmployerOwnership,
 } from '../services/applicationService.js';
 
@@ -27,7 +26,8 @@ router.get('/', async (req, res, next) => {
     const filter = {};
 
     // Role-based scoping
-    if (req.user.role === 'student') {
+    const isEmployee = LABOR_ROLES.includes(req.user.role);
+    if (isEmployee) {
       filter.studentId = req.user._id;
     } else if (req.user.role === 'employer') {
       const employerProfile = await EmployerProfile.findOne({ userId: req.user._id });
@@ -51,6 +51,8 @@ router.get('/', async (req, res, next) => {
     } else if (req.user.role === 'admin') {
       if (studentId) filter.studentId = studentId;
       if (employerId || storeId) filter.employerId = employerId || storeId;
+    } else {
+      return res.status(403).json({ error: 'Không có quyền truy cập.', code: 'FORBIDDEN' });
     }
 
     if (jobId) filter.jobId = jobId;
@@ -72,7 +74,7 @@ router.get('/', async (req, res, next) => {
       .sort({ createdAt: -1 });
 
     const formatted = applications.map(app => {
-      const a = app.toObject ? app.toObject() : app;
+      const a = toApplicationDTO(app, req.user.role);
       const job = a.jobId || {};
       return {
         ...a,
@@ -106,23 +108,32 @@ router.get('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Không tìm thấy hồ sơ ứng tuyển.', code: 'NOT_FOUND' });
     }
 
-    // Role check
-    if (req.user.role === 'student' && application.studentId?._id?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Bạn không có quyền xem hồ sơ này.', code: 'FORBIDDEN' });
+    // Role check & scoping
+    const isEmployee = LABOR_ROLES.includes(req.user.role);
+    if (isEmployee) {
+      const applicantId = application.studentId?._id?.toString() || application.studentId?.toString();
+      if (applicantId !== req.user._id.toString()) {
+        return res.status(403).json({ error: 'Bạn không có quyền xem hồ sơ này.', code: 'FORBIDDEN' });
+      }
+    } else if (req.user.role === 'employer') {
+      await assertEmployerOwnership(application, req.user._id);
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Không có quyền truy cập.', code: 'FORBIDDEN' });
     }
 
-    res.json({ ...application, id: application._id });
+    res.json({ ...toApplicationDTO(application, req.user.role), id: application._id });
   } catch (err) {
     next(err);
   }
 });
 
-// POST /api/applications (Active student apply)
+// POST /api/applications (Active candidate apply)
 router.post('/', async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin' && (req.user.role !== 'student' || req.user.status !== 'active')) {
+    const isLaborRole = LABOR_ROLES.includes(req.user.role);
+    if (req.user.role !== 'admin' && (!isLaborRole || req.user.status !== 'active')) {
       return res.status(403).json({
-        error: 'Chỉ tài khoản sinh viên đã xác minh và đang hoạt động mới có thể nộp đơn ứng tuyển.',
+        error: 'Chỉ tài khoản người tìm việc đã xác minh và đang hoạt động mới có thể nộp đơn ứng tuyển.',
         code: 'FORBIDDEN',
       });
     }
@@ -415,11 +426,19 @@ router.delete('/:id', async (req, res, next) => {
       await assertEmployerOwnership(application, req.user._id);
     }
 
+    if (!VALID_TRANSITIONS[application.status]?.includes('rejected')) {
+      return res.status(409).json({
+        error: 'Hồ sơ ở trạng thái này không thể chuyển sang từ chối. Hãy sử dụng đúng luồng đề nghị nhận việc hoặc quản lý nhân viên.',
+        code: 'INVALID_TRANSITION',
+      });
+    }
+
     // Soft delete: mark as rejected with note rather than destroying audit trail
+    const fromStatus = application.status; // capture before overwriting
     application.status = 'rejected';
     application.internalNote = 'Đã gỡ hồ sơ khỏi danh sách ứng viên tuyển dụng';
     application.statusHistory.push({
-      fromStatus: application.status,
+      fromStatus: fromStatus,
       toStatus: 'rejected',
       status: 'rejected',
       changedAt: new Date(),

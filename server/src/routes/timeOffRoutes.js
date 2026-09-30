@@ -5,7 +5,8 @@ import { TimeOffRequest } from '../models/TimeOffRequest.js';
 import { Employment } from '../models/Employment.js';
 import { Shift } from '../models/Shift.js';
 import { Notification } from '../models/Notification.js';
-import { SCHEDULE_STATUSES, ASSIGNMENT_STATUSES } from '../domain/shiftLifecycle.js';
+import { SCHEDULE_STATUSES, ASSIGNMENT_STATUSES, ATTENDANCE_STATUSES, PAYROLL_STATUSES } from '../domain/shiftLifecycle.js';
+import { normalizeTransactionError } from '../utils/transactionError.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -14,7 +15,7 @@ router.use(authenticate);
 router.get('/', async (req, res, next) => {
   try {
     const filter = {};
-    if (req.user.role === 'student') {
+    if (['student', 'worker', 'freelancer'].includes(req.user.role)) {
       filter.employeeUserId = req.user._id;
     } else if (req.user.role === 'employer') {
       filter.employerUserId = req.user._id;
@@ -40,7 +41,7 @@ router.get('/', async (req, res, next) => {
 // POST /api/time-off (Student submits time off - MUST require valid active employment)
 router.post('/', async (req, res, next) => {
   try {
-    if (req.user.role !== 'student') {
+    if (!['student', 'worker', 'freelancer'].includes(req.user.role)) {
       return res.status(403).json({ error: 'Chỉ nhân viên/sinh viên mới có thể nộp đơn xin nghỉ.', code: 'FORBIDDEN' });
     }
 
@@ -126,6 +127,10 @@ router.post('/', async (req, res, next) => {
 router.put('/:id/status', async (req, res, next) => {
   try {
     const { status, reviewNote, conflictingShiftAction = 'warn' } = req.body;
+    const ALLOWED_SHIFT_ACTIONS = ['warn', 'unassign', 'cancel'];
+    if (!ALLOWED_SHIFT_ACTIONS.includes(conflictingShiftAction)) {
+      return res.status(400).json({ error: 'conflictingShiftAction không hợp lệ.', code: 'INVALID_ACTION' });
+    }
     if (!['approved', 'rejected', 'cancelled'].includes(status)) {
       return res.status(400).json({ error: 'Trạng thái xử lý không hợp lệ.', code: 'INVALID_STATUS' });
     }
@@ -144,7 +149,7 @@ router.put('/:id/status', async (req, res, next) => {
     }
 
     // Role & Ownership Permissions Matrix
-    if (req.user.role === 'student') {
+    if (['student', 'worker', 'freelancer'].includes(req.user.role)) {
       if (String(request.employeeUserId) !== String(req.user._id)) {
         return res.status(403).json({ error: 'Bạn không có quyền thao tác trên đơn nghỉ phép của người khác.', code: 'FORBIDDEN' });
       }
@@ -162,62 +167,82 @@ router.put('/:id/status', async (req, res, next) => {
       return res.status(403).json({ error: 'Không có quyền thao tác.', code: 'FORBIDDEN' });
     }
 
-    request.status = status;
-    request.reviewNote = reviewNote ? String(reviewNote).trim() : request.reviewNote;
-    request.reviewedAt = new Date();
-    await request.save();
-
-    // If approved, handle overlapping published shifts
     let affectedShifts = [];
-    if (status === 'approved') {
-      const eDateEnd = new Date(request.endDate);
-      eDateEnd.setHours(23, 59, 59, 999);
-
-      const overlappingShifts = await Shift.find({
-        studentUserId: request.employeeUserId,
-        scheduleStatus: SCHEDULE_STATUSES.PUBLISHED,
-        startAt: { $lte: eDateEnd },
-        endAt: { $gte: request.startDate },
-      });
-
-      if (overlappingShifts.length > 0) {
-        if (conflictingShiftAction === 'unassign') {
-          for (const s of overlappingShifts) {
-            s.studentUserId = null;
-            s.studentId = null;
-            s.studentName = '';
-            s.studentPhone = '';
-            s.assignmentStatus = ASSIGNMENT_STATUSES.UNASSIGNED;
-            s.history.push({
-              status: s.status,
-              scheduleStatus: s.scheduleStatus,
-              attendanceStatus: s.attendanceStatus,
-              payrollStatus: s.payrollStatus,
-              changedAt: new Date(),
-              changedBy: req.user._id,
-              note: 'Gỡ phân công do nhân viên được duyệt đơn nghỉ phép',
-            });
-            await s.save();
+    const reviewFields = {
+      status,
+      reviewNote: reviewNote ? String(reviewNote).trim() : request.reviewNote,
+      reviewedBy: req.user._id,
+      reviewedAt: new Date(),
+    };
+    if (status === 'approved' && conflictingShiftAction !== 'warn') {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          const current = await TimeOffRequest.findOne({ _id: request._id, status: 'pending' }).session(session);
+          if (!current) {
+            const error = new Error('Đơn đã được xử lý trước đó.');
+            error.status = 409;
+            throw error;
           }
-        } else if (conflictingShiftAction === 'cancel') {
-          for (const s of overlappingShifts) {
-            s.scheduleStatus = SCHEDULE_STATUSES.CANCELLED;
-            s.cancelReason = 'Hủy ca do nhân viên được duyệt đơn nghỉ phép';
-            s.history.push({
-              status: SCHEDULE_STATUSES.CANCELLED,
-              scheduleStatus: SCHEDULE_STATUSES.CANCELLED,
-              attendanceStatus: s.attendanceStatus,
-              payrollStatus: s.payrollStatus,
-              changedAt: new Date(),
-              changedBy: req.user._id,
-              note: 'Hủy ca do nhân viên được duyệt đơn nghỉ phép',
-            });
-            await s.save();
+          const endOfLeave = new Date(current.endDate);
+          endOfLeave.setHours(23, 59, 59, 999);
+          const overlappingShifts = await Shift.find({
+            $or: [{ employeeUserId: current.employeeUserId }, { studentUserId: current.employeeUserId }],
+            employerUserId: current.employerUserId,
+            scheduleStatus: SCHEDULE_STATUSES.PUBLISHED,
+            startAt: { $lte: endOfLeave },
+            endAt: { $gte: current.startDate },
+          }).session(session);
+          const now = new Date();
+          if (overlappingShifts.some(shift =>
+            shift.startAt < now ||
+            shift.attendanceStatus !== ATTENDANCE_STATUSES.NOT_STARTED ||
+            shift.payrollStatus !== PAYROLL_STATUSES.NOT_READY
+          )) {
+            const error = new Error('Có ca đã bắt đầu hoặc đã chấm công/tính lương. Hãy chọn chỉ cảnh báo và xử lý riêng các ca đó.');
+            error.status = 409;
+            throw error;
           }
-        }
-        affectedShifts = overlappingShifts;
+          for (const shift of overlappingShifts) {
+            if (conflictingShiftAction === 'unassign') {
+              shift.employeeUserId = null;
+              shift.studentUserId = null;
+              shift.studentId = null;
+              shift.studentName = '';
+              shift.employeeName = '';
+              shift.studentPhone = '';
+              shift.assignmentStatus = ASSIGNMENT_STATUSES.UNASSIGNED;
+            } else {
+              shift.scheduleStatus = SCHEDULE_STATUSES.CANCELLED;
+              shift.cancelReason = 'Hủy ca do nhân viên được duyệt đơn nghỉ phép';
+            }
+            shift.history.push({
+              status: shift.status,
+              scheduleStatus: shift.scheduleStatus,
+              attendanceStatus: shift.attendanceStatus,
+              payrollStatus: shift.payrollStatus,
+              changedAt: now,
+              changedBy: req.user._id,
+              note: 'Điều chỉnh ca do duyệt đơn nghỉ phép',
+            });
+            await shift.save({ session });
+          }
+          Object.assign(current, reviewFields);
+          await current.save({ session });
+          affectedShifts = overlappingShifts;
+        });
+      } finally {
+        await session.endSession();
       }
+    } else {
+      const updated = await TimeOffRequest.findOneAndUpdate(
+        { _id: request._id, status: 'pending' },
+        { $set: reviewFields },
+        { new: true }
+      );
+      if (!updated) return res.status(409).json({ error: 'Đơn đã được xử lý trước đó.', code: 'REQUEST_TERMINAL' });
     }
+    Object.assign(request, reviewFields);
 
     // Send notification
     try {
@@ -240,7 +265,7 @@ router.put('/:id/status', async (req, res, next) => {
       affectedShiftsCount: affectedShifts.length,
     });
   } catch (err) {
-    next(err);
+    next(normalizeTransactionError(err));
   }
 });
 

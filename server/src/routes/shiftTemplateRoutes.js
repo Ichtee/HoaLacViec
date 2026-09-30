@@ -13,8 +13,10 @@ router.get('/', async (req, res, next) => {
     const filter = { active: true };
     if (req.user.role === 'employer') {
       filter.employerUserId = req.user._id;
-    } else if (req.query.employerId) {
-      filter.employerUserId = req.query.employerId;
+    } else if (req.user.role === 'admin') {
+      if (req.query.employerId) filter.employerUserId = req.query.employerId;
+    } else {
+      return res.status(403).json({ error: 'Không có quyền xem mẫu ca của nhà tuyển dụng.', code: 'FORBIDDEN' });
     }
 
     if (req.query.dayOfWeek !== undefined) {

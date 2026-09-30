@@ -8,6 +8,7 @@ import { EmployerProfile } from '../models/EmployerProfile.js';
 import { authenticate } from '../middlewares/auth.js';
 import { evaluateAttendanceGPS, clampRadius } from '../utils/geoHelper.js';
 import {
+  assertIsEmployerOwnerOrAdmin,
   createShift,
   publishShifts,
   preflightPublish,
@@ -96,7 +97,7 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    if (scheduleStatus) {
+    if (scheduleStatus && !isEmployee) {
       filter.scheduleStatus = scheduleStatus;
     }
     if (attendanceStatus) {
@@ -528,6 +529,8 @@ router.delete('/:id', async (req, res, next) => {
     }
     const shift = await Shift.findById(req.params.id);
     if (!shift) return res.status(404).json({ error: 'Không tìm thấy ca làm việc.', code: 'NOT_FOUND' });
+
+    assertIsEmployerOwnerOrAdmin(shift, req.user);
 
     if (shift.scheduleStatus === SCHEDULE_STATUSES.DRAFT || shift.status === 'draft') {
       await Shift.findByIdAndDelete(req.params.id);

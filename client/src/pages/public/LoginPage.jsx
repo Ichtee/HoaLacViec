@@ -10,7 +10,13 @@ export default function LoginPage() {
   const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || null;
+  const requestedPath = location.state?.from?.pathname || new URLSearchParams(location.search).get('redirect');
+  const decodedPath = (() => {
+    try { return decodeURIComponent(requestedPath || ''); } catch { return ''; }
+  })();
+  const from = decodedPath.startsWith('/') && !decodedPath.startsWith('//') && !/[\\\r\n]/.test(decodedPath)
+    ? decodedPath
+    : null;
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -38,6 +44,8 @@ export default function LoginPage() {
     }
     const dashboards = {
       student: '/student',
+      worker: '/student',
+      freelancer: '/student',
       employer: '/employer',
       admin: '/admin',
     };
@@ -185,16 +193,12 @@ export default function LoginPage() {
                 <label className="text-xs font-bold text-text-main">
                   Mật khẩu
                 </label>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert('Vui lòng liên hệ bộ phận hỗ trợ qua email hotro@hoalacviec.vn để được hỗ trợ đặt lại mật khẩu.');
-                  }}
+                <Link
+                  to="/reset-password"
                   className="text-[11px] font-medium text-green-main hover:underline"
                 >
                   Quên mật khẩu?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />

@@ -6,6 +6,13 @@ import { StudentProfile } from '../models/StudentProfile.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { authenticate } from '../middlewares/auth.js';
 import { activatePendingUserWhenVerificationDisabled } from '../config/accountVerification.js';
+import {
+  createResetToken,
+  hashResetToken,
+  isPasswordEmailConfigured,
+  RESET_REQUEST_COOLDOWN_MS,
+  sendPasswordResetEmail,
+} from '../services/passwordResetService.js';
 
 const router = express.Router();
 
@@ -25,7 +32,7 @@ function createToken(user) {
     throw new Error('Cấu hình bảo mật JWT_SECRET bị thiếu trên máy chủ.');
   }
   return jwt.sign(
-    { id: user._id, role: user.role, email: user.email, name: user.name },
+    { id: user._id, role: user.role, email: user.email, name: user.name, tokenVersion: user.tokenVersion || 0 },
     secret,
     { expiresIn: '7d' }
   );
@@ -313,6 +320,65 @@ router.post('/register', async (req, res, next) => {
 
     const authRes = await buildAuthResponse(newUser);
     res.status(201).json(authRes);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/forgot-password — same response for existing and unknown email.
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return res.status(400).json({ error: 'Email không hợp lệ.', code: 'INVALID_EMAIL' });
+    }
+    if (!isPasswordEmailConfigured()) {
+      return res.status(503).json({ error: 'Chức năng đặt lại mật khẩu chưa được cấu hình gửi email. Vui lòng liên hệ hỗ trợ.', code: 'EMAIL_NOT_CONFIGURED' });
+    }
+    const genericMessage = 'Nếu email có tài khoản, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.';
+    const user = await User.findOne({ email }).select('+passwordResetRequestedAt');
+    if (!user || user.status === 'deleted' ||
+      (user.passwordResetRequestedAt && Date.now() - user.passwordResetRequestedAt.getTime() < RESET_REQUEST_COOLDOWN_MS)) {
+      return res.json({ message: genericMessage });
+    }
+    const { token, tokenHash, expiresAt } = createResetToken();
+    user.passwordResetTokenHash = tokenHash;
+    user.passwordResetExpiresAt = expiresAt;
+    user.passwordResetRequestedAt = new Date();
+    await user.save();
+    try {
+      await sendPasswordResetEmail(user.email, token);
+    } catch (error) {
+      await User.updateOne({ _id: user._id, passwordResetTokenHash: tokenHash }, {
+        $set: { passwordResetTokenHash: null, passwordResetExpiresAt: null },
+      });
+      console.error('Password reset email delivery failed:', error.message);
+      return res.status(503).json({ error: 'Chưa thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.', code: 'EMAIL_DELIVERY_FAILED' });
+    }
+    res.json({ message: genericMessage });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/reset-password — atomic token consumption prevents reuse.
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) ||
+        typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 32) {
+      return res.status(400).json({ error: 'Liên kết hoặc mật khẩu mới không hợp lệ.', code: 'INVALID_RESET_REQUEST' });
+    }
+    const user = await User.findOneAndUpdate(
+      { passwordResetTokenHash: hashResetToken(token), passwordResetExpiresAt: { $gt: new Date() } },
+      { $set: { passwordResetTokenHash: null, passwordResetExpiresAt: null, passwordResetRequestedAt: null } },
+      { new: true }
+    );
+    if (!user) return res.status(400).json({ error: 'Liên kết đã hết hạn hoặc đã được sử dụng.', code: 'RESET_TOKEN_INVALID' });
+    user.password = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    await user.save();
+    res.json({ message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.' });
   } catch (err) {
     next(err);
   }

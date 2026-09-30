@@ -99,6 +99,20 @@ export async function apiGetMe() {
   return request('/auth/me');
 }
 
+export async function apiForgotPassword(email) {
+  return request('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function apiResetPassword(token, newPassword) {
+  return request('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+  });
+}
+
 export async function apiUpdateUserProfile(userData) {
   return request('/auth/profile', {
     method: 'PUT',

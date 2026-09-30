@@ -5,6 +5,8 @@ import { Job } from '../models/Job.js';
 import { User } from '../models/User.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Notification } from '../models/Notification.js';
+import { SCHEDULE_STATUSES, ATTENDANCE_STATUSES, PAYROLL_STATUSES } from '../domain/shiftLifecycle.js';
+import { normalizeTransactionError } from '../utils/transactionError.js';
 
 export async function assertEmploymentEmployerAccess(employment, actorUserId) {
   const profile = await EmployerProfile.findOne({ userId: actorUserId });
@@ -67,6 +69,12 @@ export async function getEmployments({ employerUserId, employeeUserId, status, s
  * Terminate employment (soft transition)
  */
 export async function terminateEmployment(employmentId, actorUserId, { reasonCode, note, futureShiftAction = 'cancel' } = {}) {
+  if (!['cancel', 'keep'].includes(futureShiftAction)) {
+    const err = new Error('Cách xử lý ca tương lai không hợp lệ.');
+    err.status = 400;
+    err.code = 'INVALID_SHIFT_ACTION';
+    throw err;
+  }
   const employment = await Employment.findById(employmentId);
   if (!employment) {
     const err = new Error('Không tìm thấy thông tin nhân viên.');
@@ -84,53 +92,68 @@ export async function terminateEmployment(employmentId, actorUserId, { reasonCod
     throw err;
   }
 
-  const oldStatus = employment.status;
-  employment.status = 'terminated';
-  employment.endDate = new Date();
-  employment.terminationReasonCode = reasonCode || 'other';
-  employment.terminationNote = note || '';
-  employment.terminatedBy = actorUserId;
-
-  employment.history.push({
-    status: 'terminated',
-    changedAt: new Date(),
-    changedBy: actorUserId,
-    note: note || `Kết thúc làm việc (Lý do: ${reasonCode || 'Khác'})`,
-  });
-
-  await employment.save();
-
-  // Handle future shifts (scheduled / published / draft)
   let cancelledShiftsCount = 0;
-  if (futureShiftAction === 'cancel') {
-    const now = new Date();
-    const futureShifts = await Shift.find({
-      studentUserId: employment.employeeUserId,
-      employerUserId: employment.employerUserId,
-      startAt: { $gte: now },
-      status: { $in: ['draft', 'published', 'acknowledged', 'scheduled'] },
-    });
-
-    for (const shift of futureShifts) {
-      shift.status = 'cancelled';
-      shift.cancelReason = `Nhân viên đã kết thúc làm việc: ${note || 'Nghỉ việc'}`;
-      shift.history.push({
-        status: 'cancelled',
-        changedAt: new Date(),
-        changedBy: actorUserId,
-        note: `Tự động hủy ca do nhân viên nghỉ việc: ${note || ''}`,
+  let terminatedEmployment;
+  try {
+    await mongoose.connection.transaction(async (session) => {
+      let cancelledInAttempt = 0;
+      const current = await Employment.findById(employmentId).session(session);
+      if (!current || current.status === 'terminated') {
+        const err = new Error('Nhân viên này đã kết thúc làm việc từ trước.');
+        err.code = 'ALREADY_TERMINATED';
+        err.status = 409;
+        throw err;
+      }
+      const now = new Date();
+      if (futureShiftAction === 'cancel') {
+        const futureShifts = await Shift.find({
+          employerUserId: current.employerUserId,
+          $or: [
+            { employmentId: current._id },
+            { employmentId: null, studentUserId: current.employeeUserId },
+          ],
+          startAt: { $gte: now },
+          scheduleStatus: { $in: [SCHEDULE_STATUSES.DRAFT, SCHEDULE_STATUSES.PUBLISHED] },
+          attendanceStatus: ATTENDANCE_STATUSES.NOT_STARTED,
+          payrollStatus: PAYROLL_STATUSES.NOT_READY,
+        }).session(session);
+        for (const shift of futureShifts) {
+          shift.scheduleStatus = SCHEDULE_STATUSES.CANCELLED;
+          shift.cancelReason = `Nhân viên đã kết thúc làm việc: ${note || 'Nghỉ việc'}`;
+          shift.history.push({
+            status: SCHEDULE_STATUSES.CANCELLED,
+            scheduleStatus: SCHEDULE_STATUSES.CANCELLED,
+            changedAt: now,
+            changedBy: actorUserId,
+            note: `Tự động hủy ca do nhân viên nghỉ việc: ${note || ''}`,
+          });
+          await shift.save({ session });
+          cancelledInAttempt++;
+        }
+      }
+      current.status = 'terminated';
+      current.endDate = now;
+      current.terminationReasonCode = reasonCode || 'other';
+      current.terminationNote = note || '';
+      current.terminatedBy = actorUserId;
+      current.history.push({
+        status: 'terminated', changedAt: now, changedBy: actorUserId,
+        note: note || `Kết thúc làm việc (Lý do: ${reasonCode || 'Khác'})`,
       });
-      await shift.save();
-      cancelledShiftsCount++;
-    }
+      await current.save({ session });
+      cancelledShiftsCount = cancelledInAttempt;
+      terminatedEmployment = current;
+    });
+  } catch (error) {
+    throw normalizeTransactionError(error);
   }
 
   // Notify student
   try {
     await Notification.create({
-      userId: employment.employeeUserId,
+      userId: terminatedEmployment.employeeUserId,
       title: 'Thông báo kết thúc hợp tác làm việc',
-      message: `Quán ${employment.workplace} đã cập nhật trạng thái kết thúc hợp tác đối với bạn. Lý do: ${note || 'Hoàn tất hợp đồng'}.`,
+      message: `Quán ${terminatedEmployment.workplace} đã cập nhật trạng thái kết thúc hợp tác đối với bạn. Lý do: ${note || 'Hoàn tất hợp đồng'}.`,
       type: 'employment',
       link: '/student/shifts',
     });
@@ -138,7 +161,7 @@ export async function terminateEmployment(employmentId, actorUserId, { reasonCod
     console.warn('Failed to notify student of termination:', notifErr.message);
   }
 
-  return { employment, cancelledShiftsCount };
+  return { employment: terminatedEmployment, cancelledShiftsCount };
 }
 
 /**
@@ -154,6 +177,13 @@ export async function updateEmployment(employmentId, actorUserId, updates = {}) 
   }
 
   await assertEmploymentEmployerAccess(employment, actorUserId);
+
+  if (employment.status === 'terminated') {
+    const err = new Error('Quan hệ làm việc đã kết thúc. Hãy tạo quan hệ mới nếu tuyển dụng lại.');
+    err.code = 'EMPLOYMENT_TERMINATED';
+    err.status = 409;
+    throw err;
+  }
 
   if (updates.positionTitle) employment.positionTitle = updates.positionTitle;
   if (updates.wageRate !== undefined) employment.wageRate = Number(updates.wageRate);

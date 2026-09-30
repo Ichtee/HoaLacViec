@@ -41,6 +41,10 @@ export async function authenticate(req, res, next) {
       });
     }
 
+    if ((decoded.tokenVersion || 0) !== (user.tokenVersion || 0)) {
+      return res.status(401).json({ error: 'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.', code: 'INVALID_TOKEN' });
+    }
+
     if (user.status === 'locked' || user.status === 'suspended') {
       return res.status(403).json({
         error: 'Tài khoản của bạn đã bị khóa hoặc tạm ngưng hoạt động.',
@@ -114,7 +118,7 @@ export async function optionalAuthenticate(req, res, next) {
     }
 
     const user = await User.findById(decoded.id);
-    if (!user || user.status === 'locked' || user.status === 'suspended' || user.status === 'deleted') {
+    if (!user || (decoded.tokenVersion || 0) !== (user.tokenVersion || 0) || user.status === 'locked' || user.status === 'suspended' || user.status === 'deleted') {
       req.user = null;
       return next();
     }

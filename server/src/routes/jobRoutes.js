@@ -16,6 +16,21 @@ import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationCont
 
 const router = express.Router();
 
+const EDITABLE_JOB_FIELDS = [
+  'storeName', 'title', 'category', 'type', 'salaryAmount', 'salaryUnit',
+  'area', 'address', 'location', 'locationStatus', 'locationSource',
+  'geocodingProvider', 'providerPlaceId', 'formattedAddress',
+  'addressComponents', 'provinceCode', 'districtCode', 'wardCode',
+  'schedule', 'positions', 'slots', 'description', 'requirements',
+  'benefits', 'busRoutes', 'tags', 'contactPhone', 'closesAt',
+];
+
+function pickEditableJobFields(body = {}) {
+  return Object.fromEntries(
+    EDITABLE_JOB_FIELDS.filter(key => Object.hasOwn(body, key)).map(key => [key, body[key]])
+  );
+}
+
 // Helper: Create Vietnamese diacritic-agnostic regex
 function createVietnameseRegex(query) {
   if (!query) return null;
@@ -476,7 +491,7 @@ router.post('/', authenticate, async (req, res, next) => {
     }
 
     const profile = await EmployerProfile.findOne({ userId: req.user._id });
-    const data = { ...req.body };
+    const data = pickEditableJobFields(req.body);
 
     data.employerUserId = req.user._id;
     if (profile) {
@@ -495,12 +510,26 @@ router.post('/', authenticate, async (req, res, next) => {
     }
     if (!data.salaryUnit) data.salaryUnit = 'hour';
 
-    // Status: draft if explicitly requested, otherwise approved
-    if (req.user.role === 'admin' || req.user.role === 'employer') {
-      data.status = data.status === 'draft' ? 'draft' : 'approved';
+    // Status: Strip sensitive status from client. Admin can set directly; employers always go through review.
+    const clientStatus = req.body.status;
+    if (req.user.role === 'admin') {
+      // Admin can set any valid status
+      data.status = ['draft', 'pending', 'approved'].includes(clientStatus) ? clientStatus : 'pending';
     } else {
-      data.status = data.status === 'draft' ? 'draft' : 'pending';
+      // Employer: can only create as draft or pending (for admin review)
+      if (clientStatus !== 'draft' && !profile?.verified) {
+        return res.status(403).json({ error: 'Hãy xác minh nhà tuyển dụng trước khi gửi tin chờ duyệt.', code: 'EMPLOYER_NOT_VERIFIED' });
+      }
+      data.status = clientStatus === 'draft' ? 'draft' : 'pending';
     }
+
+    const openings = Number(data.slots ?? 1);
+    if (!Number.isInteger(openings) || openings < 1) {
+      return res.status(400).json({ error: 'Số lượng tuyển phải là số nguyên dương.', code: 'INVALID_SLOTS' });
+    }
+    data.headcountTarget = openings;
+    data.remainingOpenings = openings;
+    data.hiredCount = 0;
 
     // Normalize requirements & benefits
     if (typeof data.requirements === 'string') {
@@ -533,8 +562,8 @@ router.post('/:id/submit', authenticate, async (req, res, next) => {
       return res.status(403).json({ error: 'Bạn không có quyền gửi duyệt tin tuyển dụng này.', code: 'FORBIDDEN' });
     }
 
-    if (job.status !== 'draft') {
-      return res.status(400).json({ error: `Chỉ tin ở trạng thái bản nháp (draft) mới có thể gửi duyệt (hiện tại: ${job.status}).`, code: 'INVALID_STATE' });
+    if (!['draft', 'rejected'].includes(job.status)) {
+      return res.status(400).json({ error: `Chỉ tin nháp hoặc bị từ chối mới có thể gửi duyệt (hiện tại: ${job.status}).`, code: 'INVALID_STATE' });
     }
 
     // Employer must be verified to submit for approval
@@ -634,6 +663,7 @@ router.post('/:id/approve', authenticate, authorize('admin'), async (req, res, n
   try {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+    if (job.status !== 'pending') return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được phê duyệt.', code: 'INVALID_STATE' });
 
     job.status = 'approved';
     job.moderatedBy = req.user._id;
@@ -674,6 +704,7 @@ router.post('/:id/reject', authenticate, authorize('admin'), async (req, res, ne
     const { reason } = req.body;
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm.', code: 'JOB_NOT_FOUND' });
+    if (job.status !== 'pending') return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được từ chối.', code: 'INVALID_STATE' });
 
     job.status = 'rejected';
     job.moderatedBy = req.user._id;
@@ -719,23 +750,30 @@ router.put('/:id', authenticate, async (req, res, next) => {
         return res.status(403).json({ error: 'Bạn không có quyền chỉnh sửa tin tuyển dụng này.', code: 'FORBIDDEN' });
       }
 
-      // Strip protected fields
-      delete req.body.employerUserId;
-      delete req.body.employerProfileId;
-      delete req.body.employerId;
-      delete req.body.featured;
-      delete req.body.moderatedBy;
-      delete req.body.moderatedAt;
-      delete req.body.archivedAt;
+      // Status changes are handled by dedicated transition endpoints.
+      delete req.body.status;
 
       // If approved job changes core information, revert to pending for review
-      const isChangingCore = req.body.title || req.body.salaryAmount || req.body.address || req.body.schedule || req.body.location;
+      const isChangingCore = ['title', 'salaryAmount', 'address', 'schedule', 'location', 'description', 'positions', 'slots'].some(key => Object.hasOwn(req.body, key));
       if (job.status === 'approved' && isChangingCore) {
         req.body.status = 'pending';
         req.body.moderationNote = 'Tin tuyển dụng cần duyệt lại do thay đổi nội dung quan trọng.';
-      } else if (req.body.status && !['paused', 'closed', 'draft', 'pending'].includes(req.body.status)) {
-        delete req.body.status;
       }
+    }
+
+    const edits = pickEditableJobFields(req.body);
+    if (req.body.status === 'pending' && job.status === 'approved') {
+      edits.status = 'pending';
+      edits.moderationNote = req.body.moderationNote;
+    }
+    if (Object.hasOwn(edits, 'slots')) {
+      const openings = Number(edits.slots);
+      if (!Number.isInteger(openings) || openings < job.hiredCount) {
+        return res.status(400).json({ error: 'Số lượng tuyển không được nhỏ hơn số người đã nhận.', code: 'INVALID_SLOTS' });
+      }
+      edits.headcountTarget = openings;
+      edits.remainingOpenings = openings - job.hiredCount;
+      edits.slots = edits.remainingOpenings;
     }
 
     const existingJob = await Job.findById(req.params.id);
@@ -743,19 +781,19 @@ router.put('/:id', authenticate, async (req, res, next) => {
 
     // Normalize location & address using authoritative contract
     if (
-      req.body.location !== undefined ||
-      req.body.locationStatus !== undefined ||
-      req.body.address !== undefined ||
-      req.body.addressComponents !== undefined ||
-      req.body.locationSource !== undefined
+      edits.location !== undefined ||
+      edits.locationStatus !== undefined ||
+      edits.address !== undefined ||
+      edits.addressComponents !== undefined ||
+      edits.locationSource !== undefined
     ) {
-      const normalizedLoc = normalizeLocationInput(req.body, existingJob, {
-        isExplicitConfirm: req.body.locationStatus === LOCATION_STATUSES.CONFIRMED,
+      const normalizedLoc = normalizeLocationInput(edits, existingJob, {
+        isExplicitConfirm: edits.locationStatus === LOCATION_STATUSES.CONFIRMED,
       });
-      Object.assign(req.body, normalizedLoc);
+      Object.assign(edits, normalizedLoc);
     }
 
-    const updated = await Job.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    const updated = await Job.findByIdAndUpdate(req.params.id, { $set: edits }, { new: true, runValidators: true });
     res.json(updated);
   } catch (err) {
     next(err);

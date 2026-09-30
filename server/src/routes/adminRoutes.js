@@ -179,8 +179,8 @@ router.get('/jobs', async (req, res) => {
 // POST /api/admin/jobs/:id/approve (Admin duyệt việc làm)
 router.post('/jobs/:id/approve', async (req, res) => {
   try {
-    const job = await Job.findByIdAndUpdate(
-      req.params.id,
+    const job = await Job.findOneAndUpdate(
+      { _id: req.params.id, status: 'pending' },
       {
         status: 'approved',
         moderatedBy: req.user._id,
@@ -189,7 +189,7 @@ router.post('/jobs/:id/approve', async (req, res) => {
       },
       { new: true }
     );
-    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+    if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được phê duyệt.', code: 'INVALID_STATE' });
 
     let employerUserId = job.employerUserId;
     if (!employerUserId && (job.employerProfileId || job.employerId)) {
@@ -221,8 +221,8 @@ router.post('/jobs/:id/reject', async (req, res) => {
   try {
     const { reason } = req.body;
     const defaultReason = reason || 'Nội dung tin tuyển dụng chưa đáp ứng tiêu chuẩn cộng đồng.';
-    const job = await Job.findByIdAndUpdate(
-      req.params.id,
+    const job = await Job.findOneAndUpdate(
+      { _id: req.params.id, status: 'pending' },
       {
         status: 'rejected',
         moderatedBy: req.user._id,
@@ -231,7 +231,7 @@ router.post('/jobs/:id/reject', async (req, res) => {
       },
       { new: true }
     );
-    if (!job) return res.status(404).json({ error: 'Không tìm thấy việc làm' });
+    if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được từ chối.', code: 'INVALID_STATE' });
 
     let employerUserId = job.employerUserId;
     if (!employerUserId && (job.employerProfileId || job.employerId)) {

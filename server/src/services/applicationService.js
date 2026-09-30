@@ -5,6 +5,7 @@ import { User } from '../models/User.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Employment } from '../models/Employment.js';
 import { Notification } from '../models/Notification.js';
+import { normalizeTransactionError } from '../utils/transactionError.js';
 
 export const VALID_TRANSITIONS = {
   submitted: ['screening', 'shortlisted', 'interview', 'offer_sent', 'rejected', 'withdrawn'],
@@ -68,7 +69,7 @@ export async function assertEmployerOwnership(application, actorUserId) {
   }
 
   // Check job ownership
-  const job = await Job.findById(application.jobId);
+  const job = await Job.findById(application.jobId?._id || application.jobId);
   if (job) {
     if (job.employerUserId && allowedEmployerIds.includes(job.employerUserId.toString())) return true;
     if (job.employerId && allowedEmployerIds.includes(job.employerId.toString())) return true;
@@ -249,30 +250,49 @@ export async function studentAcceptOffer(applicationId, studentUserId, responseN
     throw err;
   }
 
-  const oldStatus = application.status;
-  application.status = 'offer_accepted';
-  if (application.offer) {
-    application.offer.status = 'accepted';
-    application.offer.respondedAt = new Date();
-    application.offer.responseNote = responseNote;
+  let result;
+  try {
+    await mongoose.connection.transaction(async (session) => {
+      const current = await Application.findOne({
+        _id: application._id,
+        studentId: studentUserId,
+        status: 'offer_sent',
+      }).session(session).populate('jobId');
+      if (!current) {
+        const err = new Error('Đề nghị đã được xử lý trước đó.');
+        err.code = 'INVALID_TRANSITION';
+        err.status = 409;
+        throw err;
+      }
+      if (current.offer?.expiryDate && new Date() > new Date(current.offer.expiryDate)) {
+        const err = new Error('Đề nghị nhận việc đã hết hạn.');
+        err.code = 'OFFER_EXPIRED';
+        err.status = 410;
+        throw err;
+      }
+      current.status = 'offer_accepted';
+      if (current.offer) {
+        current.offer.status = 'accepted';
+        current.offer.respondedAt = new Date();
+        current.offer.responseNote = responseNote;
+      }
+      current.statusHistory.push({
+        fromStatus: 'offer_sent',
+        toStatus: 'offer_accepted',
+        status: 'offer_accepted',
+        changedAt: new Date(),
+        changedBy: studentUserId,
+        reason: responseNote || 'Ứng viên đã chấp nhận đề nghị nhận việc',
+        candidateVisibleMessage: 'Bạn đã chấp nhận đề nghị nhận việc.',
+      });
+      await current.save({ session });
+      result = await finalizeHire(current._id, session);
+    });
+  } catch (error) {
+    throw normalizeTransactionError(error);
   }
-
-  application.statusHistory.push({
-    fromStatus: oldStatus,
-    toStatus: 'offer_accepted',
-    status: 'offer_accepted',
-    changedAt: new Date(),
-    changedBy: studentUserId,
-    reason: responseNote || 'Ứng viên đã chấp nhận đề nghị nhận việc (Offer Accepted)',
-    candidateVisibleMessage: 'Bạn đã chấp nhận đề nghị nhận việc.',
-  });
-
-  await application.save();
-
-  // Atomically finalize hire and create Employment
-  const { employment } = await finalizeHire(application._id);
-
-  return { application, employment };
+  await notifyHire(result.application, result.employment);
+  return result;
 }
 
 /**
@@ -343,8 +363,9 @@ export async function studentDeclineOffer(applicationId, studentUserId, reason =
 /**
  * Atomically finalize hire: transition application -> hired, create Employment, decrement capacity
  */
-export async function finalizeHire(applicationId) {
-  const application = await Application.findById(applicationId).populate('jobId');
+export async function finalizeHire(applicationId, session) {
+  if (!session) throw new Error('Hoàn tất tuyển dụng yêu cầu MongoDB transaction.');
+  const application = await Application.findById(applicationId).session(session).populate('jobId');
   if (!application) {
     const err = new Error('Không tìm thấy hồ sơ ứng tuyển.');
     err.code = 'NOT_FOUND';
@@ -360,7 +381,7 @@ export async function finalizeHire(applicationId) {
   }
 
   // Idempotency check: did we already create Employment for this application?
-  let existingEmployment = await Employment.findOne({ sourceApplicationId: application._id });
+  let existingEmployment = await Employment.findOne({ sourceApplicationId: application._id }).session(session);
   if (existingEmployment) {
     return { application, employment: existingEmployment };
   }
@@ -373,15 +394,13 @@ export async function finalizeHire(applicationId) {
   const updatedJob = await Job.findOneAndUpdate(
     {
       _id: job._id,
-      $or: [
-        { remainingOpenings: { $gt: 0 } },
-        { slots: { $gt: 0 } },
-      ],
+      remainingOpenings: { $gt: 0 },
+      slots: { $gt: 0 },
     },
     {
       $inc: { hiredCount: 1, remainingOpenings: -1, slots: -1 },
     },
-    { new: true }
+    { new: true, session }
   );
 
   if (!updatedJob) {
@@ -396,7 +415,7 @@ export async function finalizeHire(applicationId) {
     updatedJob.remainingOpenings = 0;
     updatedJob.slots = 0;
     updatedJob.recruitmentStatus = 'filled';
-    await updatedJob.save();
+    await updatedJob.save({ session });
   }
 
   // Transition application to hired
@@ -411,11 +430,11 @@ export async function finalizeHire(applicationId) {
     reason: 'Hoàn tất quy trình tuyển dụng và thiết lập hồ sơ nhân viên chính thức.',
     candidateVisibleMessage: 'Chúc mừng bạn đã chính thức trở thành nhân viên! Hồ sơ đã được chuyển sang mục Nhân viên.',
   });
-  await application.save();
+  await application.save({ session });
 
   // Create authoritative Employment record
   const offer = application.offer || {};
-  const employment = await Employment.create({
+  const [employment] = await Employment.create([{
     employerUserId,
     employeeUserId: application.studentId,
     sourceApplicationId: application._id,
@@ -434,9 +453,14 @@ export async function finalizeHire(applicationId) {
       changedAt: new Date(),
       note: 'Tuyển dụng thành công từ đề nghị nhận việc.',
     }],
-  });
+  }], { session });
 
-  // Notify student & employer
+  return { application, employment };
+}
+
+async function notifyHire(application, employment) {
+  const employerUserId = employment.employerUserId;
+  // Notifications are sent only after the hire transaction commits.
   try {
     await Notification.create({
       userId: application.studentId,
@@ -459,5 +483,4 @@ export async function finalizeHire(applicationId) {
     console.warn('Failed to send hiring notifications:', notifErr.message);
   }
 
-  return { application, employment };
 }
