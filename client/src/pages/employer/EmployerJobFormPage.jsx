@@ -781,9 +781,9 @@ export default function EmployerJobFormPage() {
               <span className="text-gray-600 line-clamp-1">
                 <strong>Địa chỉ hoàn chỉnh:</strong> {fullAddressPreview}
               </span>
-              {isValidCoordinate(formData.lat, formData.lng) && (
+              {(fullAddressPreview || formData.address) && (
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${formData.lat},${formData.lng}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddressPreview || formData.address)}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 hover:underline shrink-0 flex items-center gap-1 font-bold ml-2"

@@ -13,7 +13,7 @@ import {
   deleteJob,
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
-import { formatVND, hasConfirmedCoordinates } from '@/utils';
+import { formatVND, hasConfirmedCoordinates, getGoogleMapsDirectionsUrl } from '@/utils';
 
 export default function EmployerJobsPage() {
   const navigate = useNavigate();
@@ -233,20 +233,15 @@ export default function EmployerJobsPage() {
 
                   <div className="flex items-center gap-1.5">
                     {(() => {
-                      const lat = job.location?.lat ?? job.lat ?? job.geoPoint?.coordinates?.[1];
-                      const lng = job.location?.lng ?? job.lng ?? job.geoPoint?.coordinates?.[0];
-                      const isConfirmed = hasConfirmedCoordinates(job);
-                      const navUrl = isConfirmed
-                        ? `https://www.google.com/maps/dir/?api=1&destination=${Number(lat)},${Number(lng)}`
-                        : (job.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.address)}` : null);
-                      if (!navUrl) return null;
+                      const directionsUrl = getGoogleMapsDirectionsUrl(job);
+                      if (!directionsUrl) return null;
                       return (
                         <a
-                          href={navUrl}
+                          href={directionsUrl}
                           target="_blank"
                           rel="noreferrer"
                           className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-1 text-[11px] font-semibold border border-transparent hover:border-blue-200"
-                          title={isConfirmed ? "Mở chỉ đường trên Google Maps đến tọa độ chính xác" : "Mở tìm kiếm địa chỉ này trên Google Maps"}
+                          title="Tìm địa chỉ này trên Google Maps"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>

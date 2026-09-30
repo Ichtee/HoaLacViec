@@ -26,7 +26,17 @@ export default function JobListPage() {
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
   const [viewMode, setViewMode] = useState('map'); // Keep map visible by default on top
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    function handleScroll() {
+      setIsScrolled(window.scrollY > 80);
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [savedJobIds, setSavedJobIds] = useState(new Set());
   const [minSalary, setMinSalary] = useState(''); // in VND/hour
@@ -549,17 +559,31 @@ export default function JobListPage() {
 
       {/* MAP ON TOP (STICKY WHEN VIEW MODE === 'MAP') */}
       {viewMode === 'map' && (
-        <div className="sticky top-16 z-30 bg-[#FFFDF6]/95 backdrop-blur-md pt-2 pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 border-b border-stone-200/80 shadow-xs transition-all">
-          <div className="max-w-7xl mx-auto space-y-2">
+        <div
+          className={clsx(
+            'sticky top-16 z-30 bg-[#FFFDF6]/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 border-b transition-all duration-300',
+            isScrolled
+              ? 'pt-1.5 pb-2 border-stone-200/80 shadow-sm'
+              : 'pt-2 pb-3 border-stone-200/60 shadow-xs'
+          )}
+        >
+          <div className="max-w-7xl mx-auto space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
                 <Map className="w-3.5 h-3.5 text-green-main" />
-                Bản đồ vị trí việc làm ({jobsForMap.length} điểm)
+                <span>
+                  Bản đồ vị trí việc làm ({jobsForMap.length} điểm)
+                  {isScrolled && !isMapExpanded && (
+                    <span className="text-[10px] text-green-dark font-normal ml-2 hidden sm:inline">
+                      • Tự động thu gọn khi cuộn
+                    </span>
+                  )}
+                </span>
               </span>
               <button
                 type="button"
                 onClick={() => setIsMapExpanded((prev) => !prev)}
-                className="text-xs font-medium text-text-muted hover:text-green-dark flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-xs"
+                className="text-xs font-medium text-text-muted hover:text-green-dark flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-xs"
                 title={isMapExpanded ? 'Thu gọn bản đồ để xem nhiều việc hơn' : 'Mở rộng bản đồ'}
               >
                 {isMapExpanded ? (
@@ -587,8 +611,12 @@ export default function JobListPage() {
                 }
               }}
               className={clsx(
-                'w-full rounded-2xl overflow-hidden shadow-xs border border-stone-200/80 transition-all duration-200',
-                isMapExpanded ? 'h-[380px] sm:h-[460px]' : 'h-[240px] sm:h-[320px]'
+                'w-full rounded-2xl overflow-hidden shadow-xs border border-stone-200/80 transition-all duration-300 ease-in-out',
+                isMapExpanded
+                  ? 'h-[380px] sm:h-[480px]'
+                  : isScrolled
+                    ? 'h-[170px] sm:h-[210px]'
+                    : 'h-[300px] sm:h-[380px]'
               )}
             />
 
@@ -596,7 +624,7 @@ export default function JobListPage() {
               j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,
               j.location?.lng ?? j.geoPoint?.coordinates?.[0] ?? j.mapDisplayLocation?.lng
             )) && (
-              <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200/80 p-2 rounded-lg flex items-center gap-1.5">
+              <p className="text-[11px] text-gray-600 bg-amber-50/90 border border-amber-200/80 p-1.5 rounded-lg flex items-center gap-1.5">
                 <span>📍</span>
                 Một số tin chưa lưu tọa độ nên chưa thể đánh dấu trên bản đồ. Hãy chỉnh sửa tin và chọn vị trí trên bản đồ.
               </p>
