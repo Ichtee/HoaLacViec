@@ -129,8 +129,6 @@ export default function VerifyAccountPage() {
   // Worker verification form & state
   const [existingWorkerVerification, setExistingWorkerVerification] = useState(null);
   const [editingWorker, setEditingWorker] = useState(false);
-  const [workerFullName, setWorkerFullName] = useState(user?.name || '');
-  const [workerPhone, setWorkerPhone] = useState(user?.phone || '');
   const [workerIdCardNumber, setWorkerIdCardNumber] = useState('');
   const [workerProfession, setWorkerProfession] = useState('Giao hàng / Shipper');
   const [workerTransport, setWorkerTransport] = useState('xe_may');
@@ -151,11 +149,9 @@ export default function VerifyAccountPage() {
   useEffect(() => {
     if (user?.phone) {
       if (!contactPhone) setContactPhone(user.phone);
-      if (!workerPhone) setWorkerPhone(user.phone);
     }
     if (user?.name) {
       if (!legalName) setLegalName(user.name);
-      if (!workerFullName) setWorkerFullName(user.name);
     }
   }, [user]);
 
@@ -319,8 +315,8 @@ export default function VerifyAccountPage() {
         profession: workerProfession,
         transport: workerTransport,
         bio: workerBio.trim(),
-        fullName: workerFullName.trim(),
-        phone: workerPhone.trim(),
+        fullName: (user?.name || '').trim(),
+        phone: (user?.phone || '').trim(),
       });
 
       updateUser(res.user);
@@ -1029,11 +1025,11 @@ export default function VerifyAccountPage() {
                   <div className="max-w-md mx-auto bg-gray-50 rounded-2xl p-4 text-left border border-gray-100 text-xs space-y-2.5">
                     <div className="flex justify-between">
                       <span className="text-text-muted">Họ và tên:</span>
-                      <span className="font-semibold text-text-main">{workerFullName || user?.name}</span>
+                      <span className="font-semibold text-text-main">{user?.name}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Số điện thoại:</span>
-                      <span className="font-semibold text-text-main">{workerPhone || user?.phone || '---'}</span>
+                      <span className="font-semibold text-text-main">{user?.phone || '---'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-text-muted">Email:</span>
@@ -1131,26 +1127,6 @@ export default function VerifyAccountPage() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      id="wrk-name"
-                      label="Họ và tên theo CCCD"
-                      value={workerFullName}
-                      onChange={(e) => setWorkerFullName(e.target.value)}
-                      placeholder="Nguyễn Văn A"
-                      required
-                    />
-
-                    <Input
-                      id="wrk-phone"
-                      label="Số điện thoại liên hệ"
-                      type="tel"
-                      value={workerPhone}
-                      onChange={(e) => setWorkerPhone(e.target.value)}
-                      placeholder="0981234567"
-                      required
-                    />
-                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Input
