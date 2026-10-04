@@ -145,6 +145,7 @@ export default function VerifyAccountPage() {
   const [contactPhone, setContactPhone] = useState(user?.phone || '');
   const [idCardNumber, setIdCardNumber] = useState('');
   const [description, setDescription] = useState('');
+  const [storePhoto, setStorePhoto] = useState('');
 
   // Auto-fill phone and name if user object updates
   useEffect(() => {
@@ -184,6 +185,7 @@ export default function VerifyAccountPage() {
           if (empData.businessAddress) setBusinessAddress(empData.businessAddress);
           if (empData.contactPhone) setContactPhone(empData.contactPhone);
           if (empData.idCardNumber) setIdCardNumber(empData.idCardNumber);
+          if (empData.documents?.[0]?.url) setStorePhoto(empData.documents[0].url);
         }
 
         if (stuRes.status === 'fulfilled' && stuRes.value) {
@@ -371,6 +373,22 @@ export default function VerifyAccountPage() {
     }
   }
 
+  // Handle employer store photo image upload
+  function handleEmployerImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Kích thước ảnh quá lớn (tối đa 5MB).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      setStorePhoto(uploadEvent.target.result);
+      setError('');
+    };
+    reader.readAsDataURL(file);
+  }
+
   // Submit employer verification
   async function handleSubmitEmployer(e) {
     e.preventDefault();
@@ -400,6 +418,10 @@ export default function VerifyAccountPage() {
     setSuccess('');
 
     try {
+      const documents = storePhoto
+        ? [{ name: 'Ảnh cửa hàng / biển hiệu', url: storePhoto, type: 'store_photo' }]
+        : [];
+
       const res = await submitEmployerVerification({
         storeName: storeName.trim(),
         storeType,
@@ -408,7 +430,7 @@ export default function VerifyAccountPage() {
         contactPhone: contactPhone.trim(),
         idCardNumber: idCardNumber.trim(),
         description: description.trim(),
-        documents: [],
+        documents,
       });
 
       setExistingVerification(res.verification);
@@ -1228,6 +1250,19 @@ export default function VerifyAccountPage() {
                       <span className="text-text-muted">Trạng thái:</span>
                       <span className="font-bold text-amber-700">⏳ Đang chờ duyệt</span>
                     </div>
+
+                    {existingVerification.documents?.[0]?.url && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <p className="text-[11px] text-text-muted mb-1.5 font-medium">Ảnh cửa hàng / biển hiệu đã gửi:</p>
+                        <div className="rounded-xl overflow-hidden border border-gray-200 bg-white">
+                          <img
+                            src={existingVerification.documents[0].url}
+                            alt="Ảnh cửa hàng"
+                            className="w-full h-44 object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-2 flex justify-center gap-3">
@@ -1357,6 +1392,48 @@ export default function VerifyAccountPage() {
                       placeholder="Cửa hàng chuyên phục vụ đồ uống cho sinh viên, cần tuyển nhân viên part-time ca sáng/tối..."
                       className="w-full px-3.5 py-2.5 rounded-2xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400 placeholder-gray-400"
                     />
+                  </div>
+
+                  {/* Store Photo Upload */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-text-main">
+                      Ảnh chụp Biển hiệu / Cửa hàng
+                    </label>
+                    {storePhoto ? (
+                      <div className="relative rounded-2xl overflow-hidden border-2 border-purple-200 bg-purple-50/40 p-3 max-w-sm">
+                        <img
+                          src={storePhoto}
+                          alt="Ảnh cửa hàng"
+                          className="w-full h-44 object-cover rounded-xl shadow-sm"
+                        />
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs text-purple-700 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-4 h-4" /> Đã chọn ảnh
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setStorePhoto('')}
+                            className="text-xs text-red-600 hover:underline font-medium"
+                          >
+                            Đổi ảnh khác
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-purple-50/30 transition-all group">
+                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-purple-600 group-hover:scale-105 transition-all mb-2">
+                          <Upload className="w-6 h-6" />
+                        </div>
+                        <p className="text-xs font-semibold text-text-main">Tải lên ảnh chụp biển hiệu / cửa hàng</p>
+                        <p className="text-[11px] text-text-muted mt-1">Hỗ trợ JPG, PNG (tối đa 5MB)</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleEmployerImageUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
 
 
