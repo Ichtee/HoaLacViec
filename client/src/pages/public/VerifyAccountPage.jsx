@@ -519,7 +519,7 @@ export default function VerifyAccountPage() {
         )}
 
         {/* Selection Cards / Tabs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-stretch">
           {/* Student Tab Card */}
           {(() => {
             const isLockedOut = Boolean(lockedRole && lockedRole !== 'student');
@@ -533,7 +533,7 @@ export default function VerifyAccountPage() {
                   setError('');
                 }}
                 className={clsx(
-                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
+                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden h-full flex flex-col justify-between',
                   isLockedOut
                     ? 'bg-gray-50/70 border-dashed border-gray-200 opacity-60 cursor-not-allowed select-none'
                     : activeTab === 'student'
@@ -541,42 +541,44 @@ export default function VerifyAccountPage() {
                     : 'bg-white/80 border-gray-200 hover:border-green-200 hover:bg-white'
                 )}
               >
-                <div className="flex items-start justify-between">
-                  <div className={clsx(
-                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
-                    isLockedOut ? "bg-gray-100 text-gray-400" : "bg-green-100 text-green-700"
-                  )}>
-                    <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </div>
-                  {isLockedOut ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Đã khóa
-                    </span>
-                  ) : (
-                    <span className={clsx(
-                      "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-                      existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
-                        ? "bg-amber-100 text-amber-800"
-                        : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
-                        ? "bg-green-100 text-green-800"
-                        : existingStudentVerification?.verificationStatus === 'rejected'
-                        ? "bg-red-100 text-red-800"
-                        : "bg-green-50 text-green-700"
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className={clsx(
+                      "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
+                      isLockedOut ? "bg-gray-100 text-gray-400" : "bg-green-100 text-green-700"
                     )}>
-                      {existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
-                        ? '⏳ Chờ duyệt'
-                        : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
-                        ? '✓ Đã duyệt'
-                        : existingStudentVerification?.verificationStatus === 'rejected'
-                        ? '✕ Bị từ chối'
-                        : 'Xác minh SV'}
-                    </span>
-                  )}
+                      <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    {isLockedOut ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Đã khóa
+                      </span>
+                    ) : (
+                      <span className={clsx(
+                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                        existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
+                          ? "bg-amber-100 text-amber-800"
+                          : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
+                          ? "bg-green-100 text-green-800"
+                          : existingStudentVerification?.verificationStatus === 'rejected'
+                          ? "bg-red-100 text-red-800"
+                          : "bg-green-50 text-green-700"
+                      )}>
+                        {existingStudentVerification?.verificationStatus === 'pending' || existingStudentVerification?.status === 'pending'
+                          ? '⏳ Chờ duyệt'
+                          : existingStudentVerification?.verificationStatus === 'approved' || existingStudentVerification?.verified
+                          ? '✓ Đã duyệt'
+                          : existingStudentVerification?.verificationStatus === 'rejected'
+                          ? '✕ Bị từ chối'
+                          : 'Xác minh SV'}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Sinh viên</h3>
+                  <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
+                    Nhập mã sinh viên và trường học để kích hoạt tài khoản sinh viên Hòa Lạc.
+                  </p>
                 </div>
-                <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Sinh viên</h3>
-                <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-                  Nhập mã sinh viên và trường học để kích hoạt tài khoản sinh viên Hòa Lạc.
-                </p>
                 {isLockedOut && (
                   <p className="text-[10px] text-amber-700 font-semibold mt-2 flex items-center gap-1">
                     <Lock className="w-3 h-3 shrink-0" /> Không thể chọn (đã nộp {getRoleLabel(lockedRole)})
@@ -599,7 +601,7 @@ export default function VerifyAccountPage() {
                   setError('');
                 }}
                 className={clsx(
-                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
+                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden h-full flex flex-col justify-between',
                   isLockedOut
                     ? 'bg-gray-50/70 border-dashed border-gray-200 opacity-60 cursor-not-allowed select-none'
                     : activeTab === 'worker'
@@ -607,42 +609,44 @@ export default function VerifyAccountPage() {
                     : 'bg-white/80 border-gray-200 hover:border-blue-200 hover:bg-white'
                 )}
               >
-                <div className="flex items-start justify-between">
-                  <div className={clsx(
-                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
-                    isLockedOut ? "bg-gray-100 text-gray-400" : "bg-blue-100 text-blue-700"
-                  )}>
-                    <Briefcase className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </div>
-                  {isLockedOut ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Đã khóa
-                    </span>
-                  ) : (
-                    <span className={clsx(
-                      "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-                      existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
-                        ? "bg-amber-100 text-amber-800"
-                        : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
-                        ? "bg-blue-100 text-blue-800"
-                        : existingWorkerVerification?.verificationStatus === 'rejected'
-                        ? "bg-red-100 text-red-800"
-                        : "bg-blue-50 text-blue-700"
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className={clsx(
+                      "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
+                      isLockedOut ? "bg-gray-100 text-gray-400" : "bg-blue-100 text-blue-700"
                     )}>
-                      {existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
-                        ? '⏳ Chờ duyệt'
-                        : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
-                        ? '✓ Đã duyệt'
-                        : existingWorkerVerification?.verificationStatus === 'rejected'
-                        ? '✕ Bị từ chối'
-                        : 'Xác minh CCCD'}
-                    </span>
-                  )}
+                      <Briefcase className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    {isLockedOut ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Đã khóa
+                      </span>
+                    ) : (
+                      <span className={clsx(
+                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                        existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
+                          ? "bg-amber-100 text-amber-800"
+                          : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
+                          ? "bg-blue-100 text-blue-800"
+                          : existingWorkerVerification?.verificationStatus === 'rejected'
+                          ? "bg-red-100 text-red-800"
+                          : "bg-blue-50 text-blue-700"
+                      )}>
+                        {existingWorkerVerification?.verificationStatus === 'pending' || existingWorkerVerification?.status === 'pending'
+                          ? '⏳ Chờ duyệt'
+                          : existingWorkerVerification?.verificationStatus === 'approved' || existingWorkerVerification?.verified
+                          ? '✓ Đã duyệt'
+                          : existingWorkerVerification?.verificationStatus === 'rejected'
+                          ? '✕ Bị từ chối'
+                          : 'Xác minh CCCD'}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Lao động tự do</h3>
+                  <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
+                    Nhập số Căn cước công dân để nhận ca làm part-time và việc vặt.
+                  </p>
                 </div>
-                <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Lao động tự do</h3>
-                <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-                  Nhập số Căn cước công dân để nhận ca làm part-time và việc vặt.
-                </p>
                 {isLockedOut && (
                   <p className="text-[10px] text-amber-700 font-semibold mt-2 flex items-center gap-1">
                     <Lock className="w-3 h-3 shrink-0" /> Không thể chọn (đã nộp {getRoleLabel(lockedRole)})
@@ -665,7 +669,7 @@ export default function VerifyAccountPage() {
                   setError('');
                 }}
                 className={clsx(
-                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden',
+                  'p-4 sm:p-5 rounded-3xl border-2 text-left transition-all duration-200 relative overflow-hidden h-full flex flex-col justify-between',
                   isLockedOut
                     ? 'bg-gray-50/70 border-dashed border-gray-200 opacity-60 cursor-not-allowed select-none'
                     : activeTab === 'employer'
@@ -673,42 +677,44 @@ export default function VerifyAccountPage() {
                     : 'bg-white/80 border-gray-200 hover:border-purple-200 hover:bg-white'
                 )}
               >
-                <div className="flex items-start justify-between">
-                  <div className={clsx(
-                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
-                    isLockedOut ? "bg-gray-100 text-gray-400" : "bg-purple-100 text-purple-700"
-                  )}>
-                    <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
-                  </div>
-                  {isLockedOut ? (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
-                      <Lock className="w-3 h-3" /> Đã khóa
-                    </span>
-                  ) : (
-                    <span className={clsx(
-                      "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
-                      existingVerification?.status === 'pending'
-                        ? "bg-amber-100 text-amber-800"
-                        : existingVerification?.status === 'approved'
-                        ? "bg-purple-100 text-purple-800"
-                        : existingVerification?.status === 'rejected'
-                        ? "bg-red-100 text-red-800"
-                        : "bg-purple-50 text-purple-700"
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className={clsx(
+                      "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3",
+                      isLockedOut ? "bg-gray-100 text-gray-400" : "bg-purple-100 text-purple-700"
                     )}>
-                      {existingVerification?.status === 'pending'
-                        ? '⏳ Chờ duyệt'
-                        : existingVerification?.status === 'approved'
-                        ? '✓ Đã duyệt'
-                        : existingVerification?.status === 'rejected'
-                        ? '✕ Bị từ chối'
-                        : 'Duyệt quán'}
-                    </span>
-                  )}
+                      <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
+                    {isLockedOut ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 flex items-center gap-1">
+                        <Lock className="w-3 h-3" /> Đã khóa
+                      </span>
+                    ) : (
+                      <span className={clsx(
+                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                        existingVerification?.status === 'pending'
+                          ? "bg-amber-100 text-amber-800"
+                          : existingVerification?.status === 'approved'
+                          ? "bg-purple-100 text-purple-800"
+                          : existingVerification?.status === 'rejected'
+                          ? "bg-red-100 text-red-800"
+                          : "bg-purple-50 text-purple-700"
+                      )}>
+                        {existingVerification?.status === 'pending'
+                          ? '⏳ Chờ duyệt'
+                          : existingVerification?.status === 'approved'
+                          ? '✓ Đã duyệt'
+                          : existingVerification?.status === 'rejected'
+                          ? '✕ Bị từ chối'
+                          : 'Duyệt quán'}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Nhà tuyển dụng</h3>
+                  <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
+                    Đăng ký đối tác cửa hàng tại Hòa Lạc để đăng tin tuyển dụng ca part-time.
+                  </p>
                 </div>
-                <h3 className={clsx("text-sm sm:text-base font-bold", isLockedOut ? "text-gray-400" : "text-text-main")}>Tôi là Nhà tuyển dụng</h3>
-                <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">
-                  Đăng ký đối tác cửa hàng tại Hòa Lạc để đăng tin tuyển dụng ca part-time.
-                </p>
                 {isLockedOut && (
                   <p className="text-[10px] text-amber-700 font-semibold mt-2 flex items-center gap-1">
                     <Lock className="w-3 h-3 shrink-0" /> Không thể chọn (đã nộp {getRoleLabel(lockedRole)})
@@ -720,7 +726,7 @@ export default function VerifyAccountPage() {
         </div>
 
         {/* Content Box */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-green-100">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-green-100 min-h-[480px]">
           {activeTab === 'student' ? (
             existingStudentVerification && (existingStudentVerification.verificationStatus === 'pending' || existingStudentVerification.status === 'pending') && !editingStudent ? (
               /* Already submitted and pending */
@@ -1376,11 +1382,11 @@ export default function VerifyAccountPage() {
                       Ảnh chụp Biển hiệu / Cửa hàng
                     </label>
                     {storePhoto ? (
-                      <div className="relative rounded-2xl overflow-hidden border-2 border-purple-200 bg-purple-50/40 p-3 max-w-sm">
+                      <div className="relative rounded-2xl overflow-hidden border-2 border-purple-200 bg-purple-50/40 p-3 max-w-sm w-full">
                         <img
                           src={storePhoto}
                           alt="Ảnh cửa hàng"
-                          className="w-full h-44 object-cover rounded-xl shadow-sm"
+                          className="w-full aspect-video object-cover rounded-xl shadow-sm"
                         />
                         <div className="mt-2 flex items-center justify-between">
                           <span className="text-xs text-purple-700 font-semibold flex items-center gap-1">
@@ -1396,12 +1402,12 @@ export default function VerifyAccountPage() {
                         </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-purple-50/30 transition-all group">
+                      <label className="flex flex-col items-center justify-center p-6 aspect-video max-w-sm w-full border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-purple-50/30 transition-all group">
                         <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-purple-600 group-hover:scale-105 transition-all mb-2">
                           <Upload className="w-6 h-6" />
                         </div>
                         <p className="text-xs font-semibold text-text-main">Tải lên ảnh chụp biển hiệu / cửa hàng</p>
-                        <p className="text-[11px] text-text-muted mt-1">Hỗ trợ JPG, PNG (tối đa 5MB)</p>
+                        <p className="text-[11px] text-text-muted mt-1">Hỗ trợ JPG, PNG (tỉ lệ 16:9, tối đa 5MB)</p>
                         <input
                           type="file"
                           accept="image/*"

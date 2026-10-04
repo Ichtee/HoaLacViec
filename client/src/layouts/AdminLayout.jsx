@@ -53,7 +53,7 @@ export default function AdminLayout() {
             <UserDropdown showWelcome={true} />
           </div>
         </header>
-        <main className="p-6 lg:p-8 flex-1"><Outlet /></main>
+        <main className="p-6 lg:p-8 flex-1 max-w-7xl w-full mx-auto"><Outlet /></main>
       </div>
     </div>
   );
