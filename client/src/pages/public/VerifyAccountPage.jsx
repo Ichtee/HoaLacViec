@@ -146,7 +146,6 @@ export default function VerifyAccountPage() {
   const [businessAddress, setBusinessAddress] = useState('');
   const [contactPhone, setContactPhone] = useState(user?.phone || '');
   const [idCardNumber, setIdCardNumber] = useState('');
-  const [taxCode, setTaxCode] = useState('');
   const [description, setDescription] = useState('');
   const [storePhoto, setStorePhoto] = useState('');
 
