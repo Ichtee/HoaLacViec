@@ -599,17 +599,17 @@ export function JobMap({
             {(() => {
               const directionsUrl = getGoogleMapsDirectionsUrl(activeJob);
               if (!directionsUrl) return null;
-              const hasExactDirections = activeJob.locationStatus === 'confirmed' && hasConfirmedCoordinates(activeJob);
 
               return (
                 <a
                   href={directionsUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-2 rounded-xl border border-gray-200 text-text-muted hover:text-green-dark hover:bg-gray-50 text-xs transition-colors flex items-center justify-center shrink-0"
-                  title={hasExactDirections ? 'Chỉ đường tới vị trí đã xác nhận' : 'Tìm địa chỉ trên Google Maps'}
+                  className="py-1.5 px-2.5 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/80 text-blue-700 text-xs transition-colors flex items-center justify-center gap-1 font-semibold shrink-0"
+                  title="Chỉ đường trên Google Maps"
                 >
                   <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Chỉ đường</span>
                 </a>
               );
             })()}

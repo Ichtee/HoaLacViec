@@ -223,11 +223,11 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
       assert.ok(actualUrl.includes('query=' + encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')));
     });
 
-    // 2. Exact address text may resolve to a nearby landmark in Google Maps.
-    await st.test('2. Tin có pin xác nhận dùng tọa độ thay vì địa chỉ dễ bị hiểu sai', () => {
+    // 2. Dù job có confirmed coordinates, URL vẫn phải dùng address query.
+    await st.test('2. Dù job có confirmed coordinates, URL vẫn phải dùng address query', () => {
       const confirmedJobWithCoords = {
         title: 'Nhân viên pha chế',
-        address: 'Số nhà 150, thôn 4, Hoà Lạc, Thành phố Hà Nội',
+        address: 'Số 15 Trục đường chính Tân Xã, Thạch Thất',
         location: { lat: 21.0185, lng: 105.521 },
         locationStatus: 'confirmed',
         geoPoint: { type: 'Point', coordinates: [105.521, 21.0185] },
@@ -236,9 +236,10 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
 
       assert.equal(
         url,
-        'https://www.google.com/maps/dir/?api=1&destination=21.0185,105.521'
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`
       );
-      assert.ok(!url.includes('Nh%C3%A0'), 'URL must not search the ambiguous address');
+      assert.ok(!url.includes('21.0185'), 'URL must NOT contain latitude');
+      assert.ok(!url.includes('105.521'), 'URL must NOT contain longitude');
     });
 
     // 3. Không dùng employer.address khi job.address rỗng.
@@ -292,7 +293,7 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
       // JobMap resolution:
       const jobMapDirectionsUrl = getGoogleMapsDirectionsUrl(job);
 
-      const expectedUrl = 'https://www.google.com/maps/dir/?api=1&destination=21.0185,105.521';
+      const expectedUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
 
       assert.equal(jobDetailDirectionsUrl, expectedUrl);
       assert.equal(jobCardDirectionsUrl, expectedUrl);

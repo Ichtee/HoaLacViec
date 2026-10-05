@@ -16,7 +16,7 @@ import {
   deleteJob,
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
-import { formatVND, hasConfirmedCoordinates, getGoogleMapsDirectionsUrl } from '@/utils';
+import { formatVND, getGoogleMapsDirectionsUrl } from '@/utils';
 
 export default function EmployerJobsPage() {
   const navigate = useNavigate();
@@ -267,9 +267,7 @@ export default function EmployerJobsPage() {
                           target="_blank"
                           rel="noreferrer"
                           className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-1 text-[11px] font-semibold border border-transparent hover:border-blue-200"
-                          title={job.locationStatus === 'confirmed' && hasConfirmedCoordinates(job)
-                            ? 'Chỉ đường tới vị trí đã xác nhận'
-                            : 'Tìm địa chỉ này trên Google Maps'}
+                          title="Chỉ đường trên Google Maps"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>

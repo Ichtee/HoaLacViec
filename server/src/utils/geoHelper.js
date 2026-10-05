@@ -126,12 +126,6 @@ export function cleanAddressForMaps(rawAddress) {
 }
 
 export function getGoogleMapsDirectionsUrl(entity) {
-  const lat = entity?.location?.lat ?? entity?.lat ?? entity?.geoPoint?.coordinates?.[1];
-  const lng = entity?.location?.lng ?? entity?.lng ?? entity?.geoPoint?.coordinates?.[0];
-  if (entity?.locationStatus === 'confirmed' && isValidCoordinate(lat, lng)) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${Number(lat)},${Number(lng)}`;
-  }
-
   const rawAddress =
     typeof entity?.address === 'string'
       ? entity.address.trim()
