@@ -18,6 +18,9 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/hoalacviec
 
 async function seed() {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Không chạy dữ liệu mẫu trong production.');
+    }
     await mongoose.connect(MONGO_URI);
     console.log('[Seed] Connected to MongoDB');
 
@@ -43,6 +46,7 @@ async function seed() {
       email: 'khoa.nguyen@student.fpt.edu.vn',
       password: '123456',
       role: 'student',
+      status: 'active',
       phone: '0981234567',
     });
 
@@ -51,6 +55,7 @@ async function seed() {
       email: 'linh.tran@student.fpt.edu.vn',
       password: '123456',
       role: 'student',
+      status: 'active',
       phone: '0977654321',
     });
 
@@ -59,6 +64,7 @@ async function seed() {
       email: 'cafexanh@hoalacviec.vn',
       password: '123456',
       role: 'employer',
+      status: 'active',
       phone: '0901231001',
     });
 
@@ -67,6 +73,7 @@ async function seed() {
       email: 'svmarket@hoalacviec.vn',
       password: '123456',
       role: 'employer',
+      status: 'active',
       phone: '0912342002',
     });
 
@@ -75,6 +82,7 @@ async function seed() {
       email: 'admin@hoalacviec.vn',
       password: '123456',
       role: 'admin',
+      status: 'active',
       phone: '0999999999',
     });
 

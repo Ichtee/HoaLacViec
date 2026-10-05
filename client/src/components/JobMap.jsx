@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Compass, Crosshair, Target, Navigation, AlertCircle } from 'lucide-react';
+import { MapPin, Compass, Crosshair, Target, Navigation, AlertCircle, X } from 'lucide-react';
 import {
   formatVND,
   isValidCoordinate,
@@ -554,22 +554,37 @@ export function JobMap({
 
       {/* Selected Job Card Preview Popup at bottom */}
       {activeJob && !singleJob && (
-        <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-sm z-10 bg-white/95 p-3 rounded-lg border border-gray-200/90 shadow-card animate-slide-up space-y-2">
+        <div className="absolute bottom-3 left-3 right-auto max-w-[calc(100%-4.5rem)] sm:max-w-sm z-20 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-gray-200/90 shadow-card animate-slide-up space-y-2">
           <div className="flex items-start justify-between gap-2">
-            <div>
-              <span className="text-[10px] font-semibold text-green-dark bg-green-50 px-1.5 py-0.5 rounded border border-green-200/80">
-                {activeJob.storeName}
-              </span>
-              <h4 className="font-semibold text-sm text-text-main mt-1 line-clamp-1">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="text-[10px] font-semibold text-green-dark bg-green-50 px-2 py-0.5 rounded-full border border-green-200/80 truncate max-w-[170px] inline-block">
+                  {activeJob.storeName}
+                </span>
+              </div>
+              <h4 className="font-bold text-sm text-text-main line-clamp-1 leading-snug" title={activeJob.title}>
                 {activeJob.title}
               </h4>
             </div>
-            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md shrink-0 border border-orange-200/80">
-              {formatVND(activeJob.salaryAmount)}{SALARY_UNIT_LABELS[activeJob.salaryUnit] || '/h'}
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/80">
+                {formatVND(activeJob.salaryAmount)}{SALARY_UNIT_LABELS[activeJob.salaryUnit] || '/h'}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectJob?.(null);
+                }}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                title="Đóng xem trước"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          <p className="text-xs text-text-muted flex items-center gap-1">
+          <p className="text-xs text-text-muted flex items-center gap-1.5 min-w-0">
             <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
             <span className="truncate">{activeJob.address || 'Hòa Lạc'}</span>
           </p>
@@ -577,7 +592,7 @@ export function JobMap({
           <div className="pt-1 flex items-center gap-2">
             <Link
               to={`/jobs/${activeJob._id || activeJob.id}`}
-              className="flex-1 py-1.5 rounded-lg bg-green-main hover:bg-green-dark text-white font-medium text-xs text-center transition-colors shadow-xs"
+              className="flex-1 py-1.5 px-3 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs text-center transition-colors shadow-xs"
             >
               Xem chi tiết việc làm
             </Link>
@@ -590,7 +605,7 @@ export function JobMap({
                   href={directionsUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="p-1.5 rounded-lg border border-gray-200 text-text-muted hover:text-green-dark hover:bg-gray-50 text-xs transition-colors flex items-center gap-1"
+                  className="p-2 rounded-xl border border-gray-200 text-text-muted hover:text-green-dark hover:bg-gray-50 text-xs transition-colors flex items-center justify-center shrink-0"
                   title="Chỉ đường trên Google Maps"
                 >
                   <Navigation className="w-3.5 h-3.5 text-blue-600" />

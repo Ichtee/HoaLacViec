@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { authenticate } from '../middlewares/auth.js';
 import { ShiftTemplate } from '../models/ShiftTemplate.js';
 import { Job } from '../models/Job.js';
+import { EmployerProfile } from '../models/EmployerProfile.js';
 
 const router = express.Router();
 router.use(authenticate);
@@ -73,8 +74,15 @@ router.post('/', async (req, res, next) => {
       if (!job) {
         return res.status(404).json({ error: 'Không tìm thấy công việc tương ứng.', code: 'JOB_NOT_FOUND' });
       }
-      if (req.user.role !== 'admin' && String(job.employerId) !== String(req.user._id) && String(job.employer) !== String(req.user._id)) {
-        return res.status(403).json({ error: 'Bạn không sở hữu tin tuyển dụng này để gắn vào mẫu ca.', code: 'FORBIDDEN' });
+      if (req.user.role !== 'admin') {
+        let ownerId = job.employerUserId || job.employer;
+        if (!ownerId && (job.employerProfileId || job.employerId)) {
+          const profile = await EmployerProfile.findById(job.employerProfileId || job.employerId);
+          ownerId = profile?.userId || job.employerId;
+        }
+        if (String(ownerId) !== String(req.user._id)) {
+          return res.status(403).json({ error: 'Bạn không sở hữu tin tuyển dụng này để gắn vào mẫu ca.', code: 'FORBIDDEN' });
+        }
       }
       defaultWorkplace = defaultWorkplace || job.storeName || '';
     }

@@ -192,6 +192,33 @@ export async function createShift(data, actor) {
       employeeUserId: targetEmployeeId,
       status: 'active',
     });
+
+    if (!employment && mongoose.Types.ObjectId.isValid(targetEmployeeId)) {
+      const employeeUser = await User.findById(targetEmployeeId);
+      if (employeeUser) {
+        let workplaceName = '';
+        const employerProfile = await EmployerProfile.findOne({ userId: actor._id });
+        workplaceName = employerProfile?.storeName || 'Cơ sở làm việc';
+        employment = await Employment.findOne({
+          employerUserId: actor._id,
+          employeeUserId: targetEmployeeId,
+        });
+        if (employment) {
+          employment.status = 'active';
+          await employment.save();
+        } else {
+          employment = await Employment.create({
+            employerUserId: actor._id,
+            employeeUserId: targetEmployeeId,
+            positionTitle: positionTitle || role || 'Nhân viên bán ca',
+            workplace: workplaceName,
+            wageRate: wageRate || 25000,
+            status: 'active',
+            startDate: new Date(),
+          });
+        }
+      }
+    }
   }
 
   if (!employment) {
@@ -788,13 +815,10 @@ export async function recordAttendanceStart(shiftId, actor, { actualTime, note =
 
   shift.attendanceStatus = ATTENDANCE_STATUSES.CHECKED_IN;
   shift.assignmentStatus = ASSIGNMENT_STATUSES.ACCEPTED;
-  shift.attendance = {
-    ...shift.attendance,
-    checkInAt: checkInTime,
-    checkInVerified: true,
-    checkInVerificationStatus: 'verified',
-    checkInManualReason: note || 'Nhà tuyển dụng xác nhận có mặt',
-  };
+  shift.set('attendance.checkInAt', checkInTime);
+  shift.set('attendance.checkInVerified', true);
+  shift.set('attendance.checkInVerificationStatus', 'verified');
+  shift.set('attendance.checkInManualReason', note || 'Nhà tuyển dụng xác nhận có mặt');
 
   shift.history.push({
     status: shift.status,
@@ -875,13 +899,10 @@ export async function recordAttendanceEnd(shiftId, actor, { actualTime, note = '
   shift.workedMinutes = workedMinutes;
   shift.hours = hours;
   shift.totalPay = totalPay;
-  shift.attendance = {
-    ...shift.attendance,
-    checkOutAt: checkOutTime,
-    checkOutVerified: true,
-    checkOutVerificationStatus: 'verified',
-    checkOutManualReason: note || 'Nhà tuyển dụng xác nhận tan ca',
-  };
+  shift.set('attendance.checkOutAt', checkOutTime);
+  shift.set('attendance.checkOutVerified', true);
+  shift.set('attendance.checkOutVerificationStatus', 'verified');
+  shift.set('attendance.checkOutManualReason', note || 'Nhà tuyển dụng xác nhận tan ca');
 
   shift.history.push({
     status: shift.status,

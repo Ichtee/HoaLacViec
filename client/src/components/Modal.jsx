@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -32,10 +33,10 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
     xl: 'max-w-4xl',
   }[size];
 
-  return (
+  const modalNode = (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
       role="dialog"
       aria-modal="true"
@@ -43,28 +44,31 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
     >
       <div
         className={clsx(
-          'w-full bg-white rounded-3xl shadow-modal animate-scale-in flex flex-col max-h-[90vh]',
+          'w-full bg-white rounded-3xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] overflow-hidden border border-gray-100 my-auto animate-scale-in',
           sizeClass,
           className
         )}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-green-50 flex-shrink-0">
-          <h2 className="text-lg font-bold text-text-main">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0 bg-white">
+          <h2 className="text-base sm:text-lg font-bold text-text-main line-clamp-1">{title}</h2>
           <button
             ref={closeRef}
             onClick={onClose}
             aria-label="Đóng"
-            className="p-2 rounded-xl hover:bg-green-50 text-text-muted transition-colors"
+            className="p-1.5 rounded-xl hover:bg-gray-100 text-text-muted hover:text-text-main transition-colors shrink-0 ml-2"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 overscroll-contain">{children}</div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }
 
 export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Xác nhận', danger = false, loading = false }) {
@@ -86,3 +90,5 @@ export function ConfirmDialog({ isOpen, onClose, onConfirm, title, message, conf
     </Modal>
   );
 }
+
+export default Modal;
