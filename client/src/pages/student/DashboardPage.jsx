@@ -275,7 +275,7 @@ export default function StudentDashboard() {
 
             <div className="space-y-4">
               {recommendedJobs.slice(0, 2).map((job) => (
-                <div key={job.id} className="p-3.5 rounded-2xl bg-cream/40 border border-green-50 hover:bg-cream/80 transition-colors">
+                <div key={job._id || job.id} className="p-3.5 rounded-2xl bg-cream/40 border border-green-50 hover:bg-cream/80 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <h4 className="text-sm font-semibold text-text-main line-clamp-1">{job.title}</h4>
                     <span className="text-xs font-bold text-green-dark shrink-0">{job.salaryText}</span>
@@ -283,7 +283,7 @@ export default function StudentDashboard() {
                   <p className="text-xs text-text-muted mt-1">{job.storeName} • {job.distanceText}</p>
                   <div className="mt-3 flex items-center justify-between">
                     <Badge variant="outline" size="sm">{job.jobType}</Badge>
-                    <Link to={`/jobs/${job.id}`} className="text-xs font-semibold text-green-main hover:underline">
+                    <Link to={`/jobs/${job._id || job.id}`} className="text-xs font-semibold text-green-main hover:underline">
                       Xem chi tiết →
                     </Link>
                   </div>

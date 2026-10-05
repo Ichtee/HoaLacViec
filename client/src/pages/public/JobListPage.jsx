@@ -100,7 +100,6 @@ export default function JobListPage() {
       const queryParams = {
         public: true,
         limit: 200,
-        status: 'all',
       };
       if (dSearch) queryParams.search = dSearch;
       if (type) queryParams.type = type;

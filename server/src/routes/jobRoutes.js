@@ -200,7 +200,6 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       verified,
       minSalary,
       sort,
-      status,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page) || 1);
@@ -226,12 +225,9 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
 
     const andConditions = [];
 
-    // Security & Visibility: Support fetching all jobs or approved + pending jobs
-    if (status && status !== 'all') {
-      andConditions.push({ status });
-    } else if (status !== 'all') {
-      andConditions.push({ status: { $in: ['approved', 'pending'] } });
-    }
+    // Public listings must match the visibility rule used by GET /:id.
+    // Ignore caller-supplied status; owners use /employer/my-jobs instead.
+    andConditions.push({ status: 'approved' });
     andConditions.push({ archivedAt: null });
     andConditions.push({
       $or: [
