@@ -164,14 +164,7 @@ export function getGoogleMapsDestination(entity) {
   return null;
 }
 
-/**
- * Canonical helper for Google Maps directions URL based strictly on job.address string.
- * - Does not use location.lat/lng or geoPoint
- * - Does not check locationStatus
- * - Does not fallback to storeName, "Hòa Lạc", or employer.address
- * - Does not use Google Place ID
- * - If job.address is empty/whitespace, returns null
- */
+/** Build directions to a confirmed pin, or search for an unconfirmed address. */
 export function cleanAddressForMaps(rawAddress) {
   if (typeof rawAddress !== 'string') return '';
   const clean = rawAddress.trim();
@@ -181,6 +174,12 @@ export function cleanAddressForMaps(rawAddress) {
 }
 
 export function getGoogleMapsDirectionsUrl(entity) {
+  const lat = entity?.location?.lat ?? entity?.lat ?? entity?.geoPoint?.coordinates?.[1];
+  const lng = entity?.location?.lng ?? entity?.lng ?? entity?.geoPoint?.coordinates?.[0];
+  if (entity?.locationStatus === 'confirmed' && isValidCoordinate(lat, lng)) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${Number(lat)},${Number(lng)}`;
+  }
+
   const rawAddress =
     typeof entity?.address === 'string'
       ? entity.address.trim()

@@ -3,7 +3,7 @@ import { MapPin, Clock, DollarSign, Users, CheckCircle, Star, Bookmark, Bookmark
 import { clsx } from 'clsx';
 import { Badge, VerifiedBadge } from './Badge.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS } from '@/constants';
-import { formatVND, formatDate, getGoogleMapsDirectionsUrl } from '@/utils';
+import { formatVND, formatDate, hasConfirmedCoordinates, getGoogleMapsDirectionsUrl } from '@/utils';
 
 export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false, compact = false }) {
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
@@ -126,6 +126,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
             {(() => {
               const directionsUrl = getGoogleMapsDirectionsUrl(job);
               if (!directionsUrl) return null;
+              const hasExactDirections = job.locationStatus === 'confirmed' && hasConfirmedCoordinates(job);
 
               return (
                 <button
@@ -136,10 +137,10 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
                     window.open(directionsUrl, '_blank');
                   }}
                   className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-semibold transition-colors"
-                  title="Chỉ đường trên Google Maps"
+                  title={hasExactDirections ? 'Chỉ đường tới vị trí đã xác nhận' : 'Tìm địa chỉ trên Google Maps'}
                 >
                   <Navigation className="w-3 h-3 text-blue-600" />
-                  <span>Chỉ đường</span>
+                  <span>{hasExactDirections ? 'Chỉ đường' : 'Tìm địa chỉ'}</span>
                 </button>
               );
             })()}

@@ -16,7 +16,7 @@ import {
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
 import LocationPicker from '@/components/LocationPicker';
-import { isValidCoordinate } from '@/utils';
+import { isValidCoordinate, getGoogleMapsDirectionsUrl } from '@/utils';
 import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
 
 export const PRESET_SHIFTS = [
@@ -699,7 +699,7 @@ export default function EmployerJobFormPage() {
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-red-500" /> Địa điểm làm việc & Ghim Bản đồ (GPS)
                 </h2>
-                <p className="text-[11px] text-gray-400">Chọn địa chỉ hành chính và ghim vị trí chuẩn xác để sinh viên chấm công GPS</p>
+                <p className="text-[11px] text-gray-400">Ghim đúng cửa vào nơi làm việc để chỉ đường và chấm công GPS chính xác</p>
               </div>
             </div>
 
@@ -787,12 +787,18 @@ export default function EmployerJobFormPage() {
               </span>
               {(fullAddressPreview || formData.address) && (
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddressPreview || formData.address)}`}
+                  href={getGoogleMapsDirectionsUrl({
+                    address: fullAddressPreview || formData.address,
+                    locationStatus: formData.locationStatus,
+                    location: { lat: formData.lat, lng: formData.lng },
+                  })}
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 hover:underline shrink-0 flex items-center gap-1 font-bold ml-2"
                 >
-                  Xem Maps <ExternalLink className="w-3.5 h-3.5" />
+                  {formData.locationStatus === 'confirmed' && isValidCoordinate(formData.lat, formData.lng)
+                    ? 'Kiểm tra chỉ đường'
+                    : 'Tìm địa chỉ'} <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               )}
             </div>

@@ -599,6 +599,7 @@ export function JobMap({
             {(() => {
               const directionsUrl = getGoogleMapsDirectionsUrl(activeJob);
               if (!directionsUrl) return null;
+              const hasExactDirections = activeJob.locationStatus === 'confirmed' && hasConfirmedCoordinates(activeJob);
 
               return (
                 <a
@@ -606,7 +607,7 @@ export function JobMap({
                   target="_blank"
                   rel="noreferrer"
                   className="p-2 rounded-xl border border-gray-200 text-text-muted hover:text-green-dark hover:bg-gray-50 text-xs transition-colors flex items-center justify-center shrink-0"
-                  title="Chỉ đường trên Google Maps"
+                  title={hasExactDirections ? 'Chỉ đường tới vị trí đã xác nhận' : 'Tìm địa chỉ trên Google Maps'}
                 >
                   <Navigation className="w-3.5 h-3.5 text-blue-600" />
                 </a>

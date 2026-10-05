@@ -207,8 +207,8 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
     assert.equal(getGoogleMapsDestination(updatedWithRepin), '21.0201,105.5312');
   });
 
-  // 8. Simplified address-based Google Maps Directions / Search
-  await t.test('8. Đơn giản hóa toàn bộ nút Chỉ đường trên Google Maps', async (st) => {
+  // 8. Confirmed pins use directions; unconfirmed addresses remain search-only.
+  await t.test('8. Chỉ đường tới pin đã xác nhận, tìm kiếm khi chưa xác nhận', async (st) => {
     // 1. job.address = "Số 15 Trục đường chính Tân Xã, Thạch Thất"
     // URL phải chứa chính xác query đã encode của chuỗi trên.
     await st.test('1. URL chứa chính xác query đã encode của job.address', () => {
@@ -223,11 +223,11 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
       assert.ok(actualUrl.includes('query=' + encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')));
     });
 
-    // 2. Dù job có confirmed coordinates, URL vẫn phải dùng address.
-    await st.test('2. Dù job có confirmed coordinates, URL vẫn phải dùng address', () => {
+    // 2. Exact address text may resolve to a nearby landmark in Google Maps.
+    await st.test('2. Tin có pin xác nhận dùng tọa độ thay vì địa chỉ dễ bị hiểu sai', () => {
       const confirmedJobWithCoords = {
         title: 'Nhân viên pha chế',
-        address: 'Số 15 Trục đường chính Tân Xã, Thạch Thất',
+        address: 'Số nhà 150, thôn 4, Hoà Lạc, Thành phố Hà Nội',
         location: { lat: 21.0185, lng: 105.521 },
         locationStatus: 'confirmed',
         geoPoint: { type: 'Point', coordinates: [105.521, 21.0185] },
@@ -236,10 +236,9 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
 
       assert.equal(
         url,
-        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`
+        'https://www.google.com/maps/dir/?api=1&destination=21.0185,105.521'
       );
-      assert.ok(!url.includes('21.0185'), 'URL must NOT contain latitude');
-      assert.ok(!url.includes('105.521'), 'URL must NOT contain longitude');
+      assert.ok(!url.includes('Nh%C3%A0'), 'URL must not search the ambiguous address');
     });
 
     // 3. Không dùng employer.address khi job.address rỗng.
@@ -293,7 +292,7 @@ test('Google Maps Directions & Navigation Destination Tests', async (t) => {
       // JobMap resolution:
       const jobMapDirectionsUrl = getGoogleMapsDirectionsUrl(job);
 
-      const expectedUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Số 15 Trục đường chính Tân Xã, Thạch Thất')}`;
+      const expectedUrl = 'https://www.google.com/maps/dir/?api=1&destination=21.0185,105.521';
 
       assert.equal(jobDetailDirectionsUrl, expectedUrl);
       assert.equal(jobCardDirectionsUrl, expectedUrl);

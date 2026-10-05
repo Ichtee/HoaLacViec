@@ -15,7 +15,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Textarea } from '@/components/Form.jsx';
 import { LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS, DAYS_OF_WEEK } from '@/constants';
-import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDistance, getGoogleMapsDirectionsUrl } from '@/utils';
+import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDistance, hasConfirmedCoordinates, getGoogleMapsDirectionsUrl } from '@/utils';
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -172,6 +172,7 @@ export default function JobDetailPage() {
 
   // Google Maps directions URL based strictly on job.address
   const directionsUrl = getGoogleMapsDirectionsUrl(job);
+  const hasExactDirections = job.locationStatus === 'confirmed' && hasConfirmedCoordinates(job);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -427,10 +428,10 @@ export default function JobDetailPage() {
                   target="_blank"
                   rel="noreferrer"
                   className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
-                  title="Chỉ đường trên Google Maps"
+                  title={hasExactDirections ? 'Chỉ đường tới vị trí đã xác nhận' : 'Tìm địa chỉ trên Google Maps'}
                 >
                   <Navigation className="w-3.5 h-3.5" />
-                  <span>Chỉ đường trên Google Maps</span>
+                  <span>{hasExactDirections ? 'Chỉ đường trên Google Maps' : 'Tìm địa chỉ trên Google Maps'}</span>
                 </a>
               )}
 
