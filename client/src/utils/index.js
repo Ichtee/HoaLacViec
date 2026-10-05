@@ -172,13 +172,25 @@ export function getGoogleMapsDestination(entity) {
  * - Does not use Google Place ID
  * - If job.address is empty/whitespace, returns null
  */
+export function cleanAddressForMaps(rawAddress) {
+  if (typeof rawAddress !== 'string') return '';
+  const clean = rawAddress.trim();
+  // Strip parenthesized landmark hints like (Cách KTX FPT 400m), (Gần Cổng FPT)
+  const cleaned = clean.replace(/\s*\([^)]*\)/g, '').trim();
+  return cleaned || clean;
+}
+
 export function getGoogleMapsDirectionsUrl(entity) {
-  const address =
+  const rawAddress =
     typeof entity?.address === 'string'
       ? entity.address.trim()
+      : typeof entity === 'string'
+      ? entity.trim()
       : '';
 
-  if (!address) return null;
+  if (!rawAddress) return null;
+
+  const address = cleanAddressForMaps(rawAddress);
 
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
