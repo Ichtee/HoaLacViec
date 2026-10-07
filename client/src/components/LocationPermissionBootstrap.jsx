@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { ShieldAlert, MapPin, Loader2, X, RotateCcw, AlertTriangle } from 'lucide-react';
+import { MapPin, Loader2, X, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useGeolocation } from '@/hooks/useGeolocation.js';
 import { DEFAULT_LOCATION_OPTIONS, isSecureContextEnvironment } from '@/context/LocationContext.jsx';
 
@@ -22,6 +22,26 @@ import { DEFAULT_LOCATION_OPTIONS, isSecureContextEnvironment } from '@/context/
  * - Always provides manual fallback button "Cho phép truy cập vị trí" for quiet permission prompt support.
  * - Prevents double requests in React StrictMode using didRequestRef.
  */
+const DISMISS_KEY = 'hlv_location_banner_dismissed';
+
+// Nhớ lựa chọn đóng banner để không hiện lại ở mọi trang / mọi lần tải
+function readDismissed() {
+  try {
+    return localStorage.getItem(DISMISS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeDismissed(value) {
+  try {
+    if (value) localStorage.setItem(DISMISS_KEY, '1');
+    else localStorage.removeItem(DISMISS_KEY);
+  } catch {
+    // Bỏ qua: trình duyệt chặn lưu trữ
+  }
+}
+
 export function LocationPermissionBootstrap() {
   const {
     status,
@@ -35,12 +55,14 @@ export function LocationPermissionBootstrap() {
     clearLocation,
   } = useGeolocation();
 
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(readDismissed);
+  const [showHelp, setShowHelp] = useState(false);
   const didRequestRef = useRef(false);
 
   // Manual fallback button callback (Requirement 8)
   const handleManualAllow = useCallback(async () => {
     setDismissed(false);
+    writeDismissed(false);
     await requestLocation(DEFAULT_LOCATION_OPTIONS);
   }, [requestLocation]);
 
@@ -124,6 +146,11 @@ export function LocationPermissionBootstrap() {
     };
   }, [clearLocation, requestLocation, setError, setPermissionState, setStatus]);
 
+  const dismiss = () => {
+    setDismissed(true);
+    writeDismissed(true);
+  };
+
   // If user explicitly dismissed or location is successfully acquired, hide intrusive banner
   if (dismissed || status === 'success' || status === 'granted') {
     return null;
@@ -133,46 +160,56 @@ export function LocationPermissionBootstrap() {
   if (status === 'denied') {
     return (
       <div
-        role="alert"
+        role="status"
         aria-live="polite"
-        className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-3 text-xs sm:text-sm shadow-sm transition-all animate-fade-in"
+        className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2 text-xs sm:text-sm animate-fade-in"
       >
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-          <div className="flex items-start gap-2.5 flex-1">
-            <ShieldAlert className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-950">
-                Quyền vị trí đang bị chặn trên trình duyệt.
-              </p>
-              <p className="text-amber-800 mt-0.5 leading-relaxed">
-                Bấm biểu tượng bên trái thanh địa chỉ URL 🔒 → Cài đặt trang web → Vị trí → Cho phép, sau đó tải lại trang để tự động tính khoảng cách tới các quán việc làm.
-              </p>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <MapPin className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <span className="truncate sm:whitespace-normal">
+                Bật vị trí để xem việc gần bạn nhất.{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowHelp((v) => !v)}
+                  aria-expanded={showHelp}
+                  className="underline font-semibold hover:text-amber-950"
+                >
+                  {showHelp ? 'Ẩn hướng dẫn' : 'Xem cách bật'}
+                </button>
+              </span>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 self-end md:self-center flex-shrink-0">
             <button
-              onClick={() => window.location.reload()}
-              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl text-xs flex items-center gap-1 shadow-sm transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Tải lại trang
-            </button>
-            <button
-              onClick={handleManualAllow}
-              className="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 font-medium rounded-xl border border-amber-300 text-xs flex items-center gap-1 transition-colors"
-            >
-              <MapPin className="w-3.5 h-3.5 text-amber-600" />
-              Cho phép truy cập vị trí
-            </button>
-            <button
-              onClick={() => setDismissed(true)}
+              onClick={dismiss}
               aria-label="Đóng thông báo"
-              className="p-1.5 text-amber-600 hover:text-amber-900 rounded-lg transition-colors"
+              className="p-1 text-amber-600 hover:text-amber-900 rounded-lg transition-colors flex-shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
+          {showHelp && (
+            <div className="mt-2 pt-2 border-t border-amber-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <p className="text-amber-800 leading-relaxed">
+                Trình duyệt đang chặn vị trí. Bấm biểu tượng 🔒 bên trái thanh địa chỉ → Cài đặt trang web → Vị trí → Cho phép, rồi tải lại trang.
+              </p>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl text-xs flex items-center gap-1 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Tải lại trang
+                </button>
+                <button
+                  onClick={handleManualAllow}
+                  className="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 font-medium rounded-xl border border-amber-300 text-xs transition-colors"
+                >
+                  Thử cho phép
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -192,7 +229,7 @@ export function LocationPermissionBootstrap() {
             </span>
           </div>
           <button
-            onClick={() => setDismissed(true)}
+            onClick={dismiss}
             aria-label="Đóng thông báo"
             className="p-1 text-red-600 hover:text-red-900 rounded-lg"
           >
@@ -240,7 +277,7 @@ export function LocationPermissionBootstrap() {
               Cho phép truy cập vị trí
             </button>
             <button
-              onClick={() => setDismissed(true)}
+              onClick={dismiss}
               className="p-1 text-orange-600 hover:text-orange-900"
             >
               <X className="w-4 h-4" />
@@ -267,7 +304,7 @@ export function LocationPermissionBootstrap() {
               Thử lại
             </button>
             <button
-              onClick={() => setDismissed(true)}
+              onClick={dismiss}
               className="p-1 text-gray-500 hover:text-gray-800"
             >
               <X className="w-4 h-4" />
@@ -311,7 +348,7 @@ export function LocationPermissionBootstrap() {
               Yêu cầu lại vị trí
             </button>
             <button
-              onClick={() => setDismissed(true)}
+              onClick={dismiss}
               className="p-1 text-emerald-700 hover:text-emerald-900"
             >
               <X className="w-4 h-4" />
