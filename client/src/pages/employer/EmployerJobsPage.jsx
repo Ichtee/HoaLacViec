@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Briefcase, Plus, Edit, Trash2, MapPin,
   DollarSign, Users, ExternalLink,
-  PauseCircle, PlayCircle
+  PauseCircle, PlayCircle, AlertTriangle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -218,6 +218,19 @@ export default function EmployerJobsPage() {
                       <MapPin className="w-3.5 h-3.5 text-red-700 shrink-0" />
                       <span className="truncate">{job.address || 'Hòa Lạc'}</span>
                     </div>
+                    {(job.locationStatus !== 'confirmed' || job.locationNeedsReview) && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/employer/jobs/${job._id || job.id}/edit#job-step-3`)}
+                        className="mt-1.5 w-full text-left flex items-start gap-1.5 p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 hover:bg-amber-100 transition-colors"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Ghim vị trí để sinh viên thấy khoảng cách.</strong>{' '}
+                          {job.locationNeedsReview ? 'Vị trí hiện tại đang ở điểm mặc định trên bản đồ.' : 'Tin chưa có vị trí trên bản đồ.'}
+                        </span>
+                      </button>
+                    )}
                     <div className="flex items-center gap-1.5">
                       <Users className="w-3.5 h-3.5 text-green-dark shrink-0" />
                       <span>Còn tuyển: {job.slots ?? 0} bạn</span>

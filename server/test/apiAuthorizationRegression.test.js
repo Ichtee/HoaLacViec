@@ -205,7 +205,7 @@ test('API authorization regression: roles, ownership and private application fie
     const response = await fetch(`${base}/api/jobs`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Phục vụ', storeName: 'Quán', salaryAmount: 30000, slots: 3, status: 'approved', featured: true, hiredCount: 99, moderatedBy: otherEmployerId }),
+      body: JSON.stringify({ title: 'Phục vụ', storeName: 'Quán', salaryAmount: 30000, slots: 3, status: 'approved', featured: true, hiredCount: 99, moderatedBy: otherEmployerId, address: 'Thôn 3, Thạch Hòa', location: { lat: 21.0201, lng: 105.5312 }, locationStatus: 'confirmed' }),
     });
     assert.equal(response.status, 201);
     assert.equal(created.status, 'pending');
@@ -213,6 +213,23 @@ test('API authorization regression: roles, ownership and private application fie
     assert.equal(created.hiredCount, 0);
     assert.equal(created.remainingOpenings, 3);
     assert.equal(String(created.employerUserId), employerId);
+  });
+
+  await t.test('employer cannot publish a job without a confirmed map location', async () => {
+    actor = { _id: employerId, role: 'employer', status: 'active', tokenVersion: 0 };
+    EmployerProfile.findOne = async () => ({ _id: otherEmployerId, verified: true, storeName: 'Quán thử nghiệm' });
+    let createCalled = false;
+    Job.create = async (data) => { createCalled = true; return { _id: applicationId, ...data }; };
+    for (const extra of [{}, { address: 'Thôn 3', location: { lat: 21.02, lng: 105.53 }, locationStatus: 'pending_confirmation' }]) {
+      const response = await fetch(`${base}/api/jobs`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Phục vụ', storeName: 'Quán', salaryAmount: 30000, slots: 1, ...extra }),
+      });
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).code, 'LOCATION_REQUIRED');
+    }
+    assert.equal(createCalled, false);
   });
 
   await t.test('password reset token is consumed once and invalidates old sessions', async () => {

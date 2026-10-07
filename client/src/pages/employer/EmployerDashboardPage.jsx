@@ -54,6 +54,7 @@ export default function EmployerDashboardPage() {
     { count: pendingApps.length, label: 'đơn ứng tuyển đang chờ bạn xử lý', to: '/employer/applications', action: 'Duyệt hồ sơ' },
     { count: shiftsNeedingApproval.length, label: 'ca đã tan, cần duyệt chốt công', to: '/employer/shifts', action: 'Duyệt công' },
     { count: todayShiftsNotStarted.length, label: 'ca hôm nay chưa ghi nhận vào ca', to: '/employer/shifts', action: 'Mở lịch ca' },
+    { count: jobs.filter((j) => j.locationStatus !== 'confirmed' || j.locationNeedsReview).length, label: 'tin chưa ghim vị trí, sinh viên không thấy khoảng cách', to: '/employer/jobs', action: 'Ghim vị trí' },
   ].filter((item) => item.count > 0);
   const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'approved' || !j.status);
 

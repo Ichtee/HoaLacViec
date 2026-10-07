@@ -43,6 +43,20 @@ const jobSchema = new mongoose.Schema({
     default: null,
   },
   providerPlaceId: { type: String, default: null },
+  // Tọa độ ước tính từ địa chỉ (chỉ để hiển thị khoảng cách "~" cho tin chưa ghim vị trí).
+  // Không dùng cho chỉ đường hay chấm công: những việc đó chỉ dùng location đã xác nhận.
+  approxLocation: {
+    type: new mongoose.Schema({
+      lat: { type: Number, required: true },
+      lng: { type: Number, required: true },
+      source: { type: String, default: 'geocoded' },
+      query: { type: String, default: '' },
+      geocodedAt: { type: Date, default: Date.now },
+    }, { _id: false }),
+    default: undefined,
+  },
+  // true khi vị trí "đã xác nhận" thực ra là điểm mặc định (trung tâm Hòa Lạc) -> cần chủ quán ghim lại
+  locationNeedsReview: { type: Boolean, default: false },
   formattedAddress: { type: String, default: '' },
   locationConfirmedAt: { type: Date, default: null },
   addressComponents: {

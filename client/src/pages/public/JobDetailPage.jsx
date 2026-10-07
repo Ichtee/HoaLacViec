@@ -34,7 +34,10 @@ import { Modal } from '@/components/Modal.jsx';
 
 import { LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS, DAYS_OF_WEEK } from '@/constants';
-import { formatVND, formatDate, computeMatchScore, getGoogleMapsDirectionsUrl } from '@/utils';
+import { formatVND, formatDate, computeMatchScore, getGoogleMapsDirectionsUrl, haversineDistance } from '@/utils';
+import { getJobDistanceTarget } from '@/utils/jobLocation.js';
+import { resolveStudentPoint } from '@/utils/studentLocation.js';
+import { useGeolocation } from '@/hooks/useGeolocation.js';
 import { avatarColorClass, avatarInitial } from '@/utils/avatarColor.js';
 import { ApplyJobModal } from './apply/ApplyJobModal.jsx';
 
@@ -45,6 +48,7 @@ export default function JobDetailPage() {
   // Trong khu sinh viên đã có thanh điều hướng dưới đáy, nên thanh ứng tuyển phải nằm phía trên nó
   const insideStudentArea = pathname.startsWith('/student');
   const { isAuthenticated, isStudent, profileId, user, updateUser } = useAuth();
+  const { coords: gpsCoords } = useGeolocation();
 
   const [saved, setSaved] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
@@ -103,23 +107,38 @@ export default function JobDetailPage() {
     return () => { active = false; };
   }, [job?.employerUserId, job?.employer?.userId]);
 
-  // Load saved status and match score
+  // Load saved status
   useEffect(() => {
     if (!job || !isAuthenticated) return;
-    const targetId = job._id || job.id;
-    isSavedJob(targetId).then(setSaved).catch(() => {});
-    // Compute match score
-    if (profileId) {
-      Promise.all([
-        getAvailability(profileId),
-        getStudentProfile(profileId),
-      ]).then(([avail, profile]) => {
-        const result = computeMatchScore(job, avail, profile?.location);
-        setMatchResult(result);
+    isSavedJob(job._id || job.id).then(setSaved).catch(() => {});
+  }, [job, isAuthenticated]);
+
+  // Mức độ phù hợp: lịch rảnh + khoảng cách thật (GPS -> hồ sơ -> khu vực), không dùng số mặc định
+  const studentUserId = isStudent ? (user?.id || user?._id) : null;
+  useEffect(() => {
+    if (!job || !studentUserId) return undefined;
+    let active = true;
+    // Hai API này nhận userId (không phải profileId). Lỗi một phần vẫn hiển thị phần còn lại.
+    Promise.allSettled([getAvailability(studentUserId), getStudentProfile(studentUserId)])
+      .then(async ([availRes, profileRes]) => {
+        if (!active) return;
+        const avail = availRes.status === 'fulfilled' ? availRes.value : null;
+        const profile = profileRes.status === 'fulfilled' ? profileRes.value : null;
         setProfilePhone(profile?.phone || profile?.contactPhone || '');
-      }).catch(() => {});
-    }
-  }, [job, isAuthenticated, profileId, user]);
+        const point = await resolveStudentPoint(gpsCoords, profile);
+        const target = getJobDistanceTarget(job);
+        const distance = point && target
+          ? {
+              meters: haversineDistance(point.lat, point.lng, target.lat, target.lng),
+              approximate: point.approximate || target.approximate,
+              basis: point.basis,
+            }
+          : null;
+        if (active) setMatchResult(computeMatchScore(job, avail, distance));
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [job, studentUserId, gpsCoords]);
 
   async function handleSave() {
     if (!isAuthenticated) { navigate('/login'); return; }

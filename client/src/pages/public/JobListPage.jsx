@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, Map, List, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { Search, SlidersHorizontal, X, Map, List, Loader2, Maximize2, Minimize2, MapPin } from 'lucide-react';
 import { clsx } from 'clsx';
 import { JobCard } from '@/components/JobCard.jsx';
 const JobMap = lazy(() => import('@/components/JobMap.jsx').then((m) => ({ default: m.JobMap })));
@@ -11,6 +11,7 @@ import { getJobs, toggleSaveJob, getSavedJobs, apiVietmapMatrix, geocodeAddress 
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JOB_TYPE_LABELS, AREAS } from '@/constants';
 import { useMediaQuery } from '@/hooks/useMediaQuery.js';
+import { getJobDistanceTarget, isCoarseLocation } from '@/utils/jobLocation.js';
 import { haversineDistance, isValidCoordinate } from '@/utils';
 
 const PAGE_SIZE = 12;
@@ -132,7 +133,7 @@ export default function JobListPage() {
       const id = String(job._id || job.id);
       const lat = job.location?.lat ?? job.geoPoint?.coordinates?.[1];
       const lng = job.location?.lng ?? job.geoPoint?.coordinates?.[0];
-      return !isValidCoordinate(lat, lng) && job.address && !geocodeAttemptedRef.current.has(id);
+      return !isValidCoordinate(lat, lng) && !isValidCoordinate(job.approxLocation?.lat, job.approxLocation?.lng) && job.address && !geocodeAttemptedRef.current.has(id);
     });
 
     async function resolveMissingMapLocations() {
@@ -162,13 +163,21 @@ export default function JobListPage() {
     return () => { active = false; };
   }, [allJobs]);
 
-  const matrixDestinations = useMemo(() => (allJobs || [])
-    .filter((job) => job.locationStatus === 'confirmed' && isValidCoordinate(job.location?.lat, job.location?.lng))
-    .map((job) => ({
-      id: String(job._id || job.id),
-      lat: Number(job.location.lat),
-      lng: Number(job.location.lng),
-    })), [allJobs]);
+  const distanceTargets = useMemo(() => {
+    const targets = {};
+    for (const job of allJobs || []) {
+      const id = String(job._id || job.id);
+      const target = getJobDistanceTarget({ ...job, mapDisplayLocation: geocodedMapLocations[id] });
+      if (target) targets[id] = target;
+    }
+    return targets;
+  }, [allJobs, geocodedMapLocations]);
+
+  const matrixDestinations = useMemo(
+    () => Object.entries(distanceTargets).map(([id, t]) => ({ id, lat: t.lat, lng: t.lng })),
+    [distanceTargets]
+  );
+  const coarseUserLocation = isCoarseLocation(userLocation);
 
   useEffect(() => {
     if (!isAuthenticated || !userLocation || matrixDestinations.length === 0) {
@@ -228,17 +237,9 @@ export default function JobListPage() {
       let distanceKm = null;
       let distanceSource = null;
       let durationSeconds = null;
-      if (
-        userLocation &&
-        job.locationStatus === 'confirmed' &&
-        isValidCoordinate(job.location?.lat, job.location?.lng)
-      ) {
-        distanceMeters = haversineDistance(
-          userLocation.lat,
-          userLocation.lng,
-          job.location.lat,
-          job.location.lng
-        );
+      const target = distanceTargets[String(job._id || job.id)];
+      if (userLocation && target) {
+        distanceMeters = haversineDistance(userLocation.lat, userLocation.lng, target.lat, target.lng);
         distanceSource = 'haversine';
         const matrixEntry = matrixDistances[String(job._id || job.id)];
         if (Number.isFinite(matrixEntry?.distanceMeters)) {
@@ -256,9 +257,10 @@ export default function JobListPage() {
         distanceKm,
         distanceSource,
         durationSeconds,
+        distanceApproximate: distanceMeters !== null && (Boolean(target?.approximate) || coarseUserLocation),
       };
     });
-  }, [allJobs, userLocation, matrixDistances]);
+  }, [allJobs, userLocation, matrixDistances, distanceTargets, coarseUserLocation]);
 
   // Filter jobs by minimum salary & featuredOnly
   const filtered = jobsWithDistance.filter((j) => {
@@ -478,6 +480,16 @@ export default function JobListPage() {
           <option value="oldest">Cũ nhất</option>
         </Select>
       </div>
+
+      {coarseUserLocation && (
+        <div role="status" className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm flex items-start gap-2">
+          <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            Vị trí của bạn đang được ước tính với sai số khoảng ±{(Number(userLocation.accuracy) / 1000).toFixed(1)} km (thường gặp khi định vị trên máy tính), nên khoảng cách chỉ mang tính tham khảo.
+            Mở trang trên điện thoại có GPS để có khoảng cách chính xác.
+          </span>
+        </div>
+      )}
 
       {/* Chip lọc nhanh */}
       <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Lọc nhanh">

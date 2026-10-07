@@ -254,81 +254,124 @@ export function formatDistance(meters) {
 }
 
 /**
- * Compute job match score for a student (rule-based, no AI)
- * Returns score 0-100 and reasons[]
- *
- * Weights: time 50%, distance 30%, bus 20%
- * If schedule conflict → conflict flag (job should be warned)
+ * Mức độ phù hợp của một tin với sinh viên (quy tắc, không dùng AI).
+ * distance: { meters, approximate, basis } hoặc null. Phần nào thiếu dữ liệu thì để null,
+ * điểm tổng chỉ tính trên các phần có dữ liệu (trọng số: lịch 50%, khoảng cách 30%, xe buýt 20%).
  */
-export function computeMatchScore(job, studentAvailability, studentLocation) {
-  let timeScore = 0;
-  let distScore = 0;
-  let busScore = 0;
+export function computeMatchScore(job, studentAvailability, distance) {
+  let timeScore = null;
+  let distScore = null;
+  let busScore = null;
   const reasons = [];
   let hasConflict = false;
 
-  // --- Time match (50%) ---
-  if (studentAvailability && studentAvailability.length > 0 && job.schedule) {
-    const jobSlots = job.schedule; // [{dayOfWeek, startTime, endTime}]
+  // --- Lịch rảnh ---
+  // Hồ sơ lưu lịch rảnh dạng { mon: ['morning', ...], ... }; tin lưu ca dạng chữ trong positions[].shift
+  const shiftMatch = matchShiftsWithAvailability(job, studentAvailability);
+  const hasAvailability = shiftMatch
+    ? shiftMatch.hasAvailability
+    : Array.isArray(studentAvailability) && studentAvailability.length > 0;
+  const jobSlots = Array.isArray(job?.schedule) ? job.schedule : [];
+  if (shiftMatch && shiftMatch.hasAvailability && shiftMatch.total > 0) {
+    timeScore = Math.round((shiftMatch.matched / shiftMatch.total) * 100);
+    reasons.push(`Bạn rảnh cho ${shiftMatch.matched}/${shiftMatch.total} ca của tin này`);
+  } else if (!shiftMatch && hasAvailability && jobSlots.length > 0) {
     let matched = 0;
     let conflicted = 0;
     for (const slot of jobSlots) {
-      const avail = studentAvailability.find(
-        (a) => a.dayOfWeek === slot.dayOfWeek && a.type === 'available'
-      );
+      const avail = studentAvailability.find((a) => a.dayOfWeek === slot.dayOfWeek && a.type === 'available');
       const busy = studentAvailability.find(
-        (a) =>
-          a.dayOfWeek === slot.dayOfWeek &&
-          a.type === 'class' &&
-          timesOverlap(a.startTime, a.endTime, slot.startTime, slot.endTime)
+        (a) => a.dayOfWeek === slot.dayOfWeek && a.type === 'class' && timesOverlap(a.startTime, a.endTime, slot.startTime, slot.endTime)
       );
       if (busy) { conflicted++; hasConflict = true; }
       else if (avail && timesOverlap(avail.startTime, avail.endTime, slot.startTime, slot.endTime)) matched++;
     }
-    const total = jobSlots.length;
-    if (total > 0) {
-      timeScore = Math.round((matched / total) * 100);
-      reasons.push(`Phù hợp ${matched}/${total} khung giờ bạn đã chọn`);
-      if (conflicted > 0) reasons.push(`⚠ Trùng ${conflicted} ca với lịch học`);
-    }
+    timeScore = Math.round((matched / jobSlots.length) * 100);
+    reasons.push(`Phù hợp ${matched}/${jobSlots.length} khung giờ bạn đã chọn`);
+    if (conflicted > 0) reasons.push(`Trùng ${conflicted} ca với lịch học`);
+  } else if (!hasAvailability) {
+    reasons.push('Bạn chưa cập nhật lịch rảnh trong hồ sơ');
   } else {
-    reasons.push('Chưa có lịch rảnh để so sánh');
+    reasons.push('Tin chưa có lịch ca cụ thể để so sánh');
   }
 
-  // --- Distance (30%) ---
-  if (studentLocation && job.location?.lat && job.location?.lng) {
-    const dist = haversineDistance(
-      studentLocation.lat, studentLocation.lng,
-      job.location.lat, job.location.lng
-    );
-    if (dist <= 500) distScore = 100;
-    else if (dist <= 1000) distScore = 80;
-    else if (dist <= 2000) distScore = 60;
-    else if (dist <= 5000) distScore = 40;
+  // --- Khoảng cách ---
+  const meters = Number.isFinite(distance?.meters) ? distance.meters : null;
+  if (meters !== null) {
+    if (meters <= 500) distScore = 100;
+    else if (meters <= 1000) distScore = 80;
+    else if (meters <= 2000) distScore = 60;
+    else if (meters <= 5000) distScore = 40;
     else distScore = 10;
-    reasons.push(`Cách vị trí của bạn khoảng ${formatDistance(dist)}`);
+    reasons.push(`Cách vị trí của bạn ${distance.approximate ? 'khoảng ' : ''}${formatDistance(meters)}`);
   } else {
-    reasons.push('Chưa có thông tin vị trí để tính khoảng cách');
+    reasons.push('Chưa xác định được khoảng cách');
   }
 
-  // --- Bus route (20%) ---
-  if (job.busRoutes && job.busRoutes.length > 0) {
+  // --- Xe buýt (chỉ tính khi tin có dữ liệu) ---
+  if (Array.isArray(job?.busRoutes) && job.busRoutes.length > 0) {
     busScore = 70;
-    reasons.push(`Có tuyến xe buýt kết nối phù hợp`);
-  } else {
-    reasons.push('Không có dữ liệu xe buýt cho vị trí này');
+    reasons.push('Có tuyến xe buýt kết nối phù hợp');
   }
 
-  const total = timeScore * 0.5 + distScore * 0.3 + busScore * 0.2;
+  const parts = [[timeScore, 0.5], [distScore, 0.3], [busScore, 0.2]].filter(([v]) => v !== null);
+  const weight = parts.reduce((sum, [, w]) => sum + w, 0);
+  const score = weight > 0 ? Math.round(parts.reduce((sum, [v, w]) => sum + v * w, 0) / weight) : null;
+
   return {
-    score: Math.round(total),
+    score,
     timeScore,
     distScore,
     busScore,
+    distanceMeters: meters,
+    distanceApproximate: Boolean(distance?.approximate),
+    distanceBasis: distance?.basis || null,
     hasConflict,
     reasons,
-    available: studentAvailability?.length > 0,
+    available: hasAvailability,
   };
+}
+
+const AVAILABILITY_SLOTS = { morning: [7, 12], afternoon: [12, 17], evening: [17, 22] };
+const ALL_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+/** Khung giờ (sáng/chiều/tối) mà một ca dạng chữ cần, cùng các ngày áp dụng. null nếu là ca linh hoạt. */
+export function parseShiftRequirement(shiftText = '') {
+  const text = String(shiftText).toLowerCase();
+  const days = /cuối tuần|thứ 7|chủ nhật/.test(text) ? ['sat', 'sun'] : ALL_DAYS;
+  if (/xoay|linh hoạt/.test(text)) return { slots: null, days };
+  const m = /(\d{1,2})[:h](\d{2})?\s*[-–]\s*(\d{1,2})[:h]?(\d{2})?/.exec(text);
+  if (!m) return days.length === 2 ? { slots: null, days } : undefined;
+  const start = Number(m[1]) + Number(m[2] || 0) / 60;
+  let end = Number(m[3]) + Number(m[4] || 0) / 60;
+  if (end <= start) end += 24; // ca qua đêm
+  const slots = Object.entries(AVAILABILITY_SLOTS)
+    .filter(([, [a, b]]) => start < b && end > a)
+    .map(([id]) => id);
+  return { slots, days, outsideSlots: end > 22 || start < 7 };
+}
+
+/**
+ * So các ca của tin với lịch rảnh dạng object. Trả về null nếu lịch rảnh không phải dạng object.
+ * Một ca khớp khi có ít nhất một ngày (trong các ngày áp dụng) bạn rảnh đủ mọi khung giờ ca đó cần.
+ */
+export function matchShiftsWithAvailability(job, availability) {
+  if (!availability || typeof availability !== 'object' || Array.isArray(availability)) return null;
+  const hasAvailability = ALL_DAYS.some((d) => Array.isArray(availability[d]) && availability[d].length > 0);
+  const shiftTexts = [...new Set((job?.positions || []).map((p) => p?.shift).filter(Boolean))];
+  if (shiftTexts.length === 0 && job?.shiftDetail) shiftTexts.push(job.shiftDetail);
+  const requirements = shiftTexts.map(parseShiftRequirement).filter(Boolean);
+  let matched = 0;
+  for (const req of requirements) {
+    const ok = req.days.some((d) => {
+      const free = Array.isArray(availability[d]) ? availability[d] : [];
+      if (req.slots === null) return free.length > 0;
+      if (req.outsideSlots || req.slots.length === 0) return false;
+      return req.slots.every((slot) => free.includes(slot));
+    });
+    if (ok) matched++;
+  }
+  return { hasAvailability, matched, total: requirements.length };
 }
 
 function timesOverlap(start1, end1, start2, end2) {

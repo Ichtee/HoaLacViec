@@ -13,7 +13,8 @@
     "reconcile:legacy-fields": "node src/scripts/reconcileLegacyFields.js",
     "migrate:verification-images": "node src/scripts/migrateVerificationImages.js",
     "test": "node --test test/*.test.js",
-    "test:integration": "node --test --test-concurrency=1 test/integration/*.test.js"
+    "test:integration": "node --test --test-concurrency=1 test/integration/*.test.js",
+    "backfill:job-locations": "node src/scripts/backfillJobLocations.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

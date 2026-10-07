@@ -16,6 +16,13 @@ import { geocodeAddress } from '../services/geocodingService.js';
 import { notifyJobAlerts } from '../services/jobAlertService.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
 
+// Không có vị trí đã xác nhận thì sinh viên không thấy khoảng cách, không chỉ đường và không chấm công GPS được.
+const LOCATION_REQUIRED_ERROR = {
+  error: 'Vui lòng ghim và xác nhận vị trí quán trên bản đồ để sinh viên thấy khoảng cách và chỉ đường.',
+  code: 'LOCATION_REQUIRED',
+};
+const hasConfirmedLocation = (loc) => loc?.locationStatus === LOCATION_STATUSES.CONFIRMED && Boolean(loc?.geoPoint);
+
 const router = express.Router();
 
 const EDITABLE_JOB_FIELDS = [
@@ -541,6 +548,9 @@ router.post('/', authenticate, async (req, res, next) => {
     const normalizedLoc = normalizeLocationInput(data, null, {
       isExplicitConfirm: data.locationStatus === LOCATION_STATUSES.CONFIRMED,
     });
+    if (req.user.role !== 'admin' && !hasConfirmedLocation(normalizedLoc)) {
+      return res.status(400).json(LOCATION_REQUIRED_ERROR);
+    }
     Object.assign(data, normalizedLoc);
 
     const newJob = await Job.create(data);
@@ -790,7 +800,11 @@ router.put('/:id', authenticate, async (req, res, next) => {
       const normalizedLoc = normalizeLocationInput(edits, existingJob, {
         isExplicitConfirm: edits.locationStatus === LOCATION_STATUSES.CONFIRMED,
       });
+      if (req.user.role !== 'admin' && !hasConfirmedLocation(normalizedLoc)) {
+        return res.status(400).json(LOCATION_REQUIRED_ERROR);
+      }
       Object.assign(edits, normalizedLoc);
+      if (hasConfirmedLocation(normalizedLoc) && edits.location !== undefined) edits.locationNeedsReview = false;
     }
 
     const updated = await Job.findByIdAndUpdate(req.params.id, { $set: edits }, { new: true, runValidators: true });
@@ -825,6 +839,7 @@ router.post('/:id/location/confirm', authenticate, async (req, res, next) => {
         code: 'INVALID_COORDINATES',
       });
     }
+    job.locationNeedsReview = false;
 
     Object.assign(job, normalizedLoc);
     if (req.body.address) job.address = req.body.address;

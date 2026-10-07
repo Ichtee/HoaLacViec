@@ -37,6 +37,13 @@ export default function EmployerJobFormPage() {
   const { user, updateUser } = useAuth();
 
   const [loading, setLoading] = useState(isEditing);
+
+  // Mở từ lời nhắc "Ghim vị trí" (#job-step-3): cuộn tới bước địa điểm khi form đã tải xong
+  useEffect(() => {
+    if (loading || !window.location.hash) return;
+    const target = document.getElementById(window.location.hash.slice(1));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading]);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [employerPhone, setEmployerPhone] = useState(user?.phone || '');
@@ -352,6 +359,15 @@ export default function EmployerJobFormPage() {
 
       const finalAddress = fullAddressPreview || formData.address;
       const isConfirmed = isValidCoordinate(formData.lat, formData.lng) && formData.locationStatus === 'confirmed';
+      if (!isConfirmed) {
+        setToast({
+          type: 'error',
+          message: 'Vui lòng ghim vị trí quán trên bản đồ và bấm "Xác nhận vị trí này" để sinh viên thấy khoảng cách và chỉ đường.',
+        });
+        document.getElementById('job-step-3')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setSubmitting(false);
+        return;
+      }
       const locationPayload = isConfirmed
         ? {
             lat: Number(Number(formData.lat).toFixed(6)),

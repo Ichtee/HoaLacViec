@@ -5,6 +5,7 @@ import { Badge } from './Badge.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS } from '@/constants';
 import { formatVND, formatDate, getGoogleMapsDirectionsUrl } from '@/utils';
 import { avatarColorClass, avatarInitial } from '@/utils/avatarColor.js';
+import { formatDistanceLabel } from '@/utils/jobLocation.js';
 
 export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false, compact = false }) {
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
@@ -68,11 +69,13 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
                 {job.distanceMeters !== null && job.distanceMeters !== undefined && (
                   <span
                     className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[11px] font-bold flex items-center gap-0.5"
-                    title={job.distanceSource === 'vietmap_matrix'
-                      ? 'Quãng đường xe máy do Vietmap Matrix v4 tính'
-                      : 'Khoảng cách đường chim bay tạm tính từ vị trí GPS của bạn'}
+                    title={job.distanceApproximate
+                      ? 'Khoảng cách ước tính: quán chưa ghim vị trí chính xác hoặc vị trí của bạn có sai số lớn'
+                      : job.distanceSource === 'vietmap_matrix'
+                        ? 'Quãng đường xe máy do Vietmap tính'
+                        : 'Khoảng cách đường chim bay từ vị trí GPS của bạn'}
                   >
-                    Cách {job.distanceMeters < 1000 ? `${Math.round(job.distanceMeters)}m` : `${(job.distanceMeters / 1000).toFixed(1)}km`}
+                    Cách {formatDistanceLabel(job.distanceMeters, job.distanceApproximate)}
                   </span>
                 )}
               </div>
@@ -154,49 +157,59 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
   );
 }
 
+const DISTANCE_BASIS_LABELS = {
+  gps: 'Theo vị trí GPS hiện tại',
+  profile: 'Theo vị trí trong hồ sơ',
+  area: 'Ước tính theo khu vực trong hồ sơ',
+};
+
 export function MatchScoreBar({
-  score = 85,
-  scheduleScore,
-  distanceKm,
-  recommendation,
+  score = null,
+  timeScore = null,
+  distanceMeters = null,
+  distanceApproximate = false,
+  distanceBasis = null,
   reasons = [],
-  hasConflict = false
+  hasConflict = false,
 }) {
+  const hasScore = Number.isFinite(score);
   const color = hasConflict ? 'bg-red-400' : score >= 70 ? 'bg-green-main' : score >= 40 ? 'bg-yellow-400' : 'bg-gray-300';
+  const distanceText = Number.isFinite(distanceMeters) ? formatDistanceLabel(distanceMeters, distanceApproximate) : null;
 
   return (
     <div className="p-4 bg-green-50 rounded-2xl space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-text-main">Mức độ phù hợp tổng quan</span>
         <span className={clsx('text-xl font-bold', hasConflict ? 'text-red-700' : 'text-green-dark')}>
-          {score}%
+          {hasScore ? `${score}%` : '—'}
         </span>
       </div>
 
-      <div className="w-full h-2.5 bg-white rounded-full overflow-hidden">
-        <div className={clsx('h-full rounded-full transition-all duration-500', color)} style={{ width: `${score}%` }} />
-      </div>
+      {hasScore ? (
+        <div className="w-full h-2.5 bg-white rounded-full overflow-hidden">
+          <div className={clsx('h-full rounded-full transition-all duration-500', color)} style={{ width: `${score}%` }} />
+        </div>
+      ) : (
+        <p className="text-xs text-text-muted">Chưa đủ dữ liệu để chấm điểm. Hãy cập nhật lịch rảnh và cho phép định vị.</p>
+      )}
 
-      {/* Breakdown: Schedule Match & Distance Match */}
       <div className="grid grid-cols-2 gap-2 pt-1">
         <div className="bg-white/80 p-2.5 rounded-xl border border-green-100">
           <div className="flex items-center gap-1 text-[11px] font-semibold text-green-800">
-            <Calendar className="w-3.5 h-3.5 text-green-600" /> Khớp lịch học
+            <Calendar className="w-3.5 h-3.5 text-green-600" /> Khớp lịch rảnh
           </div>
-          <p className="text-sm font-bold text-text-main mt-0.5">
-            {scheduleScore !== undefined ? `${scheduleScore}%` : '85%'}
-          </p>
-          <p className="text-[10px] text-text-muted">Không trùng lịch thi/học</p>
+          <p className="text-sm font-bold text-text-main mt-0.5">{Number.isFinite(timeScore) ? `${timeScore}%` : 'Chưa xác định'}</p>
+          <p className="text-[10px] text-text-muted">{Number.isFinite(timeScore) ? 'So với lịch rảnh của bạn' : 'Cần lịch rảnh và lịch ca'}</p>
         </div>
 
         <div className="bg-white/80 p-2.5 rounded-xl border border-green-100">
-          <div className="flex items-center gap-1 text-[11px] font-semibold text-blue-800">
-            <Navigation className="w-3.5 h-3.5 text-blue-600" /> Vị trí gần
+          <div className="flex items-center gap-1 text-[11px] font-semibold text-green-800">
+            <Navigation className="w-3.5 h-3.5 text-green-600" /> Khoảng cách
           </div>
-          <p className="text-sm font-bold text-text-main mt-0.5">
-            {distanceKm !== null && distanceKm !== undefined ? `~${distanceKm} km` : 'Gần trường'}
+          <p className="text-sm font-bold text-text-main mt-0.5">{distanceText || 'Chưa xác định'}</p>
+          <p className="text-[10px] text-text-muted">
+            {distanceText ? (DISTANCE_BASIS_LABELS[distanceBasis] || 'Đường chim bay') : 'Cần vị trí của bạn và vị trí quán'}
           </p>
-          <p className="text-[10px] text-text-muted">{recommendation || 'Khu CNC Hòa Lạc'}</p>
         </div>
       </div>
 
