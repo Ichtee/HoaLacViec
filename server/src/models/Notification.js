@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { sendPushToUser, isPushConfigured } from '../services/pushService.js';
 
 const notificationSchema = new mongoose.Schema({
   userId: {
@@ -38,6 +39,17 @@ const notificationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 notificationSchema.index({ userId: 1, createdAt: -1 });
+
+// Mọi thông báo mới tự động được đẩy tới thiết bị đã đăng ký (nếu Web Push được cấu hình)
+notificationSchema.pre('save', function (next) {
+  this.$locals.wasNew = this.isNew;
+  next();
+});
+export function pushNewNotification(doc) {
+  if (!doc.$locals?.wasNew || !isPushConfigured()) return;
+  void sendPushToUser(doc.userId, { title: doc.title, body: doc.message, url: doc.link || '/' });
+}
+notificationSchema.post('save', pushNewNotification);
 
 export const Notification = mongoose.model('Notification', notificationSchema);
 

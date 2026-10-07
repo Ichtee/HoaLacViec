@@ -9,6 +9,7 @@ import {
   apiMarkAllNotificationsRead,
   apiDeleteNotification,
 } from '@/services';
+import { PushToggle } from '@/components/PushToggle.jsx';
 
 export function NotificationDropdown() {
   const [open, setOpen] = useState(false);
@@ -248,6 +249,7 @@ export function NotificationDropdown() {
               ))
             )}
           </div>
+          <PushToggle />
         </div>
       )}
     </div>

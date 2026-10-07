@@ -22,6 +22,12 @@ services:
         sync: false
       - key: ENABLE_VIETMAP
         value: "true"
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
 

@@ -5,6 +5,9 @@ import './index.css';
 import App from './App.jsx';
 import { AuthProvider } from '@/hooks/useAuth.jsx';
 import { LocationProvider } from '@/context/LocationContext.jsx';
+import { registerServiceWorker } from '@/utils/pwa.js';
+
+registerServiceWorker();
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 

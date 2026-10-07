@@ -747,6 +747,19 @@ export async function apiGetAdminMetrics() {
   return request('/admin/metrics');
 }
 
+// ─── WEB PUSH ────────────────────────────────────────────────────
+export async function apiGetPushPublicKey() {
+  return request('/push/public-key');
+}
+
+export async function apiSubscribePush(subscription) {
+  return request('/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription }) });
+}
+
+export async function apiUnsubscribePush(endpoint) {
+  return request('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) });
+}
+
 // ─── SHIFT SWAPS ─────────────────────────────────────────────────
 export async function apiGetShiftSwaps() {
   return request('/shift-swaps');

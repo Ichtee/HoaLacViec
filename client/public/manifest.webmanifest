@@ -1,0 +1,14 @@
+{
+  "name": "Hoa Lạc Việc",
+  "short_name": "Hoa Lạc Việc",
+  "description": "Việc làm thêm, theo ca và việc vặt quanh Khu Công nghệ cao Hòa Lạc",
+  "lang": "vi",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "icons": [
+    { "src": "/logo.png", "sizes": "535x535", "type": "image/png", "purpose": "any" }
+  ]
+}
