@@ -30,6 +30,7 @@ const shiftSchema = new mongoose.Schema({
   applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Application', default: null },
   employmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employment', default: null },
   shiftTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'ShiftTemplate', default: null },
+  quickShiftId: { type: mongoose.Schema.Types.ObjectId, ref: 'QuickShift', default: null },
   storeName: { type: String, default: '' },
   workplaceName: { type: String, default: '' },
   employerUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },

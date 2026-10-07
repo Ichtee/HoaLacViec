@@ -731,6 +731,31 @@ export async function apiCreateReview(reviewData) {
   });
 }
 
+// ─── QUICK SHIFTS (ca lẻ / tuyển nhanh) ──────────────────────────
+export async function apiGetQuickShifts() {
+  return request('/quick-shifts');
+}
+
+export async function apiGetMyQuickShifts() {
+  return request('/quick-shifts/mine');
+}
+
+export async function apiCreateQuickShift(data) {
+  return request('/quick-shifts', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function apiClaimQuickShift(id) {
+  return request(`/quick-shifts/${id}/claim`, { method: 'POST' });
+}
+
+export async function apiWithdrawQuickShift(id) {
+  return request(`/quick-shifts/${id}/withdraw`, { method: 'POST' });
+}
+
+export async function apiCancelQuickShift(id) {
+  return request(`/quick-shifts/${id}/cancel`, { method: 'POST' });
+}
+
 // ─── SAVED JOBS ───────────────────────────────────────────────────
 export async function apiGetSavedJobs() {
   return request('/saved-jobs');

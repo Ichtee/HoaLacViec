@@ -1,6 +1,7 @@
 import { Application } from '../models/Application.js';
 import { Job } from '../models/Job.js';
 import { Shift } from '../models/Shift.js';
+import { QuickShift } from '../models/QuickShift.js';
 import { Notification } from '../models/Notification.js';
 
 const SHIFT_REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;
@@ -127,12 +128,22 @@ export async function sendShiftReminders(now = new Date()) {
   return sent;
 }
 
+/** Ca lẻ còn trống nhưng đã quá giờ bắt đầu -> expired. */
+export async function expireQuickShifts(now = new Date()) {
+  const result = await QuickShift.updateMany(
+    { status: 'open', startAt: { $lte: now } },
+    { $set: { status: 'expired' } }
+  );
+  return result?.modifiedCount || 0;
+}
+
 export async function runMaintenance(now = new Date()) {
-  const result = { offersExpired: 0, jobsExpired: 0, remindersSent: 0 };
+  const result = { offersExpired: 0, jobsExpired: 0, remindersSent: 0, quickShiftsExpired: 0 };
   const tasks = [
     ['offersExpired', expireOverdueOffers],
     ['jobsExpired', expireOverdueJobs],
     ['remindersSent', sendShiftReminders],
+    ['quickShiftsExpired', expireQuickShifts],
   ];
   for (const [key, task] of tasks) {
     try {
@@ -156,7 +167,7 @@ export function startMaintenanceScheduler() {
     running = true;
     try {
       const result = await runMaintenance();
-      if (result.offersExpired || result.jobsExpired || result.remindersSent) {
+      if (result.offersExpired || result.jobsExpired || result.remindersSent || result.quickShiftsExpired) {
         console.log('[maintenance]', JSON.stringify(result));
       }
     } finally {

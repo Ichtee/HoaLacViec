@@ -4,6 +4,7 @@ import { Application } from '../src/models/Application.js';
 import { Job } from '../src/models/Job.js';
 import { Shift } from '../src/models/Shift.js';
 import { Notification } from '../src/models/Notification.js';
+import { QuickShift } from '../src/models/QuickShift.js';
 import { runMaintenance } from '../src/services/maintenanceService.js';
 
 const chain = (rows) => ({ select: async () => rows });
@@ -13,9 +14,10 @@ test('maintenance expires offers/jobs and sends each shift reminder once', async
     appFind: Application.find, appUpdate: Application.findOneAndUpdate,
     jobFind: Job.find, jobUpdate: Job.findOneAndUpdate,
     shiftFind: Shift.find, shiftUpdate: Shift.findOneAndUpdate,
-    notify: Notification.create,
+    notify: Notification.create, quickUpdateMany: QuickShift.updateMany,
   };
   t.after(() => {
+    QuickShift.updateMany = originals.quickUpdateMany;
     Application.find = originals.appFind; Application.findOneAndUpdate = originals.appUpdate;
     Job.find = originals.jobFind; Job.findOneAndUpdate = originals.jobUpdate;
     Shift.find = originals.shiftFind; Shift.findOneAndUpdate = originals.shiftUpdate;
@@ -39,10 +41,13 @@ test('maintenance expires offers/jobs and sends each shift reminder once', async
   };
   Shift.findOneAndUpdate = async (f) => { updates.push(['shift', f]); return { _id: f._id }; };
   Notification.create = async (n) => { notes.push(n); return n; };
+  QuickShift.updateMany = async (f, u) => { filters.quick = f; updates.push(['quick', f, u]); return { modifiedCount: 2 }; };
 
   const result = await runMaintenance(now);
 
-  assert.deepEqual(result, { offersExpired: 1, jobsExpired: 1, remindersSent: 1 });
+  assert.deepEqual(result, { offersExpired: 1, jobsExpired: 1, remindersSent: 1, quickShiftsExpired: 2 });
+  assert.equal(filters.quick.status, 'open');
+  assert.deepEqual(filters.quick.startAt.$lte, now);
   assert.equal(filters.app.status, 'offer_sent');
   assert.deepEqual(filters.app['offer.expiryDate'].$lt, now);
   assert.equal(filters.job.status, 'approved');
@@ -58,9 +63,10 @@ test('maintenance expires offers/jobs and sends each shift reminder once', async
 test('a lost atomic claim skips notifications (idempotent re-runs)', async (t) => {
   const originals = {
     appFind: Application.find, appUpdate: Application.findOneAndUpdate, notify: Notification.create,
-    jobFind: Job.find, shiftFind: Shift.find,
+    jobFind: Job.find, shiftFind: Shift.find, quickUpdateMany: QuickShift.updateMany,
   };
   t.after(() => {
+    QuickShift.updateMany = originals.quickUpdateMany;
     Application.find = originals.appFind; Application.findOneAndUpdate = originals.appUpdate;
     Notification.create = originals.notify; Job.find = originals.jobFind; Shift.find = originals.shiftFind;
   });
@@ -68,8 +74,9 @@ test('a lost atomic claim skips notifications (idempotent re-runs)', async (t) =
   Application.findOneAndUpdate = async () => null;
   Job.find = () => chain([]);
   Shift.find = () => chain([]);
+  QuickShift.updateMany = async () => ({ modifiedCount: 0 });
   let notified = 0;
   Notification.create = async () => { notified++; };
-  assert.deepEqual(await runMaintenance(new Date()), { offersExpired: 0, jobsExpired: 0, remindersSent: 0 });
+  assert.deepEqual(await runMaintenance(new Date()), { offersExpired: 0, jobsExpired: 0, remindersSent: 0, quickShiftsExpired: 0 });
   assert.equal(notified, 0);
 });
