@@ -20,6 +20,10 @@
 
 Với tin cũ có `slots` và `remainingOpenings` lệch nhau, xem trước bằng `cd server && npm run migrate:job-capacity`; chỉ sau khi kiểm tra danh sách mới chạy `npm run migrate:job-capacity -- --apply`. Script không chạy tự động khi khởi động ứng dụng.
 
+**Nộp lại đơn ứng tuyển:** Đơn đã kết thúc (rút, bị từ chối, offer bị từ chối/hết hạn/thu hồi) không còn chặn việc nộp lại cho cùng một tin. Với database đã có dữ liệu, xem trước bằng `cd server && npm run migrate:application-index`, sau đó chạy `npm run migrate:application-index -- --apply` để gán `isActive` cho đơn cũ và thay unique index cũ bằng partial index.
+
+**Tác vụ nền:** Server tự chạy mỗi 10 phút (`MAINTENANCE_INTERVAL_MS` để đổi, `DISABLE_MAINTENANCE_JOBS=true` để tắt): đánh dấu offer quá hạn, chuyển tin quá `closesAt` sang `expired` và nhắc nhân viên các ca bắt đầu trong 2 giờ tới.
+
 **Đặt lại mật khẩu:** Cấu hình `FRONTEND_URL`, `RESEND_API_KEY` và `PASSWORD_RESET_FROM_EMAIL` trên server để gửi email. Token chỉ dùng một lần và hết hạn sau 30 phút. Khi thiếu cấu hình, trang sẽ báo chức năng chưa sẵn sàng. Các thao tác duyệt đơn nghỉ có sửa ca cần MongoDB hỗ trợ transaction (ví dụ MongoDB Atlas hoặc replica set).
 
 ---

@@ -90,10 +90,31 @@ const applicationSchema = new mongoose.Schema({
   }],
 
   appliedAt: { type: Date, default: Date.now },
+  // false khi đơn đã kết thúc (rút, bị từ chối, offer bị từ chối/hết hạn/thu hồi) -> cho phép nộp lại
+  isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
+// Trạng thái kết thúc không cản trở việc nộp lại đơn cho cùng một tin.
+export const INACTIVE_APPLICATION_STATUSES = Object.freeze([
+  'rejected',
+  'withdrawn',
+  'offer_declined',
+  'offer_expired',
+  'offer_rescinded',
+]);
+
+applicationSchema.pre('validate', function (next) {
+  this.isActive = !INACTIVE_APPLICATION_STATUSES.includes(this.status);
+  next();
+});
+
 // Prevent duplicate active applications from the same student for the same job
-applicationSchema.index({ studentId: 1, jobId: 1 }, { unique: true });
+// Partial index: chỉ một đơn đang hoạt động cho mỗi (sinh viên, tin). Đơn đã kết thúc không bị tính.
+applicationSchema.index(
+  { studentId: 1, jobId: 1 },
+  { unique: true, partialFilterExpression: { isActive: true }, name: 'uniq_active_student_job' }
+);
+applicationSchema.index({ studentId: 1, jobId: 1, createdAt: -1 });
 applicationSchema.index({ studentId: 1 });
 applicationSchema.index({ employerId: 1 });
 applicationSchema.index({ employerUserId: 1 });

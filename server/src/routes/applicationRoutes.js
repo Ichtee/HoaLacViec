@@ -176,7 +176,7 @@ router.post('/', async (req, res, next) => {
     }
 
     // Check duplicate
-    const existing = await Application.findOne({ studentId: req.user._id, jobId });
+    const existing = await Application.findOne({ studentId: req.user._id, jobId, isActive: { $ne: false } });
     if (existing) {
       return res.status(409).json({
         error: 'Bạn đã nộp đơn cho công việc này rồi. Vui lòng theo dõi trạng thái tại mục Đơn ứng tuyển.',

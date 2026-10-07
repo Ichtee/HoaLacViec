@@ -84,6 +84,9 @@ const shiftSchema = new mongoose.Schema({
     index: true,
   },
 
+  // Thời điểm đã gửi nhắc ca sắp tới (job nền đảm bảo chỉ nhắc một lần)
+  reminderSentAt: { type: Date, default: null },
+
   // Schedule revisions & audits
   scheduleRevision: { type: Number, default: 1 },
   publishedAt: { type: Date, default: null },
