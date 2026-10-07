@@ -91,6 +91,13 @@ app.use(cors({
   credentials: true,
 }));
 
+// Sau proxy (Render; thêm Vercel khi frontend gọi qua rewrite /api) req.ip phải là IP người dùng,
+// nếu không mọi người dùng bị tính chung một IP trong bộ giới hạn.
+const trustProxyHops = process.env.TRUST_PROXY_HOPS !== undefined
+  ? Number(process.env.TRUST_PROXY_HOPS)
+  : (process.env.NODE_ENV === 'production' ? 2 : 0);
+if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
+
 // Rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -102,7 +109,7 @@ const authLimiter = rateLimit({
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: Number(process.env.API_RATE_LIMIT_MAX) || 600,
+  max: Number(process.env.API_RATE_LIMIT_MAX) || 1500,
   standardHeaders: true,
   legacyHeaders: false,
 });

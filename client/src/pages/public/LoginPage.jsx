@@ -11,6 +11,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const requestedPath = location.state?.from?.pathname || new URLSearchParams(location.search).get('redirect');
+  const sessionExpired = new URLSearchParams(location.search).get('expired') === '1';
   const decodedPath = (() => {
     try { return decodeURIComponent(requestedPath || ''); } catch { return ''; }
   })();
@@ -134,6 +135,11 @@ export default function LoginPage() {
 
         {/* Login Form Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-green-50 shadow-modal space-y-5">
+          {sessionExpired && !error && (
+            <div role="status" className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+              Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.
+            </div>
+          )}
           {error && (
             <div className="p-3.5 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-700 font-medium leading-relaxed">
               {error}

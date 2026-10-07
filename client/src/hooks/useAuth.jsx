@@ -1,5 +1,8 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { login as serviceLogin, register as serviceRegister, googleLogin as serviceGoogleLogin, getMe, logoutRequest } from '@/services';
+import { SESSION_EXPIRED_EVENT } from '@/services/api.js';
+
+const PROTECTED_PREFIXES = ['/student', '/employer', '/admin', '/verify-account'];
 
 /**
  * AuthContext — Authentication & session management
@@ -55,6 +58,21 @@ export function AuthProvider({ children }) {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  // Phiên hết hạn (không gia hạn được): xóa phiên và đưa về trang đăng nhập nếu đang ở khu cần đăng nhập
+  useEffect(() => {
+    function onSessionExpired() {
+      setSession(null);
+      saveSession(null);
+      const { pathname, search } = window.location;
+      if (PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+        const redirect = encodeURIComponent(pathname + search);
+        window.location.assign(`/login?expired=1&redirect=${redirect}`);
+      }
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
   const handleAuthResult = useCallback((result) => {

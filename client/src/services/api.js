@@ -3,10 +3,9 @@
  * Base URL is /api (proxied to http://localhost:5000 by Vite)
  */
 
-const rawApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-const API_BASE = rawApiUrl
-  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`)
-  : '/api';
+import { resolveApiBase } from './apiBase.js';
+
+const API_BASE = resolveApiBase(import.meta.env);
 
 function getAuthHeaders() {
   const token = localStorage.getItem('token');
@@ -35,6 +34,7 @@ export function buildQueryString(params = {}) {
 
 // Access token sống ngắn (15 phút). Khi hết hạn, đổi refresh token (cookie httpOnly) lấy token mới.
 // Dùng chung một lời gọi cho nhiều yêu cầu cùng lúc để không dùng refresh token hai lần.
+export const SESSION_EXPIRED_EVENT = 'hlv:session-expired';
 const NO_REFRESH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/google', '/auth/refresh', '/auth/logout'];
 let refreshPromise = null;
 
@@ -76,10 +76,14 @@ async function request(endpoint, options = {}) {
     const data = await res.json().catch(() => null);
     if (
       res.status === 401 && data?.code === 'INVALID_TOKEN' && !_retried &&
-      localStorage.getItem('token') && !NO_REFRESH_ENDPOINTS.includes(endpoint) &&
-      await refreshAccessToken()
+      localStorage.getItem('token') && !NO_REFRESH_ENDPOINTS.includes(endpoint)
     ) {
-      return request(endpoint, { ...fetchOptions, _retried: true });
+      if (await refreshAccessToken()) {
+        return request(endpoint, { ...fetchOptions, _retried: true });
+      }
+      // Không gia hạn được: báo cho AuthProvider đăng xuất thay vì để mọi thao tác lỗi im lặng
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+      throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
     if (!res.ok) {
       throw new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`);
