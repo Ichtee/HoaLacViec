@@ -361,8 +361,8 @@ export default function EmployerApplicationsPage() {
 
                   {/* Candidate Note */}
                   {app.note && (
-                    <div className="p-2.5 rounded-xl bg-cream/40 border border-amber-100 text-xs text-text-main">
-                      <span className="font-bold text-amber-900">Lời nhắn:</span> "{app.note}"
+                    <div className="p-2.5 rounded-xl bg-cream/40 border border-amber-100 text-xs text-text-main whitespace-pre-line">
+                      <span className="font-bold text-amber-900">Lời nhắn:</span>{'\n'}{app.note}
                     </div>
                   )}
 
@@ -513,7 +513,7 @@ export default function EmployerApplicationsPage() {
                   <p><strong>Email:</strong> {selectedApp.studentEmail || 'Chưa cập nhật'}</p>
                 </>
               )}
-              {selectedApp.note && <p><strong>Lời nhắn:</strong> "{selectedApp.note}"</p>}
+              {selectedApp.note && <p className="whitespace-pre-line"><strong>Lời nhắn:</strong>{'\n'}{selectedApp.note}</p>}
             </div>
 
             <div>

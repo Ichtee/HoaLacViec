@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Clock, AlertCircle, RefreshCw, ShieldCheck, ArrowRight, Search, ChevronDown, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Input, Select } from '@/components/Form.jsx';
@@ -26,6 +27,7 @@ export default function StudentVerificationPanel({
   handleSubmitStudent,
   user,
 }) {
+  const navigate = useNavigate();
   return (
             existingStudentVerification && (existingStudentVerification.verificationStatus === 'pending' || existingStudentVerification.status === 'pending') && !editingStudent ? (
               /* Already submitted and pending */

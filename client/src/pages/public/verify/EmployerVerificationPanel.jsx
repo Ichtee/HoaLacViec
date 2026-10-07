@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Building2, Upload, CheckCircle2, Clock, RefreshCw, ArrowRight } from 'lucide-react';
 import { Input, Select } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
@@ -25,6 +26,7 @@ export default function EmployerVerificationPanel({
   handleEmployerImageUpload,
   handleSubmitEmployer,
 }) {
+  const navigate = useNavigate();
   return (
             <div>
               {existingVerification && existingVerification.status === 'pending' ? (

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { Briefcase, CheckCircle2, Clock, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import { Input, Select } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
@@ -19,6 +20,7 @@ export default function WorkerVerificationPanel({
   handleSubmitWorker,
   user,
 }) {
+  const navigate = useNavigate();
   return (
             <div>
               {existingWorkerVerification && (existingWorkerVerification.verificationStatus === 'pending' || existingWorkerVerification.status === 'pending') && !editingWorker ? (

@@ -36,6 +36,7 @@ import { LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS, DAYS_OF_WEEK } from '@/constants';
 import { formatVND, formatDate, computeMatchScore, getGoogleMapsDirectionsUrl } from '@/utils';
 import { avatarColorClass, avatarInitial } from '@/utils/avatarColor.js';
+import { ApplyJobModal } from './apply/ApplyJobModal.jsx';
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -47,11 +48,8 @@ export default function JobDetailPage() {
 
   const [saved, setSaved] = useState(false);
   const [applyOpen, setApplyOpen] = useState(false);
-  const [candidateName, setCandidateName] = useState(user?.name || '');
-  const [candidatePhone, setCandidatePhone] = useState(user?.phone || '');
-  const [candidatePosition, setCandidatePosition] = useState('');
-  const [candidateShift, setCandidateShift] = useState('Ca Sáng (7h - 12h)');
-  const [applyNote, setApplyNote] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [applyKey, setApplyKey] = useState(0); // đổi mỗi lần mở để form ứng tuyển được đặt lại
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState('');
   const [applySuccess, setApplySuccess] = useState(false);
@@ -93,11 +91,6 @@ export default function JobDetailPage() {
     }
   }
 
-  useEffect(() => {
-    if (user?.name && !candidateName) setCandidateName(user.name);
-    if (user?.phone && !candidatePhone) setCandidatePhone(user.phone);
-  }, [user]);
-
   const { data: job, loading, error } = useAsync(() => getJob(id), [id]);
 
   useEffect(() => {
@@ -123,13 +116,10 @@ export default function JobDetailPage() {
       ]).then(([avail, profile]) => {
         const result = computeMatchScore(job, avail, profile?.location);
         setMatchResult(result);
-        const phoneFromProfile = user?.phone || profile?.phone || profile?.contactPhone;
-        if (phoneFromProfile && !candidatePhone) {
-          setCandidatePhone(phoneFromProfile);
-        }
+        setProfilePhone(profile?.phone || profile?.contactPhone || '');
       }).catch(() => {});
     }
-  }, [job, isAuthenticated, profileId, user, candidatePhone]);
+  }, [job, isAuthenticated, profileId, user]);
 
   async function handleSave() {
     if (!isAuthenticated) { navigate('/login'); return; }
@@ -147,20 +137,15 @@ export default function JobDetailPage() {
 
   function handleOpenApply() {
     if (!isAuthenticated) { navigate(`/login?redirect=/jobs/${id}`); return; }
-    if (user?.name && !candidateName) setCandidateName(user.name);
-    if (user?.phone && !candidatePhone) setCandidatePhone(user.phone);
-    if (job?.positions && job.positions.length > 0) {
-      setCandidatePosition(job.positions[0].title);
-      setCandidateShift(job.positions[0].shift);
-    }
+    setApplyError('');
+    setApplyKey((k) => k + 1);
     setApplyOpen(true);
   }
 
-  async function handleApply(e) {
-    if (e && e.preventDefault) e.preventDefault();
+  async function handleApply({ name, phone, position, shift, note }) {
     if (!isAuthenticated) { navigate(`/login?redirect=/jobs/${id}`); return; }
     if (!isStudent) return;
-    if (!candidatePhone.trim()) {
+    if (!phone) {
       setApplyError('Vui lòng nhập số điện thoại hoặc Zalo liên hệ.');
       return;
     }
@@ -168,18 +153,15 @@ export default function JobDetailPage() {
     setApplyError('');
     try {
       const targetId = job._id || job.id;
-      const chosenPos = candidatePosition || (job.positions?.[0]?.title || job.title);
-      const chosenShift = candidateShift || (job.positions?.[0]?.shift || 'Ca xoay');
-      const combinedNote = `[Vị trí: ${chosenPos}] [Ca: ${chosenShift}]${applyNote ? ` ${applyNote}` : ''}`;
-      await applyToJob(profileId, targetId, combinedNote, {
-        name: candidateName,
-        phone: candidatePhone,
-        selectedPosition: chosenPos,
-        selectedShift: chosenShift,
+      await applyToJob(profileId, targetId, note, {
+        name,
+        phone,
+        selectedPosition: position,
+        selectedShift: shift,
       });
-      if (candidatePhone && !user?.phone) {
-        updateUserProfile({ phone: candidatePhone.trim() }).catch(() => {});
-        if (updateUser) updateUser({ ...user, phone: candidatePhone.trim() });
+      if (phone && !user?.phone) {
+        updateUserProfile({ phone }).catch(() => {});
+        if (updateUser) updateUser({ ...user, phone });
       }
       setApplySuccess(true);
       setApplyOpen(false);
@@ -586,124 +568,20 @@ export default function JobDetailPage() {
       </div>
 
       {/* Apply modal */}
-      <Modal isOpen={applyOpen} onClose={() => setApplyOpen(false)} title="Ứng tuyển công việc" size="md">
-        <form onSubmit={handleApply} className="space-y-4 text-xs">
-          {/* Job summary card */}
-          <div className="p-3 bg-green-50/70 border border-green-100 rounded-2xl flex items-center justify-between gap-3">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-green-dark">Vị trí ứng tuyển:</span>
-              <h4 className="font-bold text-sm text-text-main mt-0.5">{job.title}</h4>
-              <p className="text-text-muted">{emp?.storeName || job.storeName}</p>
-            </div>
-            <div className="text-right shrink-0">
-              <span className="text-[10px] font-bold text-green-dark">Mức lương:</span>
-              <p className="font-bold text-sm text-orange-700">{formatVND(job.salaryAmount)}{unitLabel}</p>
-            </div>
-          </div>
-
-          {/* Form fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-text-main mb-1">
-                Họ và tên sinh viên <span className="text-red-700">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={candidateName}
-                onChange={e => setCandidateName(e.target.value)}
-                placeholder="Ví dụ: Nguyễn Văn A"
-                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-text-main mb-1">
-                Số điện thoại / Zalo <span className="text-red-700">*</span>
-              </label>
-              <input
-                type="tel"
-                required
-                value={candidatePhone}
-                onChange={e => setCandidatePhone(e.target.value)}
-                placeholder="Ví dụ: 0987654321"
-                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-bold text-text-main mb-1">
-              Vị trí & Ca làm việc ứng tuyển <span className="text-red-700">*</span>
-            </label>
-            {job.positions?.length > 0 ? (
-              <select
-                value={`${candidatePosition}:::${candidateShift}`}
-                onChange={e => {
-                  const [pos, sh] = e.target.value.split(':::');
-                  setCandidatePosition(pos);
-                  setCandidateShift(sh);
-                }}
-                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main bg-white"
-              >
-                {job.positions.map((p, idx) => (
-                  <option key={idx} value={`${p.title}:::${p.shift}`}>
-                    {p.title} — {p.shift} {p.quantity ? `(Tuyển ${p.quantity} bạn)` : ''}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <select
-                value={candidateShift}
-                onChange={e => setCandidateShift(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main font-semibold text-text-main bg-white"
-              >
-                <option value="Ca Sáng (7h - 12h)">Ca Sáng (7h - 12h)</option>
-                <option value="Ca Chiều (12h - 17h)">Ca Chiều (12h - 17h)</option>
-                <option value="Ca Tối (17h - 22h)">Ca Tối (17h - 22h)</option>
-                <option value="Ca Xoay / Linh hoạt theo lịch học">Ca Xoay / Linh hoạt theo lịch học</option>
-                <option value="Full-time cuối tuần (Thứ 7 & CN)">Full-time cuối tuần (Thứ 7 & CN)</option>
-              </select>
-            )}
-          </div>
-
-          <div>
-            <label className="block font-bold text-text-main mb-1">
-              Kinh nghiệm & Giới thiệu bản thân
-            </label>
-            <textarea
-              rows={3}
-              value={applyNote}
-              onChange={e => setApplyNote(e.target.value)}
-              placeholder="Ví dụ: Em từng làm phục vụ quán cafe 3 tháng, chăm chỉ, đúng giờ, có xe máy đi lại..."
-              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main resize-none text-xs text-text-main"
-            />
-          </div>
-
-          <div className="p-2.5 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-blue-800 flex items-center gap-1.5">
-            <span>🛡️</span>
-            <span>Số điện thoại/Zalo của bạn sẽ được gửi trực tiếp đến chủ quán để sắp xếp phỏng vấn.</span>
-          </div>
-
-          {applyError && <p className="text-red-700 font-semibold text-xs">{applyError}</p>}
-
-          <div className="flex gap-2 justify-end pt-2">
-            <button
-              type="button"
-              onClick={() => setApplyOpen(false)}
-              className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-text-muted font-bold"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={applying}
-              className="px-5 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold disabled:opacity-50 shadow-sm"
-            >
-              {applying ? 'Đang gửi hồ sơ...' : 'Xác nhận nộp đơn'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <ApplyJobModal
+        key={applyKey}
+        isOpen={applyOpen}
+        onClose={() => setApplyOpen(false)}
+        job={job}
+        unitLabel={unitLabel}
+        storeName={emp?.storeName || job.storeName}
+        user={user}
+        defaultPhone={profilePhone}
+        matchResult={matchResult}
+        applying={applying}
+        error={applyError}
+        onSubmit={handleApply}
+      />
 
       {/* Report Scam / Violation Modal */}
       <Modal isOpen={reportOpen} onClose={() => setReportOpen(false)} title="Báo cáo tin tuyển dụng vi phạm" size="md">

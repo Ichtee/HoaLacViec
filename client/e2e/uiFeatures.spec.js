@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedUser, seedJob, seedShift, signIn } from './helpers.js';
+import { seedUser, seedJob, seedShift, signIn, apiCall, apiLogin } from './helpers.js';
 
 const DESKTOP = { width: 1366, height: 800 };
 
@@ -67,4 +67,37 @@ test('quản trị: bảng tài khoản sắp xếp theo cột khi bấm tiêu �
   await page.getByRole('columnheader', { name: /Người dùng/ }).getByRole('button').click();
   const desc = await names();
   expect(desc.indexOf('Zed Cuối Bảng')).toBeLessThan(desc.indexOf('Aaron Đầu Bảng'));
+});
+
+test('ứng tuyển chi tiết: chọn lựa chọn, xem lại và lời nhắn có cấu trúc được lưu', async ({ page }) => {
+  const employer = await seedUser('employer', 'Quán Nướng H10');
+  const student = await seedUser('student', 'Sinh Viên Nộp Đơn');
+  const job = await seedJob(employer.id, { title: 'Tuyển nhân viên phụ bếp' });
+  await signIn(page, student.email);
+  await page.goto(`/jobs/${job.id}`);
+  await page.getByRole('button', { name: /Ứng tuyển ngay/ }).first().click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Bạn đang ứng tuyển')).toBeVisible();
+  await dialog.getByLabel(/Số điện thoại \/ Zalo/).fill('0986557067');
+  await dialog.getByRole('radio', { name: 'Xe máy' }).click();
+  await dialog.getByRole('radio', { name: '6 - 12 tháng' }).click();
+  await dialog.getByRole('checkbox', { name: 'Nhanh nhẹn' }).click();
+  await dialog.getByRole('checkbox', { name: 'Làm được ca tối' }).click();
+  await dialog.getByLabel('Giới thiệu bản thân').fill('Em chăm chỉ, đúng giờ.');
+  await expect(dialog.getByText('22/500')).toBeVisible();
+
+  await dialog.getByRole('button', { name: /Xem lại nội dung/ }).click();
+  const review = dialog.locator('pre');
+  await expect(review).toContainText('Phương tiện: Xe máy');
+  await expect(review).toContainText('Kỹ năng: Nhanh nhẹn, Làm được ca tối');
+
+  await dialog.getByRole('button', { name: 'Xác nhận nộp đơn' }).click();
+  await expect(dialog).toBeHidden();
+
+  const { token } = await apiLogin(student.email);
+  const mine = await apiCall('/applications', { token });
+  expect(mine.body).toHaveLength(1);
+  expect(mine.body[0].note).toContain('Kinh nghiệm: 6 - 12 tháng');
+  expect(mine.body[0].note).toContain('Giới thiệu: Em chăm chỉ, đúng giờ.');
 });
