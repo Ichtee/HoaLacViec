@@ -311,15 +311,15 @@ export default function MicroTasksPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-green-main to-green-dark rounded-3xl p-8 sm:p-12 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-gradient-to-r from-green-main to-green-dark rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
         <div className="max-w-2xl relative z-10 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white">
             <ShoppingBag className="w-4 h-4" /> Chợ Việc Vặt Sinh Viên Hòa Lạc
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight text-balance">
             Thuê Việc Vặt — Giúp Nhau Mỗi Ngày
           </h1>
-          <p className="text-amber-50 text-sm sm:text-base leading-relaxed">
+          <p className="text-green-50 text-sm sm:text-base leading-relaxed">
             Bạn bận học, đang ốm hay không có xe? Đăng việc nhờ người đi chợ hộ, xe ôm nội khu, chuyển đồ phòng trọ, lấy bưu phẩm... hoặc nhận việc để kiếm thêm tiền tiêu vặt ngay hôm nay!
           </p>
 

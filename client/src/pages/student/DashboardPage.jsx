@@ -16,6 +16,8 @@ import { useAuth } from '@/hooks/useAuth.jsx';
 import { getShifts, getApplications, getSavedJobs, getJobs } from '@/services';
 
 import { Badge, AppStatusBadge } from '@/components/Badge.jsx';
+import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS } from '@/constants';
+import { formatVND } from '@/utils';
 import {
   isApplicationAwaiting,
   isApplicationOfferPending,
@@ -281,12 +283,16 @@ export default function StudentDashboard() {
                 <div key={job._id || job.id} className="p-3.5 rounded-2xl bg-cream/40 border border-green-50 hover:bg-cream/80 transition-colors">
                   <div className="flex items-start justify-between gap-2">
                     <h4 className="text-sm font-semibold text-text-main line-clamp-1">{job.title}</h4>
-                    <span className="text-xs font-bold text-green-dark shrink-0">{job.salaryText}</span>
+                    <span className="text-xs font-bold text-green-dark shrink-0">{formatVND(job.salaryAmount)}{SALARY_UNIT_LABELS[job.salaryUnit] || ''}</span>
                   </div>
-                  <p className="text-xs text-text-muted mt-1">{job.storeName} • {job.distanceText}</p>
+                  <p className="text-xs text-text-muted mt-1">
+                    {job.employer?.storeName || job.storeName || 'Đang cập nhật'}
+                    {job.distanceMeters != null &&
+                      ` • Cách ${job.distanceMeters < 1000 ? `${Math.round(job.distanceMeters)}m` : `${(job.distanceMeters / 1000).toFixed(1)}km`}`}
+                  </p>
                   <div className="mt-3 flex items-center justify-between">
-                    <Badge variant="outline" size="sm">{job.jobType}</Badge>
-                    <Link to={`/jobs/${job._id || job.id}`} className="text-xs font-semibold text-green-main hover:underline">
+                    <Badge variant="outline" size="sm">{JOB_TYPE_LABELS[job.type] || job.type}</Badge>
+                    <Link to={`/student/jobs/${job._id || job.id}`} className="text-xs font-semibold text-green-main hover:underline">
                       Xem chi tiết →
                     </Link>
                   </div>

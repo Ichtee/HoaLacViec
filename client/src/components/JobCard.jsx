@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { Badge } from './Badge.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS } from '@/constants';
 import { formatVND, formatDate, getGoogleMapsDirectionsUrl } from '@/utils';
+import { avatarColorClass, avatarInitial } from '@/utils/avatarColor.js';
 
 export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false, compact = false }) {
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
@@ -43,13 +44,13 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
           {/* Top header row: Avatar + Badges + Title + Store */}
           <div className="flex items-start gap-3.5 pr-8">
             {/* Store avatar */}
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-800 font-bold text-lg flex-shrink-0 shadow-xs">
-              {employer?.storeName?.[0] || job.storeName?.[0] || '?'}
+            <div className={clsx('w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg flex-shrink-0', avatarColorClass(employer?.storeName || job.storeName))}>
+              {avatarInitial(employer?.storeName || job.storeName)}
             </div>
 
             <div className="flex-1 min-w-0">
               {/* Badges container with min-height for uniform alignment */}
-              <div className="h-[26px] flex flex-nowrap items-center gap-1.5 mb-1 overflow-hidden">
+              <div className="min-h-[26px] flex flex-wrap items-center gap-1.5 mb-1">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 whitespace-nowrap">
                   {typeLabel}
                 </span>
@@ -61,7 +62,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
                 )}
                 {job.matchScore && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                    🎯 Khớp {job.matchScore}%
+                    Khớp {job.matchScore}%
                   </span>
                 )}
                 {job.distanceMeters !== null && job.distanceMeters !== undefined && (
@@ -71,13 +72,13 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
                       ? 'Quãng đường xe máy do Vietmap Matrix v4 tính'
                       : 'Khoảng cách đường chim bay tạm tính từ vị trí GPS của bạn'}
                   >
-                    📍 Cách {job.distanceMeters < 1000 ? `${Math.round(job.distanceMeters)}m` : `${(job.distanceMeters / 1000).toFixed(1)}km`}
+                    Cách {job.distanceMeters < 1000 ? `${Math.round(job.distanceMeters)}m` : `${(job.distanceMeters / 1000).toFixed(1)}km`}
                   </span>
                 )}
               </div>
 
               {/* Title & Store */}
-              <h3 className="font-bold text-text-main text-base leading-snug line-clamp-1 group-hover:text-green-main transition-colors" title={job.title}>
+              <h3 className="font-bold text-text-main text-base leading-snug line-clamp-2 group-hover:text-green-main transition-colors" title={job.title}>
                 {job.title}
               </h3>
               <p className="text-text-muted text-sm mt-0.5 truncate">
@@ -107,14 +108,12 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
                 <span className="truncate">{job.slots} vị trí</span>
               </div>
 
-              <div className="flex items-center gap-1.5 min-w-0">
-                <Star className={`w-4 h-4 flex-shrink-0 ${employer?.ratingCount > 0 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
-                <span className="truncate">
-                  {employer?.ratingCount > 0
-                    ? `${employer.rating.toFixed(1)} (${employer.ratingCount} đánh giá)`
-                    : 'Chưa có đánh giá'}
-                </span>
-              </div>
+              {employer?.ratingCount > 0 && (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Star className="w-4 h-4 flex-shrink-0 text-yellow-400 fill-yellow-400" />
+                  <span className="truncate">{employer.rating.toFixed(1)} ({employer.ratingCount} đánh giá)</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -135,17 +134,17 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
                     e.stopPropagation();
                     window.open(directionsUrl, '_blank');
                   }}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-[11px] font-semibold transition-colors"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-stone-100 text-text-muted hover:bg-green-50 hover:text-green-dark text-[11px] font-semibold transition-colors"
                   title="Chỉ đường trên Google Maps"
                 >
-                  <Navigation className="w-3 h-3 text-blue-600" />
+                  <Navigation className="w-3 h-3" />
                   <span>Chỉ đường</span>
                 </button>
               );
             })()}
           </div>
           {job.featured ? (
-            <Badge variant="pink">⭐ Nổi bật</Badge>
+            <Badge variant="pink"><Star className="w-3 h-3" /> Nổi bật</Badge>
           ) : (
             <div className="h-5" />
           )}

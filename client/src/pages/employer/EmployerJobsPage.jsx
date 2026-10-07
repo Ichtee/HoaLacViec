@@ -19,6 +19,7 @@ import {
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
 import { formatVND, getGoogleMapsDirectionsUrl } from '@/utils';
+import { ActionMenu } from '@/components/ActionMenu.jsx';
 
 export default function EmployerJobsPage() {
   const navigate = useNavigate();
@@ -234,60 +235,39 @@ export default function EmployerJobsPage() {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs gap-2">
-                  {['draft', 'approved', 'paused', 'closed'].includes(job.status) && (
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                  {['draft', 'approved', 'paused', 'closed'].includes(job.status) ? (
                     <button
                       onClick={() => handleToggleStatus(job)}
                       className={clsx(
-                        'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-sm',
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold text-xs transition-all border',
                         isClosed
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                          : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                          ? 'bg-green-main hover:bg-green-dark text-white border-green-main'
+                          : 'bg-white hover:bg-green-50 text-text-main border-green-200'
                       )}
                     >
                       {job.status === 'draft' ? 'Gửi duyệt tin'
-                        : job.status === 'approved' ? <><PauseCircle className="w-4 h-4 text-amber-700" /> Tạm dừng tuyển</>
+                        : job.status === 'approved' ? <><PauseCircle className="w-4 h-4 text-text-muted" /> Tạm dừng tuyển</>
                           : job.status === 'paused' ? 'Mở lại để duyệt'
                             : <><PlayCircle className="w-4 h-4" /> Mở lại để duyệt</>}
                     </button>
-                  )}
-
-                  {['approved', 'paused'].includes(job.status) && (
-                    <button onClick={() => handleCloseJob(job)} className="px-2 py-1.5 text-xs text-gray-600 hover:text-red-700" title="Đóng tin tuyển dụng">
-                      Đóng tin
-                    </button>
-                  )}
+                  ) : <span />}
 
                   <div className="flex items-center gap-1.5">
-                    {(() => {
-                      const directionsUrl = getGoogleMapsDirectionsUrl(job);
-                      if (!directionsUrl) return null;
-                      return (
-                        <a
-                          href={directionsUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-1 text-[11px] font-semibold border border-transparent hover:border-blue-200"
-                          title="Chỉ đường trên Google Maps"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      );
-                    })()}
                     <button
                       onClick={() => navigate(`/employer/jobs/${job._id || job.id}/edit`)}
-                      className="p-2 text-gray-500 hover:text-green-dark hover:bg-green-50 rounded-xl transition-colors border border-transparent hover:border-green-200"
-                      title="Chỉnh sửa tin tuyển dụng này"
+                      className="btn btn-primary btn-sm"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-4 h-4" /> Sửa
                     </button>
-                    <button
-                      onClick={() => handleDeleteJob(job)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-200"
-                      title="Xóa tin"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <ActionMenu
+                      label={`Thêm hành động cho tin ${job.title}`}
+                      items={[
+                        { label: 'Chỉ đường (Google Maps)', icon: ExternalLink, href: getGoogleMapsDirectionsUrl(job) || undefined, hidden: !getGoogleMapsDirectionsUrl(job) },
+                        { label: 'Đóng tin tuyển dụng', icon: PauseCircle, onClick: () => handleCloseJob(job), hidden: !['approved', 'paused'].includes(job.status) },
+                        { label: 'Xóa tin', icon: Trash2, onClick: () => handleDeleteJob(job), danger: true },
+                      ]}
+                    />
                   </div>
                 </div>
               </div>

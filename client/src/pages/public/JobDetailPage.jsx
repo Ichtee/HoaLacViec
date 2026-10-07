@@ -1,4 +1,5 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { clsx } from 'clsx';
 import { useState, useEffect } from 'react';
 import {
   MapPin,
@@ -34,10 +35,14 @@ import { Modal } from '@/components/Modal.jsx';
 import { LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS, DAYS_OF_WEEK } from '@/constants';
 import { formatVND, formatDate, computeMatchScore, getGoogleMapsDirectionsUrl } from '@/utils';
+import { avatarColorClass, avatarInitial } from '@/utils/avatarColor.js';
 
 export default function JobDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Trong khu sinh viên đã có thanh điều hướng dưới đáy, nên thanh ứng tuyển phải nằm phía trên nó
+  const insideStudentArea = pathname.startsWith('/student');
   const { isAuthenticated, isStudent, profileId, user, updateUser } = useAuth();
 
   const [saved, setSaved] = useState(false);
@@ -203,9 +208,10 @@ export default function JobDetailPage() {
 
   // Google Maps directions URL based strictly on job.address
   const directionsUrl = getGoogleMapsDirectionsUrl(job);
+  const showStickyApply = !applySuccess && !(isAuthenticated && !isStudent);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 lg:pb-8">
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
@@ -214,20 +220,45 @@ export default function JobDetailPage() {
         <ArrowLeft className="w-4 h-4" /> Quay lại
       </button>
 
+      {showStickyApply && (
+        <div
+          className={clsx(
+            'lg:hidden fixed inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-green-100 px-4 py-3 flex items-center gap-3',
+            insideStudentArea ? 'bottom-14' : 'bottom-0 pb-[calc(0.75rem+env(safe-area-inset-bottom))]'
+          )}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-text-main truncate">{formatVND(job.salaryAmount)}{unitLabel}</p>
+            <p className="text-xs text-text-muted truncate">{job.title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            aria-label={saved ? 'Bỏ lưu' : 'Lưu việc'}
+            className="p-3 rounded-full border border-green-200 text-green-dark"
+          >
+            {saved ? <BookmarkCheck className="w-5 h-5 text-green-main" /> : <Bookmark className="w-5 h-5" />}
+          </button>
+          <Button variant="primary" size="md" onClick={handleOpenApply} leftIcon={<Send className="w-4 h-4" />}>
+            Ứng tuyển
+          </Button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main */}
         <div className="lg:col-span-2 space-y-5">
           {/* Job header card */}
           <div className="card">
             <div className="flex items-start gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-green-light flex items-center justify-center text-green-dark font-bold text-2xl flex-shrink-0">
-                {emp?.storeName?.[0] || '?'}
+              <div className={clsx('w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-2xl flex-shrink-0', avatarColorClass(emp?.storeName))}>
+                {avatarInitial(emp?.storeName)}
               </div>
               <div className="flex-1">
                 <div className="flex flex-wrap gap-2 mb-2">
                   <Badge variant="green">{typeLabel}</Badge>
                   {emp?.verified && <VerifiedBadge />}
-                  {job.featured && <Badge variant="pink">⭐ Nổi bật</Badge>}
+                  {job.featured && <Badge variant="pink">Nổi bật</Badge>}
                 </div>
                 <h1 className="text-2xl font-bold text-text-main leading-tight mb-1">{job.title}</h1>
                 <p className="text-text-muted">{emp?.storeName}</p>
@@ -242,7 +273,7 @@ export default function JobDetailPage() {
                 value={job.address ? job.address.split(',').slice(-2).join(', ').trim() : 'Hòa Lạc'}
               />
               <Info icon={Users} label="Số vị trí" value={`${job.slots} người`} />
-              <Info icon={Clock} label="Hạn nộp" value={formatDate(job.closesAt)} />
+              {job.closesAt && <Info icon={Clock} label="Hạn nộp" value={formatDate(job.closesAt)} />}
             </div>
 
             {/* Actions */}
@@ -473,7 +504,7 @@ export default function JobDetailPage() {
                   href={directionsUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white border border-green-200 text-green-dark hover:bg-green-50 font-bold text-xs transition-all"
                   title="Chỉ đường trên Google Maps"
                 >
                   <Navigation className="w-3.5 h-3.5" />
@@ -506,7 +537,7 @@ export default function JobDetailPage() {
                         href={`https://zalo.me/${String(contactPhone).replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
+                        className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white border border-green-200 text-green-dark hover:bg-green-50 font-bold text-xs transition-all"
                         title="Nhắn tin Zalo"
                       >
                         <MessageCircle className="w-3.5 h-3.5" /> Nhắn Zalo

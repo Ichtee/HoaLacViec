@@ -56,7 +56,7 @@ export default function HomePage() {
   );
 
   const jobsList = Array.isArray(latestJobsData) ? latestJobsData : (latestJobsData?.jobs || []);
-  const featured = jobsList.slice(0, 8);
+  const featured = jobsList.slice(0, 6);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -66,7 +66,7 @@ export default function HomePage() {
   return (
     <div>
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-green-light via-cream to-pink-light py-20 sm:py-32">
+      <section className="relative overflow-hidden bg-gradient-to-br from-green-light via-cream to-pink-light py-16 sm:py-24">
         {/* Decorative blobs */}
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-green-200 opacity-20 translate-x-1/3 -translate-y-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-pink-200 opacity-20 -translate-x-1/3 translate-y-1/3 pointer-events-none" />
@@ -79,15 +79,15 @@ export default function HomePage() {
           <Leaf className="w-6 h-6 -rotate-20" />
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/70 backdrop-blur-sm border border-green-200 text-green-dark text-sm font-medium mb-6">
             <Leaf className="w-4 h-4" />
             Nền tảng việc làm khu vực Hòa Lạc
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-green-dark leading-tight mb-6">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-green-dark leading-tight mb-6 text-balance">
             Việc gần trường,{' '}
-            <span className="relative">
+            <span className="relative whitespace-nowrap">
               <span className="text-green-main">vừa lịch học</span>
               <svg className="absolute -bottom-2 left-0 w-full h-2" viewBox="0 0 200 8" fill="none" preserveAspectRatio="none">
                 <path d="M2 6 Q50 2 100 5 Q150 8 198 4" stroke="#4D9363" strokeWidth="2.5" strokeLinecap="round" fill="none" />
@@ -163,7 +163,7 @@ export default function HomePage() {
         {loading ? (
           <LoadingPage />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch">
             {featured.map((job) => (
               <div key={job._id || job.id} className="h-full flex flex-col">
                 <JobCard job={job} />

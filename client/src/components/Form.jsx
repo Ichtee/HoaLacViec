@@ -42,9 +42,9 @@ export function Textarea({ label, error, hint, id, className, required, rows = 3
   );
 }
 
-export function Select({ label, error, hint, id, className, required, options, children, ...props }) {
+export function Select({ label, error, hint, id, className, wrapperClassName, required, options, children, ...props }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className={clsx('flex flex-col gap-1', wrapperClassName)}>
       {label && (
         <label htmlFor={id} className="label">
           {label}

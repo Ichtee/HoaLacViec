@@ -24,7 +24,8 @@ export default function JobListPage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
-  const [viewMode, setViewMode] = useState('map'); // Keep map visible by default on top
+  // Màn hình rộng: bản đồ trên đầu. Điện thoại: danh sách trước, bản đồ nằm sau nút chuyển.
+  const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches ? 'map' : 'list'));
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [page, setPage] = useState(1);
@@ -443,7 +444,8 @@ export default function JobListPage() {
           id="sort-select"
           value={sort}
           onChange={(e) => handleSortChange(e.target.value)}
-          className="w-auto min-w-[160px] !rounded-xl !border-gray-300 !py-2.5"
+          wrapperClassName="w-full sm:w-auto"
+          className="w-full sm:min-w-[160px] !rounded-xl !border-gray-300 !py-2.5"
         >
           <option value="newest">Mới nhất</option>
           <option value="nearest">Gần tôi nhất</option>

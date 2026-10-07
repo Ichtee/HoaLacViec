@@ -325,11 +325,11 @@ export default function StudentShiftsPage() {
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
                         <h4 className="font-bold text-text-main text-base">
-                          {shift.positionTitle || shift.role || 'Nhân viên bán ca'}
+                          {shift.workplaceName || shift.storeName || 'Cơ sở làm việc'}
                         </h4>
                         <div className="flex items-center gap-1.5 text-xs text-text-muted mt-0.5">
                           <MapPin className="w-3.5 h-3.5 text-stone-400 shrink-0" />
-                          <span>{shift.workplaceName || shift.storeName || 'Cơ sở làm việc'}</span>
+                          <span>{shift.positionTitle || shift.role || 'Ca làm việc'}</span>
                         </div>
                       </div>
                       <Badge variant={badgeInfo.variant}>{badgeInfo.label}</Badge>

@@ -7,12 +7,14 @@ import {
   Plus,
   ChevronRight,
   ShieldCheck,
+  ClipboardCheck,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getJobs, getApplications, getShifts } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { formatVND } from '@/utils';
-import { isApplicationAwaiting } from '@/utils/statusHelpers.js';
+import { isApplicationAwaiting, todayString } from '@/utils/statusHelpers.js';
 
 export default function EmployerDashboardPage() {
   const { user } = useAuth();
@@ -43,6 +45,16 @@ export default function EmployerDashboardPage() {
   }, [user]);
 
   const pendingApps = applications.filter((a) => isApplicationAwaiting(a.status));
+  const today = todayString();
+  const shiftsNeedingApproval = shifts.filter((s) => ['completed_pending_review', 'needs_review', 'pending_approval'].includes(s.attendanceStatus));
+  const todayShiftsNotStarted = shifts.filter(
+    (s) => s.date === today && s.scheduleStatus !== 'cancelled' && (!s.attendanceStatus || s.attendanceStatus === 'not_started')
+  );
+  const todoItems = [
+    { count: pendingApps.length, label: 'đơn ứng tuyển đang chờ bạn xử lý', to: '/employer/applications', action: 'Duyệt hồ sơ' },
+    { count: shiftsNeedingApproval.length, label: 'ca đã tan, cần duyệt chốt công', to: '/employer/shifts', action: 'Duyệt công' },
+    { count: todayShiftsNotStarted.length, label: 'ca hôm nay chưa ghi nhận vào ca', to: '/employer/shifts', action: 'Mở lịch ca' },
+  ].filter((item) => item.count > 0);
   const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'approved' || !j.status);
 
   return (
@@ -70,6 +82,30 @@ export default function EmployerDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Việc cần làm hôm nay */}
+      <section aria-labelledby="todo-heading" className="bg-white rounded-3xl border border-green-100 shadow-card p-5 sm:p-6">
+        <h2 id="todo-heading" className="text-base font-bold text-text-main flex items-center gap-2 mb-3">
+          <ClipboardCheck className="w-5 h-5 text-green-main" /> Việc cần làm hôm nay
+        </h2>
+        {todoItems.length === 0 ? (
+          <p className="flex items-center gap-2 text-sm text-text-muted">
+            <CheckCircle2 className="w-5 h-5 text-green-main" /> Bạn đã xử lý hết. Hôm nay không có việc gấp.
+          </p>
+        ) : (
+          <ul className="divide-y divide-green-50">
+            {todoItems.map((item) => (
+              <li key={item.label} className="py-3 flex items-center justify-between gap-3">
+                <p className="text-sm text-text-main">
+                  <span className="inline-flex min-w-[28px] justify-center px-2 py-0.5 mr-2 rounded-full bg-amber-100 text-amber-800 font-bold text-xs">{item.count}</span>
+                  {item.label}
+                </p>
+                <Link to={item.to} className="btn btn-primary btn-sm shrink-0">{item.action}</Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">

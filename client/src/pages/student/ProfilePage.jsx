@@ -321,14 +321,16 @@ export default function StudentProfilePage() {
                               type="button"
                               onClick={() => toggleSlot(day.id, slot.id)}
                               className={clsx(
-                                'w-9 h-9 rounded-xl font-bold text-xs transition-all flex items-center justify-center mx-auto shadow-sm',
+                                'w-full min-w-[40px] h-11 rounded-xl text-sm font-bold transition-all flex items-center justify-center border-2',
                                 isAvailable
-                                  ? 'bg-green-main text-white scale-105 shadow-md'
-                                  : 'bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-dark'
+                                  ? 'bg-green-main border-green-main text-white shadow-sm'
+                                  : 'bg-white border-dashed border-green-200 text-transparent hover:border-green-main hover:bg-green-50'
                               )}
                               title={`${day.label} - ${slot.label}`}
+                              aria-pressed={Boolean(isAvailable)}
+                              aria-label={`${day.label}, ${slot.label}: ${isAvailable ? 'rảnh' : 'bận'}`}
                             >
-                              {isAvailable ? '✓' : '+'}
+                              {isAvailable ? '✓' : '·'}
                             </button>
                           </td>
                         );
@@ -341,7 +343,7 @@ export default function StudentProfilePage() {
 
             <div className="mt-6 p-4 rounded-2xl bg-green-50/60 border border-green-100 flex items-center gap-3 text-xs text-text-muted">
               <div className="w-3 h-3 rounded-md bg-green-main shrink-0" />
-              <span>Ô xanh đậm: Khung giờ bạn sẵn sàng đi làm tại các cửa hàng xung quanh Khu công nghệ cao / Tân Xã.</span>
+              <span>Bấm vào ô để đánh dấu khung giờ bạn rảnh (ô xanh có dấu ✓). Hệ thống dùng lịch này để gợi ý ca làm không trùng lịch học.</span>
             </div>
           </div>
 

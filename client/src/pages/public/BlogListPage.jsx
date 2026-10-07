@@ -44,13 +44,13 @@ export default function BlogListPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10 animate-fade-in">
       {/* Header Banner */}
-      <div className="bg-gradient-to-br from-green-dark via-green-800 to-emerald-900 rounded-3xl p-8 sm:p-12 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-gradient-to-br from-green-dark via-green-800 to-emerald-900 rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
         <div className="max-w-2xl relative z-10 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold text-green-100">
             <BookOpen className="w-4 h-4 text-green-300" />
             Góc chia sẻ & Cẩm nang việc làm sinh viên
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight text-balance">
             Kinh nghiệm làm thêm & Sống tại Hòa Lạc
           </h1>
           <p className="text-green-100 text-sm sm:text-base leading-relaxed">
