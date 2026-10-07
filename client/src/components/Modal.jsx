@@ -7,7 +7,9 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', className
   const overlayRef = useRef(null);
   const closeRef = useRef(null);
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!isOpen) return;

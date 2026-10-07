@@ -89,7 +89,7 @@ export default function BlogDetailPage() {
             </div>
             <div>
               <p className="text-sm font-bold text-text-main">{blog.author?.name || 'Ban Biên Tập'}</p>
-              <p className="text-xs text-text-muted">{blog.author?.role || 'Admin'} • {new Date(blog.createdAt || Date.now()).toLocaleDateString('vi-VN')}</p>
+              <p className="text-xs text-text-muted">{blog.author?.role || 'Admin'}{blog.createdAt ? ` • ${new Date(blog.createdAt).toLocaleDateString('vi-VN')}` : ''}</p>
             </div>
           </div>
 

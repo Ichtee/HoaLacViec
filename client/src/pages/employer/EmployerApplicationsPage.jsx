@@ -105,7 +105,7 @@ export default function EmployerApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, user?.name]);
+  }, [user]);
 
   useEffect(() => {
     loadApps();

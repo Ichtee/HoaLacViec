@@ -179,7 +179,7 @@ export default function BlogListPage() {
                   <div className="flex items-center gap-2 text-[11px] text-text-muted">
                     <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {blog.views || 120}</span>
                     <span>•</span>
-                    <span>{new Date(blog.createdAt || Date.now()).toLocaleDateString('vi-VN')}</span>
+                    <span>{blog.createdAt ? new Date(blog.createdAt).toLocaleDateString('vi-VN') : ''}</span>
                   </div>
 
                   <Link to={`/blogs/${blog.slug || blog._id}`}>

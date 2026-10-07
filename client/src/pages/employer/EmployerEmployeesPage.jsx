@@ -36,7 +36,7 @@ export default function EmployerEmployeesPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     loadEmployments();

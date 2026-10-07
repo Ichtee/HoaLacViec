@@ -45,7 +45,7 @@ export default function ApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     loadApps();
