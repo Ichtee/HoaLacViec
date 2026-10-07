@@ -747,6 +747,23 @@ export async function apiGetAdminMetrics() {
   return request('/admin/metrics');
 }
 
+// ─── SHIFT SWAPS ─────────────────────────────────────────────────
+export async function apiGetShiftSwaps() {
+  return request('/shift-swaps');
+}
+
+export async function apiGetSwapColleagues(shiftId) {
+  return request(`/shift-swaps/colleagues${buildQueryString({ shiftId })}`);
+}
+
+export async function apiCreateShiftSwap(data) {
+  return request('/shift-swaps', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function apiActOnShiftSwap(id, action) {
+  return request(`/shift-swaps/${id}/${action}`, { method: 'POST', body: JSON.stringify({}) });
+}
+
 // ─── JOB ALERTS ──────────────────────────────────────────────────
 export async function apiGetJobAlerts() {
   return request('/job-alerts');

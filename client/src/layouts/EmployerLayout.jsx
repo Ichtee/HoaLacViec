@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
   Leaf, LayoutDashboard, Briefcase, Users, Calendar,
-  Building2, Menu, X, LogOut, UserCheck, Zap, MessageCircle
+  Building2, Menu, X, LogOut, UserCheck, Zap, MessageCircle, Repeat
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -15,6 +15,7 @@ const EMPLOYER_NAV = [
   { to: '/employer/applications', label: 'Ứng viên', icon: Users },
   { to: '/employer/employees', label: 'Nhân viên', icon: UserCheck },
   { to: '/employer/shifts', label: 'Quản lý ca', icon: Calendar },
+  { to: '/employer/swaps', label: 'Đổi ca', icon: Repeat },
   { to: '/employer/quick-shifts', label: 'Tuyển nhanh', icon: Zap },
   { to: '/employer/messages', label: 'Tin nhắn', icon: MessageCircle },
 ];

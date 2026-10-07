@@ -61,6 +61,7 @@ const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage.jsx'));
 // Common Account Pages
 const AccountInfoPage = lazy(() => import('@/pages/common/AccountInfoPage.jsx'));
 const MessagesPage = lazy(() => import('@/pages/common/MessagesPage.jsx'));
+const ShiftSwapsPage = lazy(() => import('@/pages/common/ShiftSwapsPage.jsx'));
 const ChangePasswordPage = lazy(() => import('@/pages/common/ChangePasswordPage.jsx'));
 
 // Geolocation Bootstrap
@@ -156,7 +157,9 @@ export default function App() {
             <Route path="reviews" element={<StudentReviewsPage />} />
             <Route path="quick-shifts" element={<StudentQuickShiftsPage />} />
             <Route path="messages" element={<MessagesPage />} />
+          <Route path="swaps" element={<ShiftSwapsPage />} />
             <Route path="alerts" element={<JobAlertsPage />} />
+            <Route path="swaps" element={<ShiftSwapsPage />} />
           </Route>
 
         {/* Employer Portal */}
