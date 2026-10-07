@@ -731,6 +731,18 @@ export async function apiCreateReview(reviewData) {
   });
 }
 
+// Tải bảng lương CSV (trả về Blob để trình duyệt lưu file)
+export async function apiDownloadPayrollCsv(from, to) {
+  const res = await fetch(`${API_BASE}/shifts/payroll-export${buildQueryString({ from, to })}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error || `Không thể xuất bảng lương (Mã lỗi: ${res.status})`);
+  }
+  return res.blob();
+}
+
 // ─── QUICK SHIFTS (ca lẻ / tuyển nhanh) ──────────────────────────
 export async function apiGetQuickShifts() {
   return request('/quick-shifts');

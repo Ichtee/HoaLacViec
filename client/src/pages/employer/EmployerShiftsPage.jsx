@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Calendar, Clock, CheckCircle, Plus, Users, Check, X,
-  Navigation, AlertTriangle, ShieldCheck, DollarSign, Star
+  Navigation, AlertTriangle, ShieldCheck, DollarSign, Star, Download
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -14,6 +14,7 @@ import {
   getEmployments,
   getReviews,
   createReview,
+  downloadPayrollCsv,
 } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
@@ -87,6 +88,7 @@ export default function EmployerShiftsPage() {
   const [disputeReason, setDisputeReason] = useState('');
   const [toast, setToast] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [payrollMonth, setPayrollMonth] = useState(() => getTodayString().slice(0, 7));
   const [reviewedShiftIds, setReviewedShiftIds] = useState(() => new Set());
   const [reviewShift, setReviewShift] = useState(null);
   const [reviewRating, setReviewRating] = useState(0);
@@ -118,6 +120,25 @@ export default function EmployerShiftsPage() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [user?.id]);
+
+  async function handleExportPayroll() {
+    const [year, month] = payrollMonth.split('-').map(Number);
+    if (!year || !month) return;
+    const lastDay = new Date(year, month, 0).getDate();
+    try {
+      const blob = await downloadPayrollCsv(`${payrollMonth}-01`, `${payrollMonth}-${String(lastDay).padStart(2, '0')}`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bang-luong-${payrollMonth}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Không thể xuất bảng lương.' });
+    }
+  }
 
   function openReviewModal(shift) {
     setReviewShift(shift);
@@ -304,6 +325,22 @@ export default function EmployerShiftsPage() {
           <p className="text-xs text-text-muted mt-1">
             Xếp lịch ca làm cho sinh viên, đối chiếu tọa độ GPS check-in thực tế và phê duyệt chốt công.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+          <input
+            type="month"
+            value={payrollMonth}
+            onChange={(e) => setPayrollMonth(e.target.value)}
+            aria-label="Tháng xuất bảng lương"
+            className="p-2 rounded-xl border border-stone-200 text-xs bg-white"
+          />
+          <button
+            onClick={handleExportPayroll}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-stone-100 text-text-main font-bold text-xs hover:bg-stone-200 transition-all"
+          >
+            <Download className="w-4 h-4" /> Xuất bảng lương
+          </button>
         </div>
 
         <button

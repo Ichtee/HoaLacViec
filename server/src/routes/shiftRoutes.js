@@ -6,6 +6,7 @@ import { User } from '../models/User.js';
 import { Notification } from '../models/Notification.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { authenticate } from '../middlewares/auth.js';
+import { buildPayrollCsv } from '../utils/payrollCsv.js';
 import { evaluateAttendanceGPS, clampRadius } from '../utils/geoHelper.js';
 import {
   assertIsEmployerOwnerOrAdmin,
@@ -51,6 +52,28 @@ async function resolveEmployerUserId(shift) {
   }
   return employerTarget;
 }
+
+// GET /api/shifts/payroll-export?from=YYYY-MM-DD&to=YYYY-MM-DD (CSV bảng lương cho cửa hàng)
+router.get('/payroll-export', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'employer' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ nhà tuyển dụng mới có thể xuất bảng lương.', code: 'FORBIDDEN' });
+    }
+    const { from, to } = req.query;
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRe.test(String(from)) || !dateRe.test(String(to)) || from > to) {
+      return res.status(400).json({ error: 'Khoảng ngày không hợp lệ (định dạng YYYY-MM-DD).', code: 'INVALID_RANGE' });
+    }
+    const filter = { date: { $gte: from, $lte: to }, attendanceStatus: 'approved' };
+    if (req.user.role === 'employer') filter.employerUserId = req.user._id;
+    const shifts = await Shift.find(filter).lean();
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="bang-luong-${from}_${to}.csv"`);
+    res.send(buildPayrollCsv(shifts));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/shifts (List shifts with filters)
 router.get('/', async (req, res, next) => {

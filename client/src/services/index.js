@@ -94,6 +94,7 @@ export {
   apiUpsertAvailability as upsertAvailability,
   apiGetReviews as getReviews,
   apiCreateReview as createReview,
+  apiDownloadPayrollCsv as downloadPayrollCsv,
   apiGetQuickShifts as getQuickShifts,
   apiGetMyQuickShifts as getMyQuickShifts,
   apiCreateQuickShift as createQuickShift,
