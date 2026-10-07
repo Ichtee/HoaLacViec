@@ -12,7 +12,7 @@ async function seed(path, body) {
   return res.json();
 }
 
-export const seedUser = (role, name) => seed('user', { role, name: name || unique(role), email: `${unique(role)}@e2e.test` });
+export const seedUser = (role, name, extra) => seed('user', { role, name: name || unique(role), email: `${unique(role)}@e2e.test`, extra });
 export const seedJob = (employerId, extra) => seed('job', { employerId, extra });
 export const seedEmployment = (employerId, employeeId, jobId) => seed('employment', { employerId, employeeId, jobId });
 export const seedShift = (body) => seed('shift', body);

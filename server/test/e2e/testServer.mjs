@@ -18,7 +18,7 @@ export async function startTestServer({ port = 0 } = {}) {
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET ||= 'e2e-secret-not-for-production';
   process.env.DISABLE_MAINTENANCE_JOBS = 'true';
-  delete process.env.DISABLE_ACCOUNT_VERIFICATION;
+  process.env.DISABLE_ACCOUNT_VERIFICATION = 'false'; // dotenv không ghi đè biến đã đặt, nên .env cục bộ không làm lệch kịch bản
 
   const replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   const uri = replSet.getUri('hlv_e2e');
