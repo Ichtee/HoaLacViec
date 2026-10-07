@@ -10,6 +10,7 @@
     "seed": "node src/seed/seed.js",
     "migrate:job-capacity": "node src/scripts/migrateJobCapacity.js",
     "migrate:application-index": "node src/scripts/migrateApplicationIndex.js",
+    "reconcile:legacy-fields": "node src/scripts/reconcileLegacyFields.js",
     "migrate:verification-images": "node src/scripts/migrateVerificationImages.js",
     "test": "node --test test/*.test.js",
     "test:integration": "node --test --test-concurrency=1 test/integration/*.test.js"
