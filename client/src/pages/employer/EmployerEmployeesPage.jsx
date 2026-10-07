@@ -257,6 +257,12 @@ export default function EmployerEmployeesPage() {
                   {/* Actions: Xếp ca & Kết thúc làm việc */}
                   <div className="flex items-center gap-2">
                     <Link
+                      to={`/employer/messages?open=employment:${emp._id || emp.id}`}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold text-xs transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" /> Nhắn tin
+                    </Link>
+                    <Link
                       to="/employer/shifts"
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors"
                     >

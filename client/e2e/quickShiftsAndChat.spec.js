@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedUser, seedJob, signIn, apiLogin, apiCall } from './helpers.js';
+import { seedUser, seedJob, seedEmployment, seedShift, signIn, apiLogin, apiCall } from './helpers.js';
 
 function tomorrow() {
   const d = new Date(Date.now() + 24 * 3600 * 1000);
@@ -93,4 +93,31 @@ test('chat: sinh viên nhắn từ đơn ứng tuyển, nhà tuyển dụng nh�
   await expect(studentPage.getByTestId('chat-message').filter({ hasText: 'Mời em qua quán phỏng vấn nhé' })).toBeVisible({ timeout: 15_000 });
 
   await Promise.all([sCtx.close(), eCtx.close()]);
+});
+
+test('nhắn tin sau khi nhận việc: chủ quán mở từ trang Nhân viên, sinh viên mở từ Lịch làm', async ({ browser }) => {
+  const employer = await seedUser('employer', 'Quán Nhắn Nhân Viên');
+  const student = await seedUser('student', 'Nhân Viên Nhắn Tin');
+  const job = await seedJob(employer.id, { title: 'Pha chế ca chiều' });
+  const employment = await seedEmployment(employer.id, student.id, job.id);
+  await seedShift({ employerId: employer.id, studentId: student.id, studentName: 'Nhân Viên Nhắn Tin', hoursAhead: 30, extra: { employmentId: employment.id } });
+
+  const employerCtx = await browser.newContext();
+  const employerPage = await employerCtx.newPage();
+  await signIn(employerPage, employer.email);
+  await employerPage.goto('/employer/employees');
+  await employerPage.getByRole('link', { name: 'Nhắn tin' }).first().click();
+  await expect(employerPage).toHaveURL(/\/employer\/messages/);
+  await employerPage.getByPlaceholder('Nhập tin nhắn...').fill('Mai em vào ca sớm 15 phút nhé.');
+  await employerPage.getByPlaceholder('Nhập tin nhắn...').press('Enter');
+  await expect(employerPage.getByTestId('chat-message').filter({ hasText: 'Mai em vào ca sớm 15 phút nhé.' })).toBeVisible();
+
+  const studentCtx = await browser.newContext();
+  const studentPage = await studentCtx.newPage();
+  await signIn(studentPage, student.email);
+  await studentPage.goto('/student/shifts');
+  await studentPage.getByRole('link', { name: 'Nhắn quán' }).first().click();
+  await expect(studentPage.getByTestId('chat-message').filter({ hasText: 'Mai em vào ca sớm 15 phút nhé.' })).toBeVisible();
+  await employerCtx.close();
+  await studentCtx.close();
 });

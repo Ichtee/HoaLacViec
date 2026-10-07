@@ -73,6 +73,16 @@ test('hiring: apply -> screening -> offer -> accept creates Employment and consu
   assert.equal(await m.Employment.countDocuments({ sourceApplicationId: appId }), 1);
   assert.equal((await m.Job.findById(job._id)).hiredCount, 1);
 
+  // Nhắn tin theo nhân viên dùng chung cuộc trò chuyện của đơn đã tuyển (không tách hai luồng)
+  const byApplication = await http.call('/chats/open', { method: 'POST', token: sToken, body: { kind: 'application', refId: appId } });
+  const byEmployment = await http.call('/chats/open', { method: 'POST', token: eToken, body: { kind: 'employment', refId: String(employment._id) } });
+  assert.equal(byEmployment.status, 200, JSON.stringify(byEmployment.body));
+  assert.equal(String(byEmployment.body.id), String(byApplication.body.id));
+  const outsider = await createUser(m, { role: 'student' });
+  const outsiderToken = (await http.login(outsider.email)).token;
+  const denied = await http.call('/chats/open', { method: 'POST', token: outsiderToken, body: { kind: 'employment', refId: String(employment._id) } });
+  assert.equal(denied.status, 403);
+
   // Thông báo tuyển dụng được ghi nhận thật (từng bị nuốt lỗi vì type 'employment' không hợp lệ)
   const { Notification } = await import('../../src/models/Notification.js');
   const hired = await Notification.find({ type: 'employment' });

@@ -8,6 +8,7 @@ import {
   Plus,
   MapPin,
   DollarSign,
+  MessageCircle,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { formatShortDate } from '@/utils/statusHelpers.js';
@@ -23,6 +24,7 @@ import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { Tabs } from '@/components/Tabs.jsx';
+import { Link } from 'react-router-dom';
 
 function getTodayString() {
   const d = new Date();
@@ -60,6 +62,15 @@ function getEmployeeStatusBadge(shift) {
     return { variant: 'red', label: 'Ghi nhận vắng mặt' };
   }
   return { variant: 'blue', label: 'Đã lên lịch' };
+}
+
+/** Cuộc trò chuyện với quán cho một ca: theo đơn ứng tuyển hoặc theo hồ sơ nhân viên. */
+function chatTargetForShift(shift) {
+  const appId = shift.applicationId?._id || shift.applicationId;
+  if (appId) return `application:${appId}`;
+  const employmentId = shift.employmentId?._id || shift.employmentId;
+  if (employmentId) return `employment:${employmentId}`;
+  return null;
 }
 
 export default function StudentShiftsPage() {
@@ -364,9 +375,18 @@ export default function StudentShiftsPage() {
                       </div>
                     </div>
 
-                    <div className="mt-3 text-xs text-text-muted flex items-center justify-between">
+                    <div className="mt-3 text-xs text-text-muted flex items-center justify-between gap-2 flex-wrap">
                       <span>Người lao động: <strong className="text-text-main">{shift.employeeName || shift.studentName || user?.name}</strong></span>
-                      <span className="italic">Chấm công do quản lý ghi nhận</span>
+                      {chatTargetForShift(shift) ? (
+                        <Link
+                          to={`/student/messages?open=${chatTargetForShift(shift)}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold transition-colors"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" /> Nhắn quán
+                        </Link>
+                      ) : (
+                        <span className="italic">Chấm công do quản lý ghi nhận</span>
+                      )}
                     </div>
                   </div>
                 );

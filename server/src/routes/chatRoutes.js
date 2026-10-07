@@ -5,6 +5,7 @@ import { Conversation } from '../models/Conversation.js';
 import { Message } from '../models/Message.js';
 import { Application } from '../models/Application.js';
 import { MicroTask } from '../models/MicroTask.js';
+import { Employment } from '../models/Employment.js';
 import { User } from '../models/User.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Notification } from '../models/Notification.js';
@@ -74,6 +75,31 @@ async function resolveTaskParties(refId, actor) {
   };
 }
 
+// Nhân viên: chủ quán và người đang làm. Nếu nhân viên đến từ một đơn ứng tuyển thì dùng chung
+// cuộc trò chuyện của đơn đó (không tách hai luồng cho cùng một cặp).
+async function resolveEmploymentTarget(refId, actor) {
+  const employment = await Employment.findById(refId).populate('jobId', 'title storeName').lean();
+  if (!employment) throw httpError(404, 'NOT_FOUND', 'Không tìm thấy thông tin nhân viên.');
+  if (!sameId(employment.employerUserId, actor._id) && !sameId(employment.employeeUserId, actor._id)) {
+    throw httpError(403, 'FORBIDDEN', 'Bạn không thuộc cuộc trao đổi này.');
+  }
+  if (employment.sourceApplicationId && await Application.exists({ _id: employment.sourceApplicationId })) {
+    return { kind: 'application', refId: employment.sourceApplicationId, parties: await resolveApplicationParties(employment.sourceApplicationId, actor) };
+  }
+  const [employee, employer] = await Promise.all([User.findById(employment.employeeUserId), User.findById(employment.employerUserId)]);
+  return {
+    kind: 'employment',
+    refId: employment._id,
+    parties: {
+      title: `Công việc: ${employment.jobId?.title || employment.positionTitle || 'nhân viên'}`,
+      participants: [
+        { userId: employment.employeeUserId, name: employee?.name || 'Nhân viên' },
+        { userId: employment.employerUserId, name: employment.jobId?.storeName || employer?.name || 'Nhà tuyển dụng' },
+      ],
+    },
+  };
+}
+
 async function loadConversationFor(id, user) {
   if (!mongoose.Types.ObjectId.isValid(id)) throw httpError(400, 'INVALID_ID', 'Mã cuộc trò chuyện không hợp lệ.');
   const conversation = await Conversation.findById(id);
@@ -108,13 +134,19 @@ async function countUnread(conversation, userId) {
 // POST /api/chats/open { kind, refId } - tìm hoặc tạo cuộc trò chuyện
 router.post('/open', async (req, res, next) => {
   try {
-    const { kind, refId } = req.body;
-    if (!['application', 'task'].includes(kind) || !mongoose.Types.ObjectId.isValid(refId)) {
+    let { kind, refId } = req.body;
+    if (!['application', 'task', 'employment'].includes(kind) || !mongoose.Types.ObjectId.isValid(refId)) {
       throw httpError(400, 'INVALID_INPUT', 'Thiếu hoặc sai thông tin cuộc trò chuyện.');
     }
-    const parties = kind === 'application'
-      ? await resolveApplicationParties(refId, req.user)
-      : await resolveTaskParties(refId, req.user);
+    let parties;
+    if (kind === 'employment') {
+      const target = await resolveEmploymentTarget(refId, req.user);
+      ({ kind, refId, parties } = target);
+    } else {
+      parties = kind === 'application'
+        ? await resolveApplicationParties(refId, req.user)
+        : await resolveTaskParties(refId, req.user);
+    }
 
     let conversation = await Conversation.findOne({ kind, refId });
     if (!conversation) {

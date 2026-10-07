@@ -11,7 +11,7 @@ const participantSchema = new mongoose.Schema({
 }, { _id: false });
 
 const conversationSchema = new mongoose.Schema({
-  kind: { type: String, enum: ['application', 'task'], required: true },
+  kind: { type: String, enum: ['application', 'task', 'employment'], required: true },
   refId: { type: mongoose.Schema.Types.ObjectId, required: true },
   title: { type: String, default: '' },
   participants: {
