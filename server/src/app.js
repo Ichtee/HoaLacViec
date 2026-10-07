@@ -24,6 +24,7 @@ import shiftTemplateRoutes from './routes/shiftTemplateRoutes.js';
 import timeOffRoutes from './routes/timeOffRoutes.js';
 import quickShiftRoutes from './routes/quickShiftRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
+import jobAlertRoutes from './routes/jobAlertRoutes.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -136,6 +137,7 @@ app.use('/api/shift-templates', shiftTemplateRoutes);
 app.use('/api/time-off', timeOffRoutes);
 app.use('/api/quick-shifts', quickShiftRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/job-alerts', jobAlertRoutes);
 
 // GET /api/universities (Lấy danh sách các trường đại học tại Việt Nam từ Hipolabs)
 let cachedUniversities = null;

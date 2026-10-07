@@ -743,6 +743,19 @@ export async function apiDownloadPayrollCsv(from, to) {
   return res.blob();
 }
 
+// ─── JOB ALERTS ──────────────────────────────────────────────────
+export async function apiGetJobAlerts() {
+  return request('/job-alerts');
+}
+
+export async function apiCreateJobAlert(data) {
+  return request('/job-alerts', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function apiDeleteJobAlert(id) {
+  return request(`/job-alerts/${id}`, { method: 'DELETE' });
+}
+
 // ─── CHAT ────────────────────────────────────────────────────────
 export async function apiGetChats() {
   return request('/chats');

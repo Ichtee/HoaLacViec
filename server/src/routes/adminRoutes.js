@@ -7,6 +7,7 @@ import { StudentProfile } from '../models/StudentProfile.js';
 import { Application } from '../models/Application.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
+import { notifyJobAlerts } from '../services/jobAlertService.js';
 
 const router = express.Router();
 
@@ -184,6 +185,8 @@ router.post('/jobs/:id/approve', async (req, res, next) => {
         console.warn('Failed to send job approval notification:', notifErr.message);
       }
     }
+
+    void notifyJobAlerts(job);
 
     res.json({ message: 'Đã phê duyệt tin tuyển dụng', job });
   } catch (err) {

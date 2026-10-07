@@ -38,6 +38,7 @@ const ApplicationsPage = lazy(() => import('@/pages/student/ApplicationsPage.jsx
 const StudentShiftsPage = lazy(() => import('@/pages/student/ShiftsPage.jsx'));
 const StudentReviewsPage = lazy(() => import('@/pages/student/ReviewsPage.jsx'));
 const StudentQuickShiftsPage = lazy(() => import('@/pages/student/QuickShiftsPage.jsx'));
+const JobAlertsPage = lazy(() => import('@/pages/student/JobAlertsPage.jsx'));
 
 // Employer Pages
 const EmployerDashboardPage = lazy(() => import('@/pages/employer/EmployerDashboardPage.jsx'));
@@ -155,6 +156,7 @@ export default function App() {
             <Route path="reviews" element={<StudentReviewsPage />} />
             <Route path="quick-shifts" element={<StudentQuickShiftsPage />} />
             <Route path="messages" element={<MessagesPage />} />
+            <Route path="alerts" element={<JobAlertsPage />} />
           </Route>
 
         {/* Employer Portal */}

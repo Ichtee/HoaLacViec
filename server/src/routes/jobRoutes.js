@@ -13,6 +13,7 @@ import { vietmapAutocomplete } from '../services/vietmapService.js';
 import { authenticate, authorize, optionalAuthenticate, requireActiveUser } from '../middlewares/auth.js';
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
+import { notifyJobAlerts } from '../services/jobAlertService.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
 
 const router = express.Router();
@@ -688,6 +689,8 @@ router.post('/:id/approve', authenticate, authorize('admin'), async (req, res, n
         console.warn('Failed to send job approval notification:', notifErr.message);
       }
     }
+
+    void notifyJobAlerts(job);
 
     res.json({ message: 'Đã phê duyệt tin tuyển dụng thành công.', job });
   } catch (err) {
