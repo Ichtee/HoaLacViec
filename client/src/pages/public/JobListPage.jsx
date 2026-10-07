@@ -366,6 +366,10 @@ export default function JobListPage() {
         userLocation={userLocation}
         selectedJobId={selectedJobId}
         onSelectJob={(j) => {
+          if (!j) {
+            setSelectedJobId(null);
+            return;
+          }
           const id = j._id || j.id;
           setSelectedJobId(id);
           const el = document.getElementById(`job-card-${id}`);

@@ -160,6 +160,9 @@
   width: 100% !important;
   overflow: hidden !important;
 }
+.job-map-canvas.vietmapgl-map {
+  height: 100% !important;
+}
 .vietmapgl-canvas-container {
   position: absolute !important;
   top: 0 !important;

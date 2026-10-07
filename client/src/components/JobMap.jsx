@@ -86,7 +86,7 @@ export function JobMap({
   isLocating = false,
   selectedJobId = null,
   onSelectJob = null,
-  height = '520px',
+  height,
   singleJob = null,
   className = '',
 }) {
@@ -412,15 +412,12 @@ export function JobMap({
 
   return (
     <div
-      style={height ? { minHeight: height } : undefined}
-      className={`relative rounded-xl overflow-hidden border border-gray-200/90 shadow-card bg-cream ${className}`}
+      style={height ? { height, minHeight: height } : undefined}
+      className={`relative rounded-xl overflow-hidden border border-gray-200/90 shadow-card bg-cream min-h-[240px] ${className}`}
     >
       {/* Vietmap GL Map Canvas Container */}
-      <div
-        ref={mapContainerRef}
-        style={height ? { height, minHeight: height } : undefined}
-        className="w-full h-full min-h-[inherit] z-0"
-      />
+      {/* Canvas luôn lấp đầy khung chứa; chiều cao do khung (className/height) quyết định */}
+      <div ref={mapContainerRef} className="job-map-canvas absolute inset-0 z-0 w-full h-full" />
 
       {/* Fallback banner if missing tile key or 401/403 error */}
       {(!VIETMAP_API_KEY || tileLoadError) && (
@@ -511,7 +508,7 @@ export function JobMap({
       </div>
 
       {/* Floating Action Buttons Bottom-Right: Fit Bounds & Recenter */}
-      <div className="absolute bottom-3 right-3 z-10 flex flex-col items-end gap-1.5">
+      <div className={`absolute right-3 z-10 flex flex-col items-end gap-1.5 ${activeJob && !singleJob ? 'bottom-40 sm:bottom-3' : 'bottom-3'}`}>
         {/* Fit All Jobs Button */}
         {confirmedCount > 0 && !singleJob && (
           <button
@@ -554,7 +551,7 @@ export function JobMap({
 
       {/* Selected Job Card Preview Popup at bottom */}
       {activeJob && !singleJob && (
-        <div className="absolute bottom-3 left-3 right-auto max-w-[calc(100%-4.5rem)] sm:max-w-sm z-20 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-gray-200/90 shadow-card animate-slide-up space-y-2">
+        <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-sm z-20 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-gray-200/90 shadow-card animate-slide-up space-y-2">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-1">
@@ -574,6 +571,7 @@ export function JobMap({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  setActiveJob(null);
                   onSelectJob?.(null);
                 }}
                 className="p-1 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 transition-colors"
