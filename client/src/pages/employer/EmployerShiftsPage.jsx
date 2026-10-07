@@ -11,6 +11,7 @@ import {
   Download,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { formatShortDate } from '@/utils/statusHelpers.js';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
   getShifts,
@@ -528,7 +529,7 @@ export default function EmployerShiftsPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-green-dark bg-green-50 px-3 py-1 rounded-full border border-green-100">
-                      📅 {shift.date}
+                      📅 {formatShortDate(shift.date)}
                     </span>
                     <Badge variant={badge.variant} size="sm">
                       {badge.label}

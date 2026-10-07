@@ -485,7 +485,7 @@ export default function JobDetailPage() {
               {contactPhone && (
                 <div className="pt-3 border-t border-gray-100 space-y-2">
                   <p className="text-[11px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-pink-main shrink-0" /> Số điện thoại / Zalo quán:
+                    <Phone className="w-3.5 h-3.5 text-pink-700 shrink-0" /> Số điện thoại / Zalo quán:
                   </p>
                   <div className="p-3 rounded-2xl bg-pink-50/50 border border-pink-100 space-y-2.5">
                     <div className="flex items-center justify-between gap-2">

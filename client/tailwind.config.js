@@ -22,6 +22,7 @@ export default {
         pink: {
           main: '#F3AFC3',
           light: '#FDEBF1',
+          dark: '#B83D6A',
           50: '#FDEBF1',
           100: '#FBCFDF',
           200: '#F7AFCB',

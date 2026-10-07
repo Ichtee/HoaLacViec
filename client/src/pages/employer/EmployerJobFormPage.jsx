@@ -470,7 +470,7 @@ export default function EmployerJobFormPage() {
             <ArrowLeft className="w-4 h-4" /> Quay lại danh sách tin tuyển dụng
           </Link>
           <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2.5">
-            <Briefcase className="w-6 h-6 text-pink-main" />
+            <Briefcase className="w-6 h-6 text-pink-700" />
             {isEditing ? 'Chỉnh sửa tin tuyển dụng' : 'Đăng bài tuyển dụng & Ghim bản đồ'}
           </h1>
           <p className="text-xs text-gray-500 mt-1">
@@ -582,7 +582,7 @@ export default function EmployerJobFormPage() {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                  <Briefcase className="w-4 h-4 text-pink-main" /> Vị trí tuyển dụng & Ca làm việc
+                  <Briefcase className="w-4 h-4 text-pink-700" /> Vị trí tuyển dụng & Ca làm việc
                   <span className="text-red-500">*</span>
                 </h2>
                 <p className="text-[11px] text-gray-500 mt-0.5">

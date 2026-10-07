@@ -129,7 +129,7 @@ export default function StoreProfilePage() {
       {/* Form Details */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-green-50 shadow-card space-y-6">
         <h2 className="text-lg font-bold text-text-main border-b border-green-50 pb-3 flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-pink-main" /> Hồ sơ gian hàng & Xác minh pháp lý
+          <Building2 className="w-5 h-5 text-pink-700" /> Hồ sơ gian hàng & Xác minh pháp lý
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -61,7 +61,7 @@ export default function SavedJobsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-green-50 shadow-card">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Bookmark className="w-6 h-6 text-pink-main fill-pink-main" /> Công việc đã lưu
+            <Bookmark className="w-6 h-6 text-pink-700 fill-pink-main" /> Công việc đã lưu
           </h1>
           <p className="text-xs text-text-muted mt-1">
             Danh sách các bài tuyển dụng tại Hòa Lạc bạn đang quan tâm.

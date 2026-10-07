@@ -15,7 +15,15 @@ import {
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getShifts, getApplications, getSavedJobs, getJobs } from '@/services';
 
-import { Badge } from '@/components/Badge.jsx';
+import { Badge, AppStatusBadge } from '@/components/Badge.jsx';
+import {
+  isApplicationAwaiting,
+  isApplicationOfferPending,
+  isApplicationHired,
+  isShiftUpcoming,
+  todayString,
+  formatShortDate,
+} from '@/utils/statusHelpers.js';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -48,9 +56,12 @@ export default function StudentDashboard() {
     if (user?.id) loadData();
   }, [user]);
 
-  const upcomingShifts = shifts.filter(s => s.status === 'scheduled');
-  const pendingApps = applications.filter(a => a.status === 'pending');
-  const acceptedApps = applications.filter(a => a.status === 'approved' || a.status === 'accepted');
+  const today = todayString();
+  const upcomingShifts = shifts
+    .filter((s) => isShiftUpcoming(s, today))
+    .sort((a, b) => `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`));
+  const pendingApps = applications.filter((a) => isApplicationAwaiting(a.status) || isApplicationOfferPending(a.status));
+  const acceptedApps = applications.filter((a) => isApplicationHired(a.status));
   const estimatedEarnings = shifts
     .filter(s => s.status !== 'cancelled' && s.status !== 'absent')
     .reduce((sum, s) => sum + (s.totalPay || ((s.hours || 4) * (s.wageRate || 25000))), 0);
@@ -122,13 +133,13 @@ export default function StudentDashboard() {
         <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Việc đã lưu</span>
-            <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-main flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center">
               <Bookmark className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-text-main">{savedJobs.length}</div>
-            <Link to="/student/saved" className="text-xs text-pink-main hover:underline mt-1 block font-medium">
+            <Link to="/student/saved" className="text-xs text-pink-700 hover:underline mt-1 block font-medium">
               Xem danh sách →
             </Link>
           </div>
@@ -182,7 +193,7 @@ export default function StudentDashboard() {
                         <Badge variant="success" size="sm">Đã phân công</Badge>
                       </div>
                       <p className="text-xs text-text-muted mt-1 flex items-center gap-2">
-                        <span>📅 {shift.date}</span>
+                        <span>📅 {formatShortDate(shift.date)}</span>
                         <span>⏰ {shift.startTime} - {shift.endTime}</span>
                       </p>
                       {shift.location && (
@@ -227,22 +238,7 @@ export default function StudentDashboard() {
                       <h4 className="text-sm font-semibold text-text-main">{app.jobTitle || app.title}</h4>
                       <p className="text-xs text-text-muted mt-0.5">{app.storeName} • {app.appliedAt}</p>
                     </div>
-                    <Badge
-                      variant={
-                        app.status === 'approved' || app.status === 'accepted'
-                          ? 'success'
-                          : app.status === 'rejected'
-                          ? 'danger'
-                          : 'warning'
-                      }
-                      size="sm"
-                    >
-                      {app.status === 'approved' || app.status === 'accepted'
-                        ? 'Đã nhận việc'
-                        : app.status === 'rejected'
-                        ? 'Đã từ chối'
-                        : 'Đang chờ duyệt'}
-                    </Badge>
+                    <AppStatusBadge status={app.status} />
                   </div>
                 ))}
               </div>

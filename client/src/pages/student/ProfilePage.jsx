@@ -148,7 +148,7 @@ export default function StudentProfilePage() {
                 <span>💼 Nghề nghiệp: {profile.profession || 'Lao động tự do'} {profile.idCardNumber ? `• CCCD: ${profile.idCardNumber.slice(0, 4)}****${profile.idCardNumber.slice(-3)}` : ''}</span>
               ) : (
                 <>
-                  <span>🎓 {profile.university || 'Đại học FPT Hòa Lạc'}</span> • <span>Mã SV: {profile.studentCode || '---'}</span>
+                  <span>🎓 {profile.university || 'Đại học FPT Hòa Lạc'}</span>{profile.studentCode ? <> • <span>Mã SV: {profile.studentCode}</span></> : null}
                 </>
               )}
             </p>

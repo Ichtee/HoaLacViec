@@ -89,7 +89,7 @@ export default function EmployerJobsPage() {
       <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-pink-main" /> Quản lý tin tuyển dụng
+            <Briefcase className="w-6 h-6 text-pink-700" /> Quản lý tin tuyển dụng
           </h1>
           <p className="text-xs text-text-muted mt-1">
             Đăng tin tuyển dụng và liên kết địa chỉ Google Maps để sinh viên tìm kiếm và đến quán dễ dàng.

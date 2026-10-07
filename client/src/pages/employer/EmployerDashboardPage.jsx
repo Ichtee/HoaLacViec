@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth.jsx';
 import { getJobs, getApplications, getShifts } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { formatVND } from '@/utils';
+import { isApplicationAwaiting } from '@/utils/statusHelpers.js';
 
 export default function EmployerDashboardPage() {
   const { user } = useAuth();
@@ -41,7 +42,7 @@ export default function EmployerDashboardPage() {
     if (user) loadDashboard();
   }, [user]);
 
-  const pendingApps = applications.filter(a => a.status === 'pending');
+  const pendingApps = applications.filter((a) => isApplicationAwaiting(a.status));
   const activeJobs = jobs.filter(j => j.status === 'active' || j.status === 'approved' || !j.status);
 
   return (
@@ -75,7 +76,7 @@ export default function EmployerDashboardPage() {
         <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Tin đang tuyển</span>
-            <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-main flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center">
               <Briefcase className="w-5 h-5" />
             </div>
           </div>
@@ -94,7 +95,7 @@ export default function EmployerDashboardPage() {
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-text-main">{pendingApps.length}</div>
-            <Link to="/employer/applications" className="text-xs text-pink-main font-semibold hover:underline mt-1 block">
+            <Link to="/employer/applications" className="text-xs text-pink-700 font-semibold hover:underline mt-1 block">
               Duyệt hồ sơ ngay →
             </Link>
           </div>
@@ -136,9 +137,9 @@ export default function EmployerDashboardPage() {
           <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
-                <Users className="w-5 h-5 text-pink-main" /> Ứng viên mới nộp đơn
+                <Users className="w-5 h-5 text-pink-700" /> Ứng viên mới nộp đơn
               </h2>
-              <Link to="/employer/applications" className="text-xs font-semibold text-pink-main hover:underline flex items-center gap-1">
+              <Link to="/employer/applications" className="text-xs font-semibold text-pink-700 hover:underline flex items-center gap-1">
                 Xem tất cả ứng viên <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -157,12 +158,12 @@ export default function EmployerDashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Badge variant={app.status === 'pending' ? 'warning' : 'success'} size="sm">
-                        {app.status === 'pending' ? 'Chờ duyệt' : 'Đã duyệt'}
+                      <Badge variant={isApplicationAwaiting(app.status) ? 'warning' : 'success'} size="sm">
+                        {isApplicationAwaiting(app.status) ? 'Chờ duyệt' : 'Đã xử lý'}
                       </Badge>
                       <Link
                         to="/employer/applications"
-                        className="px-3 py-1.5 rounded-xl bg-pink-50 text-pink-main text-xs font-semibold hover:bg-pink-100"
+                        className="px-3 py-1.5 rounded-xl bg-pink-50 text-pink-700 text-xs font-semibold hover:bg-pink-100"
                       >
                         Duyệt
                       </Link>
@@ -179,7 +180,7 @@ export default function EmployerDashboardPage() {
           <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-text-main">Tin đăng gần đây</h3>
-              <Link to="/employer/jobs" className="text-xs text-pink-main font-semibold hover:underline">Quản lý tin</Link>
+              <Link to="/employer/jobs" className="text-xs text-pink-700 font-semibold hover:underline">Quản lý tin</Link>
             </div>
 
             <div className="space-y-3">
