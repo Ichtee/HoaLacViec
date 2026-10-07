@@ -618,6 +618,10 @@ export async function apiUpdateStudentProfile(userId, data) {
   });
 }
 
+export async function apiGetWorkHistory(userId) {
+  return request(`/profiles/student/${userId}/work-history`);
+}
+
 export async function apiGetAvailability(userId) {
   return request(`/profiles/availability/${userId}`);
 }

@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth.jsx';
 import { getStudentProfile, updateStudentProfile, getAvailability, upsertAvailability, updateUserProfile } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { WorkHistoryCard } from '@/components/WorkHistoryCard.jsx';
 
 const DAYS = [
   { id: 'mon', label: 'Thứ 2' },
@@ -157,6 +158,8 @@ export default function StudentProfilePage() {
           <Save className="w-4 h-4" /> {saving ? 'Đang lưu...' : user?.role === 'worker' || user?.role === 'freelancer' ? 'Lưu hồ sơ làm việc' : 'Lưu hồ sơ rảnh ca'}
         </button>
       </div>
+
+      <WorkHistoryCard userId={user?.id} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Col: Personal Info & Skills */}

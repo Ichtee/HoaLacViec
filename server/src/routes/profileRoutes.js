@@ -6,6 +6,7 @@ import { EmployerProfile } from '../models/EmployerProfile.js';
 import { EmployerVerification } from '../models/EmployerVerification.js';
 import { Availability } from '../models/Availability.js';
 import { Application } from '../models/Application.js';
+import { getWorkHistory } from '../services/workHistoryService.js';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.js';
 import { isValidCoordinate } from '../utils/geoHelper.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
@@ -176,6 +177,24 @@ router.get('/student/:userId', optionalAuthenticate, async (req, res, next) => {
 
     const isSelfOrAdmin = req.user && (req.user.role === 'admin' || req.user._id.toString() === req.params.userId);
     res.json(isSelfOrAdmin ? toPrivateStudentDTO(profile) : toPublicStudentDTO(profile));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/profiles/student/:userId/work-history
+// Hồ sơ làm việc tự động từ dữ liệu ca (số ca, đúng giờ, uy tín). Chỉ chính chủ, admin hoặc nhà tuyển dụng.
+router.get('/student/:userId/work-history', authenticate, async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
+      return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+    const allowed = req.user.role === 'admin' || req.user.role === 'employer' ||
+      req.user._id.toString() === req.params.userId;
+    if (!allowed) {
+      return res.status(403).json({ error: 'Bạn không có quyền xem hồ sơ làm việc này.', code: 'FORBIDDEN' });
+    }
+    res.json(await getWorkHistory(req.params.userId));
   } catch (err) {
     next(err);
   }

@@ -90,6 +90,7 @@ export {
   apiGetEmployerProfile as getEmployerProfile,
   apiUpdateEmployerProfile as updateEmployerProfile,
   apiGetAvailability as getAvailability,
+  apiGetWorkHistory as getWorkHistory,
   apiUpsertAvailability as upsertAvailability,
   apiGetReviews as getReviews,
   apiCreateReview as createReview,
