@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
 import { Job } from '../models/Job.js';
 import { StudentProfile } from '../models/StudentProfile.js';
@@ -9,7 +10,7 @@ import { Shift } from '../models/Shift.js';
 import { Notification } from '../models/Notification.js';
 import { resolveGoogleMapInput } from '../utils/parseMapLink.js';
 import { vietmapAutocomplete } from '../services/vietmapService.js';
-import { authenticate, authorize, optionalAuthenticate } from '../middlewares/auth.js';
+import { authenticate, authorize, optionalAuthenticate, requireActiveUser } from '../middlewares/auth.js';
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
@@ -870,8 +871,18 @@ router.delete('/:id', authenticate, async (req, res, next) => {
   }
 });
 
+// Các endpoint dùng dịch vụ bản đồ bên thứ ba: bắt buộc đăng nhập và giới hạn tần suất để bảo vệ quota API key
+const geoToolsLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Quá nhiều yêu cầu tra cứu địa điểm. Vui lòng thử lại sau vài phút.', code: 'RATE_LIMIT_EXCEEDED' },
+});
+const geoToolsGuard = [authenticate, requireActiveUser, geoToolsLimiter];
+
 // POST /api/jobs/geocode (OpenStreetMap Nominatim geocoding)
-router.post('/geocode', async (req, res, next) => {
+router.post('/geocode', geoToolsGuard, async (req, res, next) => {
   try {
     const { address } = req.body;
     if (!address || typeof address !== 'string' || !address.trim()) {
@@ -888,7 +899,7 @@ router.post('/geocode', async (req, res, next) => {
 });
 
 // POST /api/jobs/resolve-map-link
-router.post('/resolve-map-link', async (req, res, next) => {
+router.post('/resolve-map-link', geoToolsGuard, async (req, res, next) => {
   try {
     const { input } = req.body;
     if (!input) {
@@ -905,7 +916,7 @@ router.post('/resolve-map-link', async (req, res, next) => {
 });
 
 // POST /api/jobs/search-places (forwarded to Vietmap Autocomplete v4)
-router.post('/search-places', async (req, res, next) => {
+router.post('/search-places', geoToolsGuard, async (req, res, next) => {
   try {
     const { query, center } = req.body;
     if (!query || !query.trim()) {

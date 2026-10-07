@@ -5,6 +5,7 @@ import { StudentProfile } from '../models/StudentProfile.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { EmployerVerification } from '../models/EmployerVerification.js';
 import { Availability } from '../models/Availability.js';
+import { Application } from '../models/Application.js';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.js';
 import { isValidCoordinate } from '../utils/geoHelper.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
@@ -235,10 +236,25 @@ router.put('/student/:userId', authenticate, async (req, res, next) => {
 });
 
 // GET /api/profiles/availability/:userId
-router.get('/availability/:userId', async (req, res, next) => {
+// Lịch rảnh là dữ liệu riêng tư: chỉ chính chủ, admin hoặc nhà tuyển dụng đang nhận đơn của người đó được xem.
+router.get('/availability/:userId', authenticate, async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.userId)) {
       return res.status(400).json({ error: 'ID người dùng không hợp lệ.', code: 'INVALID_ID' });
+    }
+
+    const isSelfOrAdmin = req.user.role === 'admin' || req.user._id.toString() === req.params.userId;
+    if (!isSelfOrAdmin) {
+      const hasApplication = req.user.role === 'employer' && await Application.exists({
+        studentId: req.params.userId,
+        $or: [{ employerUserId: req.user._id }, { employerId: req.user._id }],
+      });
+      if (!hasApplication) {
+        return res.status(403).json({
+          error: 'Bạn không có quyền xem lịch rảnh của người dùng này.',
+          code: 'FORBIDDEN',
+        });
+      }
     }
 
     const avail = await Availability.findOne({ userId: req.params.userId });

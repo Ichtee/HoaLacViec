@@ -14,7 +14,7 @@ const router = express.Router();
 router.use(authenticate, authorize('admin'));
 
 // GET /api/admin/stats (Tổng quan thống kê quản trị)
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (req, res, next) => {
   try {
     const [
       totalUsers,
@@ -49,22 +49,22 @@ router.get('/stats', async (req, res) => {
       applications: { total: totalApplications },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/admin/users
-router.get('/users', async (req, res) => {
+router.get('/users', async (req, res, next) => {
   try {
     const users = await User.find().select('-password').sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // PUT /api/admin/users/:id/status (Khóa/Mở tài khoản người dùng)
-router.put('/users/:id/status', async (req, res) => {
+router.put('/users/:id/status', async (req, res, next) => {
   try {
     const { status } = req.body;
     if (!['active', 'locked', 'suspended'].includes(status)) {
@@ -78,12 +78,12 @@ router.put('/users/:id/status', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // PUT /api/admin/users/:id/role (Thay đổi Role của người dùng)
-router.put('/users/:id/role', async (req, res) => {
+router.put('/users/:id/role', async (req, res, next) => {
   try {
     const { role } = req.body;
     if (!['student', 'worker', 'freelancer', 'employer', 'admin'].includes(role)) {
@@ -99,39 +99,17 @@ router.put('/users/:id/role', async (req, res) => {
     }
     await user.save();
 
-    // Tự động đảm bảo Profile tương ứng tồn tại để user không bị lỗi khi truy cập
+    // Đảm bảo hồ sơ tương ứng tồn tại ở dạng rỗng, chưa xác minh.
+    // Không sinh mã sinh viên, CCCD hay vị trí giả: người dùng tự khai báo và gửi xác minh.
     if (role === 'student') {
       const existingProfile = await StudentProfile.findOne({ userId: user._id });
       if (!existingProfile) {
-        await StudentProfile.create({
-          userId: user._id,
-          profileType: 'student',
-          university: 'Đại học FPT Hòa Lạc',
-          major: 'Kỹ thuật phần mềm',
-          studentCode: 'SE' + Math.floor(100000 + Math.random() * 900000),
-          address: 'Ký túc xá ĐH FPT, Khu CNC Hòa Lạc, Thạch Thất, Hà Nội',
-          location: { lat: 21.0135, lng: 105.5252 },
-          geoPoint: { type: 'Point', coordinates: [105.5252, 21.0135] },
-          locationStatus: 'confirmed',
-          locationSource: 'map_pin',
-          verified: true,
-        });
+        await StudentProfile.create({ userId: user._id, profileType: 'student', verified: false });
       }
     } else if (role === 'worker' || role === 'freelancer') {
       const existingProfile = await StudentProfile.findOne({ userId: user._id });
       if (!existingProfile) {
-        await StudentProfile.create({
-          userId: user._id,
-          profileType: 'worker',
-          profession: 'Lao động tự do',
-          idCardNumber: '00120' + Math.floor(1000000 + Math.random() * 9000000),
-          address: 'Khu CNC Hòa Lạc, Thạch Thất, Hà Nội',
-          location: { lat: 21.0135, lng: 105.5252 },
-          geoPoint: { type: 'Point', coordinates: [105.5252, 21.0135] },
-          locationStatus: 'confirmed',
-          locationSource: 'map_pin',
-          verified: true,
-        });
+        await StudentProfile.create({ userId: user._id, profileType: 'worker', verified: false });
       } else if (!existingProfile.profileType || existingProfile.profileType === 'student') {
         existingProfile.profileType = 'worker';
         await existingProfile.save();
@@ -141,13 +119,10 @@ router.put('/users/:id/role', async (req, res) => {
       if (!existingProfile) {
         await EmployerProfile.create({
           userId: user._id,
-          storeName: user.name ? `${user.name} Store` : 'Cửa hàng Hoa Lạc',
-          address: 'Khu Công nghệ cao Hòa Lạc, Thạch Thất, Hà Nội',
-          location: { lat: 21.0135, lng: 105.5252 },
-          geoPoint: { type: 'Point', coordinates: [105.5252, 21.0135] },
-          locationStatus: 'confirmed',
-          locationSource: 'map_pin',
-          verified: true,
+          storeName: user.name || 'Cửa hàng chưa đặt tên',
+          address: 'Chưa cập nhật',
+          locationStatus: 'unconfirmed',
+          verified: false,
         });
       }
     }
@@ -155,12 +130,12 @@ router.put('/users/:id/role', async (req, res) => {
     const updatedUser = await User.findById(user._id).select('-password');
     res.json(updatedUser);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/admin/jobs
-router.get('/jobs', async (req, res) => {
+router.get('/jobs', async (req, res, next) => {
   try {
     const { status } = req.query;
     const filter = {};
@@ -172,12 +147,12 @@ router.get('/jobs', async (req, res) => {
       .sort({ createdAt: -1 });
     res.json({ jobs });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/admin/jobs/:id/approve (Admin duyệt việc làm)
-router.post('/jobs/:id/approve', async (req, res) => {
+router.post('/jobs/:id/approve', async (req, res, next) => {
   try {
     const job = await Job.findOneAndUpdate(
       { _id: req.params.id, status: 'pending' },
@@ -212,12 +187,12 @@ router.post('/jobs/:id/approve', async (req, res) => {
 
     res.json({ message: 'Đã phê duyệt tin tuyển dụng', job });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/admin/jobs/:id/reject (Admin từ chối việc làm kèm lý do)
-router.post('/jobs/:id/reject', async (req, res) => {
+router.post('/jobs/:id/reject', async (req, res, next) => {
   try {
     const { reason } = req.body;
     const defaultReason = reason || 'Nội dung tin tuyển dụng chưa đáp ứng tiêu chuẩn cộng đồng.';
@@ -254,32 +229,32 @@ router.post('/jobs/:id/reject', async (req, res) => {
 
     res.json({ message: 'Đã từ chối tin tuyển dụng', job });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // PUT /api/admin/jobs/:id
-router.put('/jobs/:id', async (req, res) => {
+router.put('/jobs/:id', async (req, res, next) => {
   try {
     const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(job);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // DELETE /api/admin/jobs/:id (Xóa việc làm vi phạm)
-router.delete('/jobs/:id', async (req, res) => {
+router.delete('/jobs/:id', async (req, res, next) => {
   try {
     await Job.findByIdAndDelete(req.params.id);
     res.json({ message: 'Đã gỡ bỏ bài đăng việc làm' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // GET /api/admin/verifications (Lấy danh sách hồ sơ xác minh doanh nghiệp & sinh viên)
-router.get('/verifications', async (req, res) => {
+router.get('/verifications', async (req, res, next) => {
   try {
     const { status, type } = req.query; // type: 'all' | 'employer' | 'student'
     const results = [];
@@ -424,12 +399,12 @@ router.get('/verifications', async (req, res) => {
 
     res.json(results);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/admin/verifications/:id/approve (Duyệt xác minh doanh nghiệp, sinh viên hoặc người lao động)
-router.post('/verifications/:id/approve', async (req, res) => {
+router.post('/verifications/:id/approve', async (req, res, next) => {
   try {
     // 1. Check if ID matches StudentProfile (student or worker)
     const studentProfile = await StudentProfile.findById(req.params.id);
@@ -568,12 +543,12 @@ router.post('/verifications/:id/approve', async (req, res) => {
       status: 'approved',
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
 // POST /api/admin/verifications/:id/reject (Từ chối xác minh doanh nghiệp hoặc sinh viên)
-router.post('/verifications/:id/reject', async (req, res) => {
+router.post('/verifications/:id/reject', async (req, res, next) => {
   try {
     const { reason } = req.body;
     const defaultReason = reason || 'Thông tin hoặc giấy tờ xác minh chưa đạt yêu cầu.';
@@ -682,7 +657,7 @@ router.post('/verifications/:id/reject', async (req, res) => {
       status: 'rejected',
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
