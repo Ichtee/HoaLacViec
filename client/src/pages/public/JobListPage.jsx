@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, X, Map, List, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { JobCard } from '@/components/JobCard.jsx';
-import { JobMap } from '@/components/JobMap.jsx';
+const JobMap = lazy(() => import('@/components/JobMap.jsx').then((m) => ({ default: m.JobMap })));
 import { EmptyState, LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { Select } from '@/components/Form.jsx';
 import { useAsync, useDebounce, useGeolocation } from '@/hooks';
@@ -597,6 +597,7 @@ export default function JobListPage() {
               </button>
             </div>
 
+            <Suspense fallback={<div className="h-[300px] rounded-2xl bg-stone-100 animate-pulse" />}>
             <JobMap
               jobs={jobsForMap}
               userLocation={userLocation}
@@ -618,6 +619,7 @@ export default function JobListPage() {
                     : 'h-[300px] sm:h-[380px]'
               )}
             />
+            </Suspense>
 
             {jobsForMap.some(j => !isValidCoordinate(
               j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,

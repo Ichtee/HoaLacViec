@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 // Layouts
@@ -16,51 +17,59 @@ import {
 } from '@/components/RouteGuard.jsx';
 
 // Public Pages
-import HomePage from '@/pages/public/HomePage.jsx';
-import JobListPage from '@/pages/public/JobListPage.jsx';
-import JobDetailPage from '@/pages/public/JobDetailPage.jsx';
-import LoginPage from '@/pages/public/LoginPage.jsx';
-import ResetPasswordPage from '@/pages/public/ResetPasswordPage.jsx';
-import RegisterPage from '@/pages/public/RegisterPage.jsx';
+const HomePage = lazy(() => import('@/pages/public/HomePage.jsx'));
+const JobListPage = lazy(() => import('@/pages/public/JobListPage.jsx'));
+const JobDetailPage = lazy(() => import('@/pages/public/JobDetailPage.jsx'));
+const LoginPage = lazy(() => import('@/pages/public/LoginPage.jsx'));
+const ResetPasswordPage = lazy(() => import('@/pages/public/ResetPasswordPage.jsx'));
+const RegisterPage = lazy(() => import('@/pages/public/RegisterPage.jsx'));
 import NotFoundPage from '@/pages/public/NotFoundPage.jsx';
-import BlogListPage from '@/pages/public/BlogListPage.jsx';
-import BlogDetailPage from '@/pages/public/BlogDetailPage.jsx';
-import MicroTasksPage from '@/pages/public/MicroTasksPage.jsx';
-import CreateMicroTaskPage from '@/pages/public/CreateMicroTaskPage.jsx';
-import VerifyAccountPage from '@/pages/public/VerifyAccountPage.jsx';
+const BlogListPage = lazy(() => import('@/pages/public/BlogListPage.jsx'));
+const BlogDetailPage = lazy(() => import('@/pages/public/BlogDetailPage.jsx'));
+const MicroTasksPage = lazy(() => import('@/pages/public/MicroTasksPage.jsx'));
+const CreateMicroTaskPage = lazy(() => import('@/pages/public/CreateMicroTaskPage.jsx'));
+const VerifyAccountPage = lazy(() => import('@/pages/public/VerifyAccountPage.jsx'));
 
 // Student Pages
-import StudentDashboard from '@/pages/student/DashboardPage.jsx';
-import StudentProfilePage from '@/pages/student/ProfilePage.jsx';
-import SavedJobsPage from '@/pages/student/SavedJobsPage.jsx';
-import ApplicationsPage from '@/pages/student/ApplicationsPage.jsx';
-import StudentShiftsPage from '@/pages/student/ShiftsPage.jsx';
-import StudentReviewsPage from '@/pages/student/ReviewsPage.jsx';
+const StudentDashboard = lazy(() => import('@/pages/student/DashboardPage.jsx'));
+const StudentProfilePage = lazy(() => import('@/pages/student/ProfilePage.jsx'));
+const SavedJobsPage = lazy(() => import('@/pages/student/SavedJobsPage.jsx'));
+const ApplicationsPage = lazy(() => import('@/pages/student/ApplicationsPage.jsx'));
+const StudentShiftsPage = lazy(() => import('@/pages/student/ShiftsPage.jsx'));
+const StudentReviewsPage = lazy(() => import('@/pages/student/ReviewsPage.jsx'));
 
 // Employer Pages
-import EmployerDashboardPage from '@/pages/employer/EmployerDashboardPage.jsx';
-import StoreProfilePage from '@/pages/employer/StoreProfilePage.jsx';
-import EmployerJobsPage from '@/pages/employer/EmployerJobsPage.jsx';
-import EmployerJobFormPage from '@/pages/employer/EmployerJobFormPage.jsx';
-import EmployerApplicationsPage from '@/pages/employer/EmployerApplicationsPage.jsx';
-import EmployerEmployeesPage from '@/pages/employer/EmployerEmployeesPage.jsx';
-import EmployerShiftsPage from '@/pages/employer/EmployerShiftsPage.jsx';
+const EmployerDashboardPage = lazy(() => import('@/pages/employer/EmployerDashboardPage.jsx'));
+const StoreProfilePage = lazy(() => import('@/pages/employer/StoreProfilePage.jsx'));
+const EmployerJobsPage = lazy(() => import('@/pages/employer/EmployerJobsPage.jsx'));
+const EmployerJobFormPage = lazy(() => import('@/pages/employer/EmployerJobFormPage.jsx'));
+const EmployerApplicationsPage = lazy(() => import('@/pages/employer/EmployerApplicationsPage.jsx'));
+const EmployerEmployeesPage = lazy(() => import('@/pages/employer/EmployerEmployeesPage.jsx'));
+const EmployerShiftsPage = lazy(() => import('@/pages/employer/EmployerShiftsPage.jsx'));
 
 // Admin Pages
-import AdminDashboardPage from '@/pages/admin/AdminDashboardPage.jsx';
-import AdminVerificationPage from '@/pages/admin/AdminVerificationPage.jsx';
-import AdminJobsPage from '@/pages/admin/AdminJobsPage.jsx';
-import AdminBlogsPage from '@/pages/admin/AdminBlogsPage.jsx';
-import AdminReportsPage from '@/pages/admin/AdminReportsPage.jsx';
-import AdminUsersPage from '@/pages/admin/AdminUsersPage.jsx';
+const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage.jsx'));
+const AdminVerificationPage = lazy(() => import('@/pages/admin/AdminVerificationPage.jsx'));
+const AdminJobsPage = lazy(() => import('@/pages/admin/AdminJobsPage.jsx'));
+const AdminBlogsPage = lazy(() => import('@/pages/admin/AdminBlogsPage.jsx'));
+const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage.jsx'));
+const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage.jsx'));
 
 // Common Account Pages
-import AccountInfoPage from '@/pages/common/AccountInfoPage.jsx';
-import ChangePasswordPage from '@/pages/common/ChangePasswordPage.jsx';
+const AccountInfoPage = lazy(() => import('@/pages/common/AccountInfoPage.jsx'));
+const ChangePasswordPage = lazy(() => import('@/pages/common/ChangePasswordPage.jsx'));
 
 // Geolocation Bootstrap
 import { LocationPermissionBootstrap } from '@/components/LocationPermissionBootstrap.jsx';
 import { ErrorBoundary } from '@/components/ErrorBoundary.jsx';
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center py-24 text-sm text-text-muted" role="status">
+      Đang tải...
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -68,6 +77,7 @@ export default function App() {
       <LocationPermissionBootstrap />
       <PendingRouteEnforcer />
       <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public Routes */}
           <Route element={<PublicLayout />}>
@@ -185,6 +195,7 @@ export default function App() {
         {/* Fallback 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+        </Suspense>
       </ErrorBoundary>
     </Router>
   );
