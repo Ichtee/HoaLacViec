@@ -743,6 +743,10 @@ export async function apiDownloadPayrollCsv(from, to) {
   return res.blob();
 }
 
+export async function apiGetAdminMetrics() {
+  return request('/admin/metrics');
+}
+
 // ─── JOB ALERTS ──────────────────────────────────────────────────
 export async function apiGetJobAlerts() {
   return request('/job-alerts');

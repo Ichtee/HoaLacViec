@@ -94,6 +94,7 @@ export {
   apiUpsertAvailability as upsertAvailability,
   apiGetReviews as getReviews,
   apiCreateReview as createReview,
+  apiGetAdminMetrics as getAdminMetrics,
   apiGetJobAlerts as getJobAlerts,
   apiCreateJobAlert as createJobAlert,
   apiDeleteJobAlert as deleteJobAlert,

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { getVerificationRequests, getReports, adminGetJobs, getAllUsers, getBlogs } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
+import { PlatformMetrics } from '@/components/PlatformMetrics.jsx';
 
 export default function AdminDashboardPage() {
   const [verifications, setVerifications] = useState([]);
@@ -51,6 +52,8 @@ export default function AdminDashboardPage() {
           Hệ thống giám sát chất lượng tin tuyển dụng, xác thực doanh nghiệp địa phương và xử lý tranh chấp.
         </p>
       </div>
+
+      <PlatformMetrics />
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

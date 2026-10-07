@@ -8,6 +8,7 @@ import { Application } from '../models/Application.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 import { notifyJobAlerts } from '../services/jobAlertService.js';
+import { getPlatformMetrics } from '../services/metricsService.js';
 
 const router = express.Router();
 
@@ -49,6 +50,15 @@ router.get('/stats', async (req, res, next) => {
       },
       applications: { total: totalApplications },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/metrics (chỉ số vận hành nền tảng)
+router.get('/metrics', async (req, res, next) => {
+  try {
+    res.json(await getPlatformMetrics());
   } catch (err) {
     next(err);
   }
