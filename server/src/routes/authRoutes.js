@@ -13,6 +13,12 @@ import {
   RESET_REQUEST_COOLDOWN_MS,
   sendPasswordResetEmail,
 } from '../services/passwordResetService.js';
+import {
+  issueRefreshToken,
+  consumeRefreshToken,
+  revokeRefreshToken,
+  revokeAllRefreshTokens,
+} from '../services/refreshTokenService.js';
 
 const router = express.Router();
 
@@ -34,11 +40,11 @@ function createToken(user) {
   return jwt.sign(
     { id: user._id, role: user.role, email: user.email, name: user.name, tokenVersion: user.tokenVersion || 0 },
     secret,
-    { expiresIn: '7d' }
+    { expiresIn: process.env.ACCESS_TOKEN_TTL || '15m' }
   );
 }
 
-async function buildAuthResponse(user) {
+async function buildAuthResponse(user, req, res) {
   await activatePendingUserWhenVerificationDisabled(user);
 
   let profile = null;
@@ -49,6 +55,7 @@ async function buildAuthResponse(user) {
   }
 
   const token = createToken(user);
+  if (res) await issueRefreshToken(user, req, res);
   return {
     token,
     user: {
@@ -131,7 +138,7 @@ router.post('/login', async (req, res, next) => {
       });
     }
 
-    const authRes = await buildAuthResponse(user);
+    const authRes = await buildAuthResponse(user, req, res);
     res.json(authRes);
   } catch (err) {
     next(err);
@@ -194,7 +201,7 @@ router.post('/google', async (req, res, next) => {
     let user = await User.findOne({ googleId });
     if (user) {
       if (!checkUserAccountStatus(user, res)) return;
-      const authRes = await buildAuthResponse(user);
+      const authRes = await buildAuthResponse(user, req, res);
       return res.json(authRes);
     }
 
@@ -238,7 +245,7 @@ router.post('/google', async (req, res, next) => {
       await existingUser.save();
 
       if (!checkUserAccountStatus(existingUser, res)) return;
-      const authRes = await buildAuthResponse(existingUser);
+      const authRes = await buildAuthResponse(existingUser, req, res);
       return res.json(authRes);
     }
 
@@ -275,7 +282,7 @@ router.post('/google', async (req, res, next) => {
     }
 
     if (!checkUserAccountStatus(user, res)) return;
-    const authRes = await buildAuthResponse(user);
+    const authRes = await buildAuthResponse(user, req, res);
     return res.status(201).json(authRes);
   } catch (err) {
     next(err);
@@ -318,7 +325,7 @@ router.post('/register', async (req, res, next) => {
       status: 'pending',
     });
 
-    const authRes = await buildAuthResponse(newUser);
+    const authRes = await buildAuthResponse(newUser, req, res);
     res.status(201).json(authRes);
   } catch (err) {
     next(err);
@@ -378,6 +385,7 @@ router.post('/reset-password', async (req, res, next) => {
     user.password = newPassword;
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
+    await revokeAllRefreshTokens(user._id);
     res.json({ message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.' });
   } catch (err) {
     next(err);
@@ -385,6 +393,33 @@ router.post('/reset-password', async (req, res, next) => {
 });
 
 // GET /api/auth/me (Protected)
+// POST /api/auth/refresh — đổi refresh token (cookie httpOnly, dùng một lần) lấy access token mới
+router.post('/refresh', async (req, res, next) => {
+  try {
+    const record = await consumeRefreshToken(req);
+    const user = record ? await User.findById(record.userId) : null;
+    const valid = user && (user.tokenVersion || 0) === record.tokenVersion &&
+      !['locked', 'suspended', 'deleted'].includes(user.status);
+    if (!valid) {
+      await revokeRefreshToken(req, res);
+      return res.status(401).json({ error: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', code: 'REFRESH_INVALID' });
+    }
+    res.json(await buildAuthResponse(user, req, res));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/logout — thu hồi refresh token của thiết bị hiện tại
+router.post('/logout', async (req, res, next) => {
+  try {
+    await revokeRefreshToken(req, res);
+    res.json({ message: 'Đã đăng xuất.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/me', authenticate, async (req, res, next) => {
   try {
     const user = req.user;
@@ -507,6 +542,7 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     // Cập nhật mật khẩu mới (Mongoose pre-save hook sẽ tự động bcrypt hash)
     user.password = newPassword;
     await user.save();
+    await revokeAllRefreshTokens(user._id);
 
     res.json({
       message: hasPassword ? 'Đổi mật khẩu thành công!' : 'Thiết lập mật khẩu thành công!',

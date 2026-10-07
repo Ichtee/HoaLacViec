@@ -94,6 +94,7 @@ export {
   apiUpsertAvailability as upsertAvailability,
   apiGetReviews as getReviews,
   apiCreateReview as createReview,
+  apiLogout as logoutRequest,
   apiGetPushPublicKey,
   apiSubscribePush,
   apiUnsubscribePush,

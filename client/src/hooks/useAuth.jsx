@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { login as serviceLogin, register as serviceRegister, googleLogin as serviceGoogleLogin, getMe } from '@/services';
+import { login as serviceLogin, register as serviceRegister, googleLogin as serviceGoogleLogin, getMe, logoutRequest } from '@/services';
 
 /**
  * AuthContext — Authentication & session management
@@ -97,6 +97,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    void logoutRequest();
     setSession(null);
     saveSession(null);
   }, []);

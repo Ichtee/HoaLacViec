@@ -24,6 +24,8 @@ Với tin cũ có `slots` và `remainingOpenings` lệch nhau, xem trước bằ
 
 **Tác vụ nền:** Server tự chạy mỗi 10 phút (`MAINTENANCE_INTERVAL_MS` để đổi, `DISABLE_MAINTENANCE_JOBS=true` để tắt): đánh dấu offer quá hạn, chuyển tin quá `closesAt` sang `expired` và nhắc nhân viên các ca bắt đầu trong 2 giờ tới.
 
+**Phiên đăng nhập:** Access token sống 15 phút (`ACCESS_TOKEN_TTL` để đổi). Refresh token dùng một lần, xoay vòng sau mỗi lần làm mới, chỉ lưu hash trong database và gửi qua cookie httpOnly (`/api/auth/refresh`, `/api/auth/logout`). Đổi hoặc đặt lại mật khẩu thu hồi mọi refresh token. Cookie chỉ gửi được khi frontend gọi `/api` cùng origin (proxy Vercel hoặc Vite); nếu dùng `VITE_API_URL` khác origin, cần cấu hình CORS `credentials` và cookie `SameSite=None`.
+
 **PWA và thông báo đẩy:** Ứng dụng có thể cài lên màn hình chính (manifest + service worker, chỉ đăng ký ở bản production). Để bật Web Push, chạy `cd server && npx web-push generate-vapid-keys`, rồi đặt `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` trên server. Khi thiếu cấu hình, nút bật thông báo đẩy trong chuông thông báo vẫn hiện nhưng máy chủ trả 503 và không gửi push. Mọi thông báo mới trong hệ thống tự động được đẩy tới các thiết bị đã đăng ký.
 
 **Đặt lại mật khẩu:** Cấu hình `FRONTEND_URL`, `RESEND_API_KEY` và `PASSWORD_RESET_FROM_EMAIL` trên server để gửi email. Token chỉ dùng một lần và hết hạn sau 30 phút. Khi thiếu cấu hình, trang sẽ báo chức năng chưa sẵn sàng. Các thao tác duyệt đơn nghỉ có sửa ca cần MongoDB hỗ trợ transaction (ví dụ MongoDB Atlas hoặc replica set).

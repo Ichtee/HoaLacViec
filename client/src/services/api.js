@@ -33,17 +33,54 @@ export function buildQueryString(params = {}) {
   return str ? `?${str}` : '';
 }
 
+// Access token sống ngắn (15 phút). Khi hết hạn, đổi refresh token (cookie httpOnly) lấy token mới.
+// Dùng chung một lời gọi cho nhiều yêu cầu cùng lúc để không dùng refresh token hai lần.
+const NO_REFRESH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/google', '/auth/refresh', '/auth/logout'];
+let refreshPromise = null;
+
+function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        if (!res.ok) return false;
+        const data = await res.json().catch(() => null);
+        if (!data?.token) return false;
+        localStorage.setItem('token', data.token);
+        return true;
+      } catch {
+        return false;
+      }
+    })().finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
+}
+
 async function request(endpoint, options = {}) {
+  const { _retried, ...fetchOptions } = options;
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
+      credentials: 'include',
+      ...fetchOptions,
       headers: {
         ...getAuthHeaders(),
-        ...options.headers,
+        ...fetchOptions.headers,
       },
     });
 
     const data = await res.json().catch(() => null);
+    if (
+      res.status === 401 && data?.code === 'INVALID_TOKEN' && !_retried &&
+      localStorage.getItem('token') && !NO_REFRESH_ENDPOINTS.includes(endpoint) &&
+      await refreshAccessToken()
+    ) {
+      return request(endpoint, { ...fetchOptions, _retried: true });
+    }
     if (!res.ok) {
       throw new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`);
     }
@@ -93,6 +130,14 @@ export async function apiRegister(userData) {
     localStorage.setItem('token', data.token);
   }
   return data.user;
+}
+
+export async function apiLogout() {
+  try {
+    await request('/auth/logout', { method: 'POST', body: '{}' });
+  } catch {
+    // Đăng xuất cục bộ vẫn tiếp tục dù máy chủ không phản hồi
+  }
 }
 
 export async function apiGetMe() {
