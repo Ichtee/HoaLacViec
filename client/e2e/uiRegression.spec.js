@@ -65,3 +65,48 @@ test('điện thoại 390px: các trang chính không tràn ngang', async ({ bro
     await ctx.close();
   }
 });
+
+test('nhà tuyển dụng mở được trang Đổi ca từ menu (route trước đây bị đặt nhầm khu sinh viên)', async ({ page }) => {
+  const employer = await seedUser('employer');
+  await signIn(page, employer.email);
+  await page.goto('/employer');
+  await page.getByRole('navigation', { name: 'Menu chính' }).getByRole('link', { name: 'Đổi ca' }).click();
+  await expect(page).toHaveURL(/\/employer\/swaps$/);
+  await expect(page.getByRole('heading', { name: 'Đổi ca', exact: true })).toBeVisible();
+});
+
+test('điện thoại: thanh điều hướng dưới đáy chuyển trang và mở menu đầy đủ', async ({ browser }) => {
+  const student = await seedUser('student');
+  const ctx = await browser.newContext({ viewport: MOBILE });
+  await ctx.addInitScript(() => { try { localStorage.setItem('hlv_location_banner_dismissed', '1'); } catch { /* */ } });
+  const page = await ctx.newPage();
+  await signIn(page, student.email);
+  await page.goto('/student');
+  const bottom = page.getByRole('navigation', { name: 'Điều hướng nhanh' });
+  await expect(bottom).toBeVisible();
+  await bottom.getByRole('link', { name: 'Lịch làm' }).click();
+  await expect(page).toHaveURL(/\/student\/shifts$/);
+  await bottom.getByRole('button', { name: 'Thêm' }).click();
+  const drawer = page.getByRole('navigation', { name: 'Menu chính' });
+  await expect(drawer.getByText('Việc của tôi')).toBeVisible();
+  await drawer.getByRole('link', { name: 'Đánh giá' }).click();
+  await expect(page).toHaveURL(/\/student\/reviews$/);
+  await expect(drawer).toBeHidden();
+  await ctx.close();
+});
+
+test('quản trị trên điện thoại: có menu kéo ra và không tràn ngang', async ({ browser }) => {
+  const admin = await seedUser('admin');
+  const ctx = await browser.newContext({ viewport: MOBILE });
+  await ctx.addInitScript(() => { try { localStorage.setItem('hlv_location_banner_dismissed', '1'); } catch { /* */ } });
+  const page = await ctx.newPage();
+  await signIn(page, admin.email);
+  for (const url of ['/admin', '/admin/users', '/admin/jobs', '/admin/verification', '/admin/reports', '/admin/blogs']) {
+    await page.goto(url);
+    await page.waitForTimeout(600);
+    await expectNoHorizontalOverflow(page, url);
+  }
+  await page.getByRole('button', { name: 'Mở menu' }).click();
+  await expect(page.getByRole('navigation', { name: 'Menu chính' }).getByRole('link', { name: 'Tài khoản' })).toBeVisible();
+  await ctx.close();
+});

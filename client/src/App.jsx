@@ -157,7 +157,6 @@ export default function App() {
             <Route path="reviews" element={<StudentReviewsPage />} />
             <Route path="quick-shifts" element={<StudentQuickShiftsPage />} />
             <Route path="messages" element={<MessagesPage />} />
-          <Route path="swaps" element={<ShiftSwapsPage />} />
             <Route path="alerts" element={<JobAlertsPage />} />
             <Route path="swaps" element={<ShiftSwapsPage />} />
           </Route>
@@ -183,6 +182,7 @@ export default function App() {
           <Route path="shifts" element={<EmployerShiftsPage />} />
           <Route path="quick-shifts" element={<EmployerQuickShiftsPage />} />
           <Route path="messages" element={<MessagesPage />} />
+          <Route path="swaps" element={<ShiftSwapsPage />} />
         </Route>
 
         {/* Admin Portal */}

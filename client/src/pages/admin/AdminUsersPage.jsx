@@ -4,7 +4,9 @@ import { clsx } from 'clsx';
 import { getAllUsers, apiAdminUpdateUserStatus, apiAdminUpdateUserRole } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { Badge } from '@/components/Badge.jsx';
-import { Toast } from '@/components/Feedback.jsx';
+import { Toast, LoadingPage } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
+import { Tabs } from '@/components/Tabs.jsx';
 
 export default function AdminUsersPage() {
   const { user: currentUser, updateUser } = useAuth();
@@ -82,55 +84,40 @@ export default function AdminUsersPage() {
     <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <Users className="w-6 h-6 text-green-dark" /> Quản lý danh sách tài khoản người dùng
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Theo dõi người dùng trên hệ thống. Bạn có thể phân quyền vai trò (Role) hoặc quản lý trạng thái khóa / kích hoạt.
-          </p>
-        </div>
+      <PageHeader
+        icon={Users}
+        title="Tài khoản người dùng"
+        description="Theo dõi người dùng, phân quyền vai trò và quản lý trạng thái khóa / kích hoạt."
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-2xl border border-gray-100">
-            {[
-              { id: 'all', label: 'Tất cả' },
-              { id: 'pending', label: `Chờ xác minh (${pendingCount})` },
-              { id: 'student', label: 'Sinh viên' },
-              { id: 'worker', label: 'Lao động tự do' },
-              { id: 'employer', label: 'Doanh nghiệp' },
-              { id: 'admin', label: 'Admin' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setRoleFilter(tab.id)}
-                className={clsx(
-                  'px-3 py-1.5 rounded-xl text-xs font-semibold transition-all',
-                  roleFilter === tab.id
-                    ? 'bg-green-dark text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Tìm theo tên / email..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="px-3.5 py-1.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-green-dark"
-            />
-          </div>
-        </div>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        <Tabs
+          variant="pill"
+          className="min-w-0 lg:flex-1"
+          ariaLabel="Lọc theo vai trò"
+          value={roleFilter}
+          onChange={setRoleFilter}
+          items={[
+            { id: 'all', label: 'Tất cả' },
+            { id: 'pending', label: 'Chờ xác minh', count: pendingCount },
+            { id: 'student', label: 'Sinh viên' },
+            { id: 'worker', label: 'Lao động tự do' },
+            { id: 'employer', label: 'Doanh nghiệp' },
+            { id: 'admin', label: 'Admin' },
+          ]}
+        />
+        <input
+          type="search"
+          placeholder="Tìm theo tên / email..."
+          aria-label="Tìm tài khoản"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="input !py-2 lg:w-64"
+        />
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-gray-400">Đang tải danh sách tài khoản...</div>
+        <LoadingPage />
       ) : (
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
           {filtered.map(userItem => (

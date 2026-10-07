@@ -1,4 +1,4 @@
-import { Outlet, NavLink, Link } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
   LayoutDashboard,
@@ -12,51 +12,53 @@ import {
   MessageCircle,
   BellRing,
   Repeat,
-  Menu,
   X,
 } from 'lucide-react';
-import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
+import { useNavBadges } from '@/hooks/useNavBadges.js';
 import { NotificationDropdown } from '@/components/NotificationDropdown.jsx';
 import { UserDropdown } from '@/components/UserDropdown.jsx';
+import { SidebarNav, BottomNav } from '@/components/NavMenu.jsx';
 
-const STUDENT_NAV = [
-  { to: '/student', label: 'Tổng quan', icon: LayoutDashboard, end: true },
-  { to: '/student/jobs', label: 'Tìm việc', icon: Search },
-  { to: '/student/tasks', label: 'Chợ việc vặt', icon: ShoppingBag },
-  { to: '/student/saved', label: 'Đã lưu', icon: Bookmark },
-  { to: '/student/alerts', label: 'Thông báo việc', icon: BellRing },
-  { to: '/student/applications', label: 'Đơn ứng tuyển', icon: FileText },
-  { to: '/student/quick-shifts', label: 'Ca lẻ', icon: Zap },
-  { to: '/student/shifts', label: 'Lịch làm', icon: Calendar },
-  { to: '/student/swaps', label: 'Đổi ca', icon: Repeat },
-  { to: '/student/messages', label: 'Tin nhắn', icon: MessageCircle },
-  { to: '/student/reviews', label: 'Đánh giá', icon: Star },
+const STUDENT_NAV_GROUPS = [
+  { items: [{ to: '/student', label: 'Tổng quan', icon: LayoutDashboard, end: true }] },
+  {
+    title: 'Tìm việc',
+    items: [
+      { to: '/student/jobs', label: 'Tìm việc', icon: Search },
+      { to: '/student/quick-shifts', label: 'Ca lẻ', icon: Zap },
+      { to: '/student/tasks', label: 'Chợ việc vặt', icon: ShoppingBag },
+      { to: '/student/saved', label: 'Đã lưu', icon: Bookmark },
+      { to: '/student/alerts', label: 'Thông báo việc', icon: BellRing },
+    ],
+  },
+  {
+    title: 'Việc của tôi',
+    items: [
+      { to: '/student/applications', label: 'Đơn ứng tuyển', icon: FileText },
+      { to: '/student/shifts', label: 'Lịch làm', icon: Calendar },
+      { to: '/student/swaps', label: 'Đổi ca', icon: Repeat },
+      { to: '/student/reviews', label: 'Đánh giá', icon: Star },
+    ],
+  },
+  {
+    title: 'Liên lạc',
+    items: [{ to: '/student/messages', label: 'Tin nhắn', icon: MessageCircle, badgeKey: 'messages' }],
+  },
 ];
 
-function SidebarLink({ to, icon: Icon, label, end }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        clsx(
-          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
-          isActive
-            ? 'bg-green-main text-white shadow-sm font-semibold'
-            : 'text-text-muted hover:bg-green-50 hover:text-green-dark'
-        )
-      }
-    >
-      <Icon className="w-4.5 h-4.5 flex-shrink-0 w-5 h-5" />
-      <span className="truncate">{label}</span>
-    </NavLink>
-  );
-}
+// Bốn mục dùng nhiều nhất trên điện thoại; phần còn lại nằm trong "Thêm"
+const STUDENT_BOTTOM_NAV = [
+  { to: '/student', label: 'Tổng quan', icon: LayoutDashboard, end: true },
+  { to: '/student/jobs', label: 'Tìm việc', icon: Search },
+  { to: '/student/shifts', label: 'Lịch làm', icon: Calendar },
+  { to: '/student/messages', label: 'Tin nhắn', icon: MessageCircle, badgeKey: 'messages' },
+];
 
 export default function StudentLayout() {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const badges = useNavBadges(Boolean(user));
 
   const sidebar = (
     <aside className="flex flex-col h-full">
@@ -75,12 +77,7 @@ export default function StudentLayout() {
         <p className="font-bold text-text-main text-sm truncate mt-0.5">{user?.name}</p>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto">
-        {STUDENT_NAV.map((n) => (
-          <SidebarLink key={n.to} {...n} />
-        ))}
-      </nav>
+      <SidebarNav groups={STUDENT_NAV_GROUPS} badges={badges} onNavigate={() => setSidebarOpen(false)} />
     </aside>
   );
 
@@ -97,7 +94,7 @@ export default function StudentLayout() {
           <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
           <div className="fixed inset-y-0 left-0 w-72 bg-white z-50 lg:hidden shadow-modal animate-slide-up">
             <div className="absolute top-4 right-4">
-              <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-xl hover:bg-green-50">
+              <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-xl hover:bg-green-50" aria-label="Đóng menu">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -110,13 +107,9 @@ export default function StudentLayout() {
       <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
         {/* Top header */}
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-green-50 h-16 flex items-center justify-between px-4 sm:px-6">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-xl hover:bg-green-50"
-            aria-label="Menu"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+          <Link to="/student" className="lg:hidden inline-flex items-center" aria-label="Trang chủ">
+            <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
+          </Link>
 
           <div className="flex items-center gap-3 ml-auto">
             <NotificationDropdown />
@@ -124,11 +117,13 @@ export default function StudentLayout() {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Page content (chừa chỗ cho thanh điều hướng dưới đáy trên điện thoại) */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
       </div>
+
+      <BottomNav items={STUDENT_BOTTOM_NAV} badges={badges} onMore={() => setSidebarOpen(true)} />
     </div>
   );
 }

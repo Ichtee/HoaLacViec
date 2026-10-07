@@ -1,46 +1,50 @@
-import { Outlet, NavLink, Link } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
   LayoutDashboard, Briefcase, Users, Calendar,
-  Menu, X, UserCheck, Zap, MessageCircle, Repeat
+  X, UserCheck, Zap, MessageCircle, Repeat,
 } from 'lucide-react';
-import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
+import { useNavBadges } from '@/hooks/useNavBadges.js';
 import { NotificationDropdown } from '@/components/NotificationDropdown.jsx';
 import { UserDropdown } from '@/components/UserDropdown.jsx';
+import { SidebarNav, BottomNav } from '@/components/NavMenu.jsx';
 
-const EMPLOYER_NAV = [
-  { to: '/employer', label: 'Tổng quan', icon: LayoutDashboard, end: true },
-  { to: '/employer/jobs', label: 'Tin tuyển dụng', icon: Briefcase },
-  { to: '/employer/applications', label: 'Ứng viên', icon: Users },
-  { to: '/employer/employees', label: 'Nhân viên', icon: UserCheck },
-  { to: '/employer/shifts', label: 'Quản lý ca', icon: Calendar },
-  { to: '/employer/swaps', label: 'Đổi ca', icon: Repeat },
-  { to: '/employer/quick-shifts', label: 'Tuyển nhanh', icon: Zap },
-  { to: '/employer/messages', label: 'Tin nhắn', icon: MessageCircle },
+const EMPLOYER_NAV_GROUPS = [
+  { items: [{ to: '/employer', label: 'Tổng quan', icon: LayoutDashboard, end: true }] },
+  {
+    title: 'Tuyển dụng',
+    items: [
+      { to: '/employer/jobs', label: 'Tin tuyển dụng', icon: Briefcase },
+      { to: '/employer/applications', label: 'Ứng viên', icon: Users },
+      { to: '/employer/quick-shifts', label: 'Tuyển nhanh', icon: Zap },
+    ],
+  },
+  {
+    title: 'Vận hành',
+    items: [
+      { to: '/employer/employees', label: 'Nhân viên', icon: UserCheck },
+      { to: '/employer/shifts', label: 'Quản lý ca', icon: Calendar },
+      { to: '/employer/swaps', label: 'Đổi ca', icon: Repeat },
+    ],
+  },
+  {
+    title: 'Liên lạc',
+    items: [{ to: '/employer/messages', label: 'Tin nhắn', icon: MessageCircle, badgeKey: 'messages' }],
+  },
 ];
 
-function SidebarLink({ to, icon: Icon, label, end }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        clsx(
-          'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-          isActive ? 'bg-green-main text-white font-semibold shadow-sm' : 'text-text-muted hover:bg-green-50 hover:text-green-dark'
-        )
-      }
-    >
-      <Icon className="w-5 h-5 flex-shrink-0" />
-      <span className="truncate">{label}</span>
-    </NavLink>
-  );
-}
+const EMPLOYER_BOTTOM_NAV = [
+  { to: '/employer', label: 'Tổng quan', icon: LayoutDashboard, end: true },
+  { to: '/employer/applications', label: 'Ứng viên', icon: Users },
+  { to: '/employer/shifts', label: 'Quản lý ca', icon: Calendar },
+  { to: '/employer/messages', label: 'Tin nhắn', icon: MessageCircle, badgeKey: 'messages' },
+];
 
 export default function EmployerLayout() {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const badges = useNavBadges(Boolean(user));
 
   const sidebar = (
     <aside className="flex flex-col h-full">
@@ -53,9 +57,7 @@ export default function EmployerLayout() {
         <p className="text-[11px] font-semibold text-green-dark">Nhà tuyển dụng</p>
         <p className="font-bold text-text-main text-sm truncate mt-0.5">{user?.name}</p>
       </div>
-      <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto">
-        {EMPLOYER_NAV.map((n) => <SidebarLink key={n.to} {...n} />)}
-      </nav>
+      <SidebarNav groups={EMPLOYER_NAV_GROUPS} badges={badges} onNavigate={() => setSidebarOpen(false)} />
     </aside>
   );
 
@@ -67,7 +69,7 @@ export default function EmployerLayout() {
           <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
           <div className="fixed inset-y-0 left-0 w-72 bg-white z-50 lg:hidden shadow-modal">
             <div className="absolute top-4 right-4">
-              <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-xl hover:bg-green-50"><X className="w-5 h-5" /></button>
+              <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-xl hover:bg-green-50" aria-label="Đóng menu"><X className="w-5 h-5" /></button>
             </div>
             {sidebar}
           </div>
@@ -75,20 +77,19 @@ export default function EmployerLayout() {
       )}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0">
         <header className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-green-50 h-16 flex items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-xl hover:bg-green-50" aria-label="Menu">
-              <Menu className="w-5 h-5" />
-            </button>
-            <span className="font-bold text-green-dark text-sm hidden sm:inline">Hoa Lạc Việc — Kênh Quản Lý Nhà Tuyển Dụng</span>
-          </div>
+          <Link to="/employer" className="lg:hidden inline-flex items-center" aria-label="Trang chủ">
+            <img src="/logo.png" alt="Hoa Lạc Việc" className="h-9 w-auto object-contain" />
+          </Link>
 
           <div className="flex items-center gap-3 ml-auto">
             <NotificationDropdown />
             <UserDropdown showWelcome={true} />
           </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto"><Outlet /></main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto"><Outlet /></main>
       </div>
+
+      <BottomNav items={EMPLOYER_BOTTOM_NAV} badges={badges} onMore={() => setSidebarOpen(true)} />
     </div>
   );
 }
