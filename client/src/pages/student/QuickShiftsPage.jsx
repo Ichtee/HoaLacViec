@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Zap, Clock, MapPin, Users, Wallet } from 'lucide-react';
 import { getQuickShifts, getMyQuickShifts, claimQuickShift, withdrawQuickShift } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
+import { LoadingPage, EmptyState } from '@/components/Feedback.jsx';
+import { Link } from 'react-router-dom';
 
 const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ/giờ`;
 
@@ -67,14 +70,9 @@ export default function StudentQuickShiftsPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card">
-        <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-          <Zap className="w-6 h-6 text-yellow-500 fill-yellow-400" /> Ca lẻ - nhận việc ngay
-        </h1>
-        <p className="text-sm text-text-muted mt-2">Cửa hàng cần người gấp trong vài ngày tới. Ai nhận trước được trước, ca sẽ tự thêm vào lịch làm của bạn.</p>
-      </div>
+      <PageHeader icon={Zap} title="Ca lẻ - nhận việc ngay" description="Cửa hàng cần người gấp trong vài ngày tới. Ai nhận trước được trước, ca sẽ tự thêm vào lịch làm của bạn." />
 
-      {loading ? <p className="text-center text-text-muted py-10">Đang tải...</p> : <>
+      {loading ? <LoadingPage /> : <>
         {upcomingMine.length > 0 && (
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-text-main">Ca bạn đã nhận ({upcomingMine.length})</h2>
@@ -97,7 +95,7 @@ export default function StudentQuickShiftsPage() {
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-text-main">Ca đang cần người ({open.length})</h2>
           {open.length === 0 ? (
-            <p className="bg-white rounded-2xl p-5 text-sm text-text-muted">Hiện chưa có ca lẻ nào đang mở. Hãy quay lại sau nhé!</p>
+            <EmptyState icon={<Zap />} title="Hiện chưa có ca lẻ nào đang mở" description="Cửa hàng đăng ca mới là bạn sẽ thấy ngay ở đây. Bật Thông báo việc mới để không bỏ lỡ." action={<Link to="/student/alerts" className="btn btn-outline btn-sm">Bật thông báo việc</Link>} className="bg-white rounded-3xl border border-green-100" />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
               {open.map((shift) => (

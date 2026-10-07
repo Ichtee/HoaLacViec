@@ -488,7 +488,7 @@ export default function EmployerShiftsPage() {
         </div>
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
           <p className="text-xs text-text-muted">Chờ duyệt công</p>
-          <p className="text-2xl font-bold text-purple-600 mt-1">{pendingApprovalCount}</p>
+          <p className="text-2xl font-bold text-green-dark mt-1">{pendingApprovalCount}</p>
         </div>
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
           <p className="text-xs text-text-muted">Đã hoàn tất</p>

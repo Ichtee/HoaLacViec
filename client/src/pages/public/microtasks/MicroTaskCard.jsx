@@ -43,7 +43,7 @@ export default function MicroTaskCard({
 
   return (
     <div
-      className="bg-white rounded-3xl p-6 border border-gray-100 hover:border-orange-300 shadow-card hover:shadow-modal transition-all flex flex-col justify-between space-y-4"
+      className="bg-white rounded-3xl p-6 border border-gray-100 hover:border-green-main shadow-card hover:shadow-modal transition-all flex flex-col justify-between space-y-4"
     >
       <div className="space-y-3">
         {/* Top: Status & Reward */}
@@ -74,7 +74,7 @@ export default function MicroTaskCard({
           </Badge>
 
           <div className="text-right">
-            <span className="text-sm sm:text-base font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+            <span className="text-sm sm:text-base font-bold text-green-dark bg-green-50 px-3 py-1 rounded-full border border-green-100">
               {Number(task.reward).toLocaleString('vi-VN')}đ
             </span>
             {task.itemBudget > 0 && (
@@ -98,13 +98,13 @@ export default function MicroTaskCard({
         {/* Route or Location Info */}
         <div className="space-y-1.5 pt-2 text-xs text-text-muted">
           {hasRoute ? (
-            <div className="p-2.5 rounded-xl bg-orange-50/50 border border-orange-100 space-y-1 text-xs">
+            <div className="p-2.5 rounded-xl bg-green-50/50 border border-green-100 space-y-1 text-xs">
               <div className="flex items-center gap-1.5 text-text-main font-medium">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 <span className="truncate">Đón: {task.pickupAddress}</span>
               </div>
               <div className="flex items-center gap-1.5 text-text-main font-medium">
-                <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-green-main shrink-0" />
                 <span className="truncate">Đến: {task.destinationAddress}</span>
               </div>
               {task.route?.distanceKm != null && (
@@ -126,7 +126,7 @@ export default function MicroTaskCard({
           ) : (
             <div className="flex items-center justify-between gap-1">
               <div className="flex items-center gap-1.5 truncate">
-                <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-green-dark shrink-0" />
                 <span className="font-medium text-text-main truncate" title={task.location}>
                   {task.location}
                 </span>
@@ -217,7 +217,7 @@ export default function MicroTaskCard({
             ) : (
               <button
                 onClick={() => handleOpenAccept(task)}
-                className="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-95"
+                className="w-full py-2.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-95"
               >
                 <CheckCircle className="w-4 h-4" /> Nhận việc này ({Number(task.reward).toLocaleString('vi-VN')}đ)
               </button>

@@ -76,7 +76,7 @@ export default function StudentDashboard() {
             <ShieldCheck className="w-3.5 h-3.5" /> {user?.role === 'worker' || user?.role === 'freelancer' ? 'Lao động tự do đã xác thực' : 'Sinh viên đã xác thực'}
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            Xin chào, {user?.name || 'Bạn'}! 👋
+            Xin chào, {user?.name || 'Bạn'}!
           </h1>
           <p className="mt-2 text-green-50 text-sm sm:text-base leading-relaxed">
             Hôm nay bạn có <span className="font-semibold text-white underline decoration-pink-300 underline-offset-4">{upcomingShifts.length} ca làm việc</span> sắp tới và {pendingApps.length} đơn ứng tuyển đang chờ duyệt.

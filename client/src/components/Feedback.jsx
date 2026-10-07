@@ -64,22 +64,35 @@ export function Spinner({ size = 'md', className }) {
 
 export function LoadingPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
-      <Spinner size="lg" />
-      <p className="text-text-muted text-sm">Đang tải...</p>
+    <div className="space-y-4 py-6" role="status" aria-label="Đang tải">
+      <div className="h-8 w-1/3 rounded-xl bg-green-50 animate-pulse" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="card space-y-3">
+            <div className="h-5 w-2/5 rounded-xl bg-green-50 animate-pulse" />
+            <div className="h-3.5 w-full rounded-xl bg-green-50 animate-pulse" />
+            <div className="h-3.5 w-3/5 rounded-xl bg-green-50 animate-pulse" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-export function EmptyState({ icon, title, description, action }) {
+/** Trạng thái rỗng: biểu tượng trong vòng tròn, một câu giải thích, tùy chọn nút hành động. */
+export function EmptyState({ icon, title, description, action, className }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-      {icon && <div className="text-text-light text-4xl">{icon}</div>}
-      <div>
-        <p className="font-semibold text-text-main text-lg">{title}</p>
-        {description && <p className="text-text-muted text-sm mt-1">{description}</p>}
+    <div className={clsx('flex flex-col items-center justify-center py-12 px-4 gap-3 text-center', className)}>
+      {icon && (
+        <div className="w-16 h-16 rounded-full bg-green-50 text-green-main flex items-center justify-center [&>svg]:w-8 [&>svg]:h-8">
+          {icon}
+        </div>
+      )}
+      <div className="max-w-sm">
+        <p className="font-semibold text-text-main text-base">{title}</p>
+        {description && <p className="text-text-muted text-sm mt-1 leading-relaxed">{description}</p>}
       </div>
-      {action}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }

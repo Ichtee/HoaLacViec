@@ -122,7 +122,7 @@ export default function EmployerVerificationPanel({
                 <form onSubmit={handleSubmitEmployer} className="space-y-5">
                   <div className="border-b border-gray-100 pb-4">
                     <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-purple-600" />
+                      <Building2 className="w-5 h-5 text-green-dark" />
                       Đăng ký hồ sơ Cửa hàng / Cơ sở kinh doanh
                     </h2>
                     <p className="text-xs text-text-muted mt-0.5">
@@ -214,14 +214,14 @@ export default function EmployerVerificationPanel({
                       Ảnh chụp Biển hiệu / Cửa hàng
                     </label>
                     {storePhoto ? (
-                      <div className="relative rounded-2xl overflow-hidden border-2 border-purple-200 bg-purple-50/40 p-3 max-w-sm w-full">
+                      <div className="relative rounded-2xl overflow-hidden border-2 border-green-200 bg-green-50/40 p-3 max-w-sm w-full">
                         <img
                           src={storePhoto}
                           alt="Ảnh cửa hàng"
                           className="w-full aspect-video object-cover rounded-xl shadow-sm"
                         />
                         <div className="mt-2 flex items-center justify-between">
-                          <span className="text-xs text-purple-700 font-semibold flex items-center gap-1">
+                          <span className="text-xs text-green-dark font-semibold flex items-center gap-1">
                             <CheckCircle2 className="w-4 h-4" /> Đã chọn ảnh
                           </span>
                           <button
@@ -234,8 +234,8 @@ export default function EmployerVerificationPanel({
                         </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center p-6 aspect-video max-w-sm w-full border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-purple-50/30 transition-all group">
-                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-purple-600 group-hover:scale-105 transition-all mb-2">
+                      <label className="flex flex-col items-center justify-center p-6 aspect-video max-w-sm w-full border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-2xl cursor-pointer bg-gray-50/50 hover:bg-green-50/30 transition-all group">
+                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-gray-200 flex items-center justify-center text-text-muted group-hover:text-green-dark group-hover:scale-105 transition-all mb-2">
                           <Upload className="w-6 h-6" />
                         </div>
                         <p className="text-xs font-semibold text-text-main">Tải lên ảnh chụp biển hiệu / cửa hàng</p>
@@ -257,7 +257,7 @@ export default function EmployerVerificationPanel({
                       variant="primary"
                       size="lg"
                       loading={loading}
-                      className="w-full sm:w-auto px-8 shadow-sm bg-purple-600 hover:bg-purple-700"
+                      className="w-full sm:w-auto px-8 shadow-sm bg-green-600 hover:bg-green-700"
                     >
                       Gửi hồ sơ đợi xét duyệt <ArrowRight className="w-4 h-4 ml-1" />
                     </Button>

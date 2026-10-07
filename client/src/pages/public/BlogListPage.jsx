@@ -51,7 +51,7 @@ export default function BlogListPage() {
             Góc chia sẻ & Cẩm nang việc làm sinh viên
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
-            Kinh nghiệm làm thêm & Sống tại Hòa Lạc 📖
+            Kinh nghiệm làm thêm & Sống tại Hòa Lạc
           </h1>
           <p className="text-green-100 text-sm sm:text-base leading-relaxed">
             Tổng hợp mẹo phỏng vấn, cẩm nang cân bằng lịch học và các bài viết cảnh báo bẫy lừa đảo thực tế dành riêng cho sinh viên FPT, ĐHQGHN và BKHN.

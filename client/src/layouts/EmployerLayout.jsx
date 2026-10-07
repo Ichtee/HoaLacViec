@@ -28,7 +28,7 @@ function SidebarLink({ to, icon: Icon, label, end }) {
       className={({ isActive }) =>
         clsx(
           'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
-          isActive ? 'bg-pink-main text-white font-semibold shadow-sm' : 'text-text-muted hover:bg-pink-50 hover:text-pink-dark'
+          isActive ? 'bg-green-main text-white font-semibold shadow-sm' : 'text-text-muted hover:bg-green-50 hover:text-green-dark'
         )
       }
     >
@@ -49,8 +49,8 @@ export default function EmployerLayout() {
           <img src="/logo.png" alt="Hoa Lạc Việc" className="h-12 w-auto object-contain transition-transform group-hover:scale-105" />
         </Link>
       </div>
-      <div className="px-4 py-3 bg-pink-50 mx-3 my-3 rounded-2xl border border-pink-100/50">
-        <p className="text-[11px] font-semibold text-pink-dark">Nhà tuyển dụng</p>
+      <div className="px-4 py-3 bg-green-50 mx-3 my-3 rounded-2xl border border-green-100/50">
+        <p className="text-[11px] font-semibold text-green-dark">Nhà tuyển dụng</p>
         <p className="font-bold text-text-main text-sm truncate mt-0.5">{user?.name}</p>
       </div>
       <nav className="flex-1 px-3 py-1 space-y-0.5 overflow-y-auto">

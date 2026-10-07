@@ -19,6 +19,9 @@ import {
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
+import { Tabs } from '@/components/Tabs.jsx';
+import { LoadingPage, EmptyState } from '@/components/Feedback.jsx';
 
 export default function ApplicationsPage() {
   const navigate = useNavigate();
@@ -158,53 +161,32 @@ export default function ApplicationsPage() {
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Header & Tabs */}
-      <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <FileText className="w-6 h-6 text-green-main" /> Quản lý đơn ứng tuyển
-          </h1>
-          <p className="text-xs text-text-muted mt-1">
-            Theo dõi trạng thái xét duyệt hồ sơ và phản hồi đề nghị nhận việc từ các nhà tuyển dụng Hòa Lạc.
-          </p>
-        </div>
-
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 p-1.5 bg-cream/70 rounded-2xl border border-green-50 self-start md:self-center overflow-x-auto max-w-full">
-          {[
-            { id: 'all', label: 'Tất cả' },
-            { id: 'offer_sent', label: 'Có Offer 📨' },
-            { id: 'submitted', label: 'Chờ duyệt' },
-            { id: 'screening', label: 'Đang xét' },
-            { id: 'interview', label: 'Phỏng vấn' },
-            { id: 'hired', label: 'Trúng tuyển' },
-            { id: 'rejected', label: 'Từ chối / Rút' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={clsx(
-                'px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap',
-                activeTab === tab.id
-                  ? 'bg-white text-green-dark shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        icon={FileText}
+        title="Đơn ứng tuyển của tôi"
+        description="Theo dõi trạng thái xét duyệt hồ sơ và phản hồi đề nghị nhận việc từ các nhà tuyển dụng Hòa Lạc."
+      />
+      <Tabs
+        variant="pill"
+        ariaLabel="Lọc đơn theo trạng thái"
+        items={[
+          { id: 'all', label: 'Tất cả' },
+          { id: 'offer_sent', label: 'Có đề nghị' },
+          { id: 'submitted', label: 'Chờ duyệt' },
+          { id: 'screening', label: 'Đang xét' },
+          { id: 'interview', label: 'Phỏng vấn' },
+          { id: 'hired', label: 'Trúng tuyển' },
+          { id: 'rejected', label: 'Từ chối / Rút' },
+        ]}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* List */}
       {loading ? (
-        <div className="text-center py-12 text-text-muted">Đang tải danh sách đơn...</div>
+        <LoadingPage />
       ) : filteredApps.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-green-50 shadow-card space-y-3">
-          <FileText className="w-12 h-12 text-text-muted mx-auto opacity-50" />
-          <h3 className="text-base font-bold text-text-main">Không tìm thấy đơn ứng tuyển nào</h3>
-          <p className="text-xs text-text-muted">Ứng tuyển các công việc mới tại trang danh sách để bắt đầu nhận ca làm.</p>
-        </div>
+        <EmptyState icon={<FileText />} title="Không tìm thấy đơn ứng tuyển nào" description="Ứng tuyển các công việc mới để bắt đầu nhận ca làm." action={<Link to="/student/jobs" className="btn btn-primary btn-sm">Tìm việc ngay</Link>} className="bg-white rounded-3xl border border-green-100" />
       ) : (
         <div className="space-y-4">
           {filteredApps.map((app) => {

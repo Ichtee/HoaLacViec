@@ -46,9 +46,9 @@ export default function MicroTaskModals({
       <Modal isOpen={Boolean(acceptModalTask)} onClose={() => setAcceptModalTask(null)} title="Xác nhận nhận việc vặt" size="md">
         {acceptModalTask && (
           <div className="space-y-4">
-            <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100 space-y-1">
+            <div className="p-4 bg-green-50 rounded-2xl border border-green-100 space-y-1">
               <p className="font-bold text-text-main text-sm">{acceptModalTask.title}</p>
-              <p className="text-xs text-orange-700 font-semibold">
+              <p className="text-xs text-green-dark font-semibold">
                 Thù lao nhận được: {Number(acceptModalTask.reward).toLocaleString('vi-VN')}đ
               </p>
               {acceptModalTask.itemBudget > 0 && (
@@ -72,7 +72,7 @@ export default function MicroTaskModals({
                 value={acceptPhone}
                 placeholder="Nhập 10 số di động để người nhờ gọi cho bạn"
                 onChange={(e) => setAcceptPhone(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-main"
               />
             </div>
 
@@ -83,7 +83,7 @@ export default function MicroTaskModals({
                 value={acceptNote}
                 placeholder="VD: Mình có xe máy, khoảng 15 phút nữa mình ghé..."
                 onChange={(e) => setAcceptNote(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-main"
               />
             </div>
 
@@ -106,7 +106,7 @@ export default function MicroTaskModals({
                 type="button"
                 disabled={submitting}
                 onClick={handleAcceptTask}
-                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-sm"
+                className="px-5 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white text-xs font-bold shadow-sm"
               >
                 {submitting ? 'Đang nhận...' : 'Đồng ý nhận việc'}
               </button>
@@ -135,7 +135,7 @@ export default function MicroTaskModals({
                 value={completionProof}
                 placeholder="VD: Link ảnh Google Drive, Imgur hoặc mô tả đã giao..."
                 onChange={(e) => setCompletionProof(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-main"
               />
             </div>
 
@@ -146,7 +146,7 @@ export default function MicroTaskModals({
                 value={completionNote}
                 placeholder="VD: Đã gửi đồ tại bàn lễ tân KTX Dom A cho bạn..."
                 onChange={(e) => setCompletionNote(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-main"
               />
             </div>
 
@@ -254,7 +254,7 @@ export default function MicroTaskModals({
                 value={cancelReason}
                 placeholder="VD: Đã tìm được người quen giúp, thay đổi kế hoạch..."
                 onChange={(e) => setCancelReason(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-main"
               />
             </div>
 
@@ -312,7 +312,7 @@ export default function MicroTaskModals({
                 value={reviewComment}
                 placeholder="Nhận xét về thái độ, độ đúng giờ, sự nhiệt tình..."
                 onChange={(e) => setReviewComment(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-main"
               />
             </div>
 
@@ -328,7 +328,7 @@ export default function MicroTaskModals({
                 type="button"
                 disabled={submitting}
                 onClick={handleCreateReview}
-                className="px-5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-sm"
+                className="px-5 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white text-xs font-bold shadow-sm"
               >
                 {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
               </button>

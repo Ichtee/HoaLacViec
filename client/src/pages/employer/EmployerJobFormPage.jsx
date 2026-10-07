@@ -443,7 +443,7 @@ export default function EmployerJobFormPage() {
   if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3">
-        <div className="w-10 h-10 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-green-main border-t-transparent rounded-full animate-spin"></div>
         <p className="text-sm font-semibold text-gray-500">Đang tải thông tin việc làm...</p>
       </div>
     );
@@ -461,16 +461,16 @@ export default function EmployerJobFormPage() {
       )}
 
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-pink-100 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-green-100 shadow-xs">
         <div>
           <Link
             to="/employer/jobs"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-pink-600 mb-2 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-green-dark mb-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại danh sách tin tuyển dụng
           </Link>
           <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2.5">
-            <Briefcase className="w-6 h-6 text-pink-700" />
+            <Briefcase className="w-6 h-6 text-green-dark" />
             {isEditing ? 'Chỉnh sửa tin tuyển dụng' : 'Đăng bài tuyển dụng & Ghim bản đồ'}
           </h1>
           <p className="text-xs text-gray-500 mt-1">
@@ -492,7 +492,7 @@ export default function EmployerJobFormPage() {
             type="submit"
             form="job-form"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white font-bold text-xs shadow-md transition-all disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             {submitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Đăng tin tuyển dụng')}
@@ -504,7 +504,7 @@ export default function EmployerJobFormPage() {
         {/* CARD 1: THÔNG TIN CƠ BẢN */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-5">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-            <div className="w-8 h-8 rounded-xl bg-pink-50 text-pink-600 flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 rounded-xl bg-green-50 text-green-dark flex items-center justify-center font-bold text-sm">
               1
             </div>
             <div>
@@ -524,7 +524,7 @@ export default function EmployerJobFormPage() {
                 placeholder="Ví dụ: Tuyển Nhân viên Pha chế & Phục vụ ca Tối (Quán Café Xanh)"
                 value={formData.title}
                 onChange={e => setFormData({ ...formData, title: e.target.value })}
-                className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
+                className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
               />
             </div>
 
@@ -534,7 +534,7 @@ export default function EmployerJobFormPage() {
                 <select
                   value={formData.jobType}
                   onChange={e => setFormData({ ...formData, jobType: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main bg-white text-xs font-semibold text-gray-800"
+                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main bg-white text-xs font-semibold text-gray-800"
                 >
                   <option value="Theo ca">Theo ca linh hoạt</option>
                   <option value="Part-time">Part-time cố định</option>
@@ -552,7 +552,7 @@ export default function EmployerJobFormPage() {
                   step={1000}
                   value={formData.salaryAmount}
                   onChange={e => setFormData({ ...formData, salaryAmount: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-bold text-orange-600"
+                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-bold text-orange-600"
                 />
               </div>
 
@@ -566,7 +566,7 @@ export default function EmployerJobFormPage() {
                   placeholder="0987654321"
                   value={formData.contactPhone}
                   onChange={e => setFormData({ ...formData, contactPhone: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-gray-900"
+                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900"
                 />
               </div>
             </div>
@@ -574,15 +574,15 @@ export default function EmployerJobFormPage() {
         </div>
 
         {/* CARD 2: VỊ TRÍ TUYỂN DỤNG & SỐ LƯỢNG */}
-        <div className="bg-white p-6 rounded-3xl border border-pink-100 shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-pink-50 pb-3">
+        <div className="bg-white p-6 rounded-3xl border border-green-100 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-green-50 pb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-sm">
+              <div className="w-8 h-8 rounded-xl bg-green-100 text-green-dark flex items-center justify-center font-bold text-sm">
                 2
               </div>
               <div>
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                  <Briefcase className="w-4 h-4 text-pink-700" /> Vị trí tuyển dụng & Ca làm việc
+                  <Briefcase className="w-4 h-4 text-green-dark" /> Vị trí tuyển dụng & Ca làm việc
                   <span className="text-red-500">*</span>
                 </h2>
                 <p className="text-[11px] text-gray-500 mt-0.5">
@@ -595,7 +595,7 @@ export default function EmployerJobFormPage() {
             <button
               type="button"
               onClick={handleAddPosition}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors shrink-0 self-start sm:self-auto cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" /> Thêm vị trí
             </button>
@@ -606,10 +606,10 @@ export default function EmployerJobFormPage() {
             {(formData.positions || []).map((pos, idx) => (
               <div
                 key={idx}
-                className="flex flex-col md:flex-row md:items-center gap-3 bg-pink-50/30 p-3 rounded-2xl border border-pink-100 hover:border-pink-200 transition-all animate-scale-in"
+                className="flex flex-col md:flex-row md:items-center gap-3 bg-green-50/30 p-3 rounded-2xl border border-green-100 hover:border-green-200 transition-all animate-scale-in"
               >
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs font-bold text-pink-700 bg-pink-200/80 w-7 h-7 rounded-xl flex items-center justify-center">
+                  <span className="text-xs font-bold text-green-dark bg-green-200/80 w-7 h-7 rounded-xl flex items-center justify-center">
                     {idx + 1}
                   </span>
                   <span className="text-xs font-bold text-gray-700 md:hidden">
@@ -625,7 +625,7 @@ export default function EmployerJobFormPage() {
                     placeholder="Tên vị trí (Ví dụ: Phục vụ bàn, Thu ngân, Pha chế...)"
                     value={pos.title}
                     onChange={e => handlePositionChange(idx, 'title', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
+                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
                   />
                 </div>
 
@@ -634,7 +634,7 @@ export default function EmployerJobFormPage() {
                   <select
                     value={pos.shift}
                     onChange={e => handlePositionChange(idx, 'shift', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-gray-800"
+                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-800"
                   >
                     {PRESET_SHIFTS.map((s, sIdx) => (
                       <option key={sIdx} value={s}>{s}</option>
@@ -651,7 +651,7 @@ export default function EmployerJobFormPage() {
                     max={50}
                     value={pos.quantity === '' ? '' : (pos.quantity ?? 1)}
                     onChange={e => handlePositionChange(idx, 'quantity', e.target.value)}
-                    className="w-12 text-center font-bold text-xs text-pink-700 focus:outline-none"
+                    className="w-12 text-center font-bold text-xs text-green-dark focus:outline-none"
                     title="Số lượng cần tuyển cho vị trí này"
                   />
                   <span className="text-xs text-gray-500 font-medium">bạn</span>
@@ -672,15 +672,15 @@ export default function EmployerJobFormPage() {
             ))}
 
             {/* Footer tổng kết số lượng */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-pink-100/60 mt-3">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-green-100/60 mt-3">
               <span className="text-xs text-gray-600 font-medium">
-                Tổng cộng: <strong className="text-pink-600 font-bold">{totalSlots}</strong> ứng viên cần tuyển ({formData.positions?.length || 0} vị trí)
+                Tổng cộng: <strong className="text-green-dark font-bold">{totalSlots}</strong> ứng viên cần tuyển ({formData.positions?.length || 0} vị trí)
               </span>
 
               <button
                 type="button"
                 onClick={handleAddPosition}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-700 font-bold text-xs transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold text-xs transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> Thêm vị trí khác
               </button>
@@ -722,7 +722,7 @@ export default function EmployerJobFormPage() {
                 required
                 value={selectedProvinceCode}
                 onChange={handleProvinceChange}
-                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-medium"
+                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-medium"
               >
                 <option value="">-- Chọn Tỉnh / TP --</option>
                 {provinces.map(p => (
@@ -738,7 +738,7 @@ export default function EmployerJobFormPage() {
                 disabled={!selectedProvinceCode || loadingDistricts}
                 value={selectedDistrictCode}
                 onChange={handleDistrictChange}
-                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-medium disabled:bg-gray-50"
+                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-medium disabled:bg-gray-50"
               >
                 <option value="">{loadingDistricts ? 'Đang tải...' : '-- Chọn Quận / Huyện --'}</option>
                 {districts.map(d => (
@@ -754,7 +754,7 @@ export default function EmployerJobFormPage() {
                 disabled={!selectedDistrictCode || loadingWards}
                 value={selectedWardCode}
                 onChange={handleWardChange}
-                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-medium disabled:bg-gray-50"
+                className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-medium disabled:bg-gray-50"
               >
                 <option value="">{loadingWards ? 'Đang tải...' : '-- Chọn Xã / Phường --'}</option>
                 {wards.map(w => (
@@ -775,7 +775,7 @@ export default function EmployerJobFormPage() {
               placeholder="Ví dụ: Số 12 ngõ 8, Thôn 3, cạnh cổng Đại học FPT..."
               value={detailAddress}
               onChange={e => handleDetailAddressChange(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
+              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
             />
           </div>
 
@@ -828,7 +828,7 @@ export default function EmployerJobFormPage() {
         {/* CARD 4: MÔ TẢ & YÊU CẦU */}
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 rounded-xl bg-green-50 text-green-dark flex items-center justify-center font-bold text-sm">
               4
             </div>
             <div>
@@ -844,7 +844,7 @@ export default function EmployerJobFormPage() {
               placeholder="Nêu rõ công việc hàng ngày: Pha chế đồ uống, dọn dẹp quầy bar, phục vụ khách, kiểm kê hàng hóa cuối ca..."
               value={formData.description}
               onChange={e => setFormData({ ...formData, description: e.target.value })}
-              className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs resize-none"
+              className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs resize-none"
             />
           </div>
 
@@ -855,7 +855,7 @@ export default function EmployerJobFormPage() {
               placeholder="Ví dụ:&#10;- Chăm chỉ, đúng giờ, giao tiếp thân thiện&#10;- Ưu tiên sinh viên có thể làm ca xoay&#10;- Bao cơm ca, thưởng doanh số theo tháng"
               value={formData.requirements}
               onChange={e => setFormData({ ...formData, requirements: e.target.value })}
-              className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-main text-xs resize-none"
+              className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs resize-none"
             />
           </div>
         </div>
@@ -872,7 +872,7 @@ export default function EmployerJobFormPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold text-xs shadow-lg transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white font-bold text-xs shadow-lg transition-all disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             {submitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Đăng tin tuyển dụng ngay')}

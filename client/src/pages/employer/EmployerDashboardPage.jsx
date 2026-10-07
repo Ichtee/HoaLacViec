@@ -48,23 +48,23 @@ export default function EmployerDashboardPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {/* Banner */}
-      <div className="bg-gradient-to-r from-pink-main via-pink-dark to-purple-700 rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-gradient-to-r from-green-main via-green-dark to-green-dark rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-3">
               <ShieldCheck className="w-3.5 h-3.5" /> Nhà tuyển dụng đã xác minh
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-              Quản lý tuyển dụng — {user?.name || 'Cửa hàng'} 🏪
+              Quản lý tuyển dụng — {user?.name || 'Cửa hàng'}
             </h1>
-            <p className="mt-1 text-pink-100 text-xs sm:text-sm">
+            <p className="mt-1 text-green-100 text-xs sm:text-sm">
               Bạn có <span className="font-bold underline underline-offset-4">{pendingApps.length} đơn ứng tuyển mới</span> từ sinh viên FPT/ĐHQG đang chờ duyệt.
             </p>
           </div>
 
           <Link
             to="/employer/jobs"
-            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-pink-dark font-bold text-xs hover:bg-pink-50 transition-all shadow-md shrink-0 self-start sm:self-center"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-green-dark font-bold text-xs hover:bg-green-50 transition-all shadow-md shrink-0 self-start sm:self-center"
           >
             <Plus className="w-4 h-4" /> Đăng tin tuyển ca mới
           </Link>
@@ -76,7 +76,7 @@ export default function EmployerDashboardPage() {
         <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Tin đang tuyển</span>
-            <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-green-50 text-green-dark flex items-center justify-center">
               <Briefcase className="w-5 h-5" />
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function EmployerDashboardPage() {
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-text-main">{pendingApps.length}</div>
-            <Link to="/employer/applications" className="text-xs text-pink-700 font-semibold hover:underline mt-1 block">
+            <Link to="/employer/applications" className="text-xs text-green-dark font-semibold hover:underline mt-1 block">
               Duyệt hồ sơ ngay →
             </Link>
           </div>
@@ -117,13 +117,13 @@ export default function EmployerDashboardPage() {
         <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Quản lý nhân viên ca</span>
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-green-50 text-green-dark flex items-center justify-center">
               <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3">
             <div className="text-2xl font-bold text-text-main">{shifts.length}</div>
-            <Link to="/employer/shifts" className="text-xs text-purple-600 font-semibold hover:underline mt-1 block">
+            <Link to="/employer/shifts" className="text-xs text-green-dark font-semibold hover:underline mt-1 block">
               Xem lịch ca & điểm danh →
             </Link>
           </div>
@@ -137,9 +137,9 @@ export default function EmployerDashboardPage() {
           <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
-                <Users className="w-5 h-5 text-pink-700" /> Ứng viên mới nộp đơn
+                <Users className="w-5 h-5 text-green-dark" /> Ứng viên mới nộp đơn
               </h2>
-              <Link to="/employer/applications" className="text-xs font-semibold text-pink-700 hover:underline flex items-center gap-1">
+              <Link to="/employer/applications" className="text-xs font-semibold text-green-dark hover:underline flex items-center gap-1">
                 Xem tất cả ứng viên <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -163,7 +163,7 @@ export default function EmployerDashboardPage() {
                       </Badge>
                       <Link
                         to="/employer/applications"
-                        className="px-3 py-1.5 rounded-xl bg-pink-50 text-pink-700 text-xs font-semibold hover:bg-pink-100"
+                        className="px-3 py-1.5 rounded-xl bg-green-50 text-green-dark text-xs font-semibold hover:bg-green-100"
                       >
                         Duyệt
                       </Link>
@@ -180,7 +180,7 @@ export default function EmployerDashboardPage() {
           <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-text-main">Tin đăng gần đây</h3>
-              <Link to="/employer/jobs" className="text-xs text-pink-700 font-semibold hover:underline">Quản lý tin</Link>
+              <Link to="/employer/jobs" className="text-xs text-green-dark font-semibold hover:underline">Quản lý tin</Link>
             </div>
 
             <div className="space-y-3">

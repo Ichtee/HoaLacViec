@@ -22,6 +22,7 @@ import {
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { Tabs } from '@/components/Tabs.jsx';
 
 function getTodayString() {
   const d = new Date();
@@ -275,47 +276,16 @@ export default function StudentShiftsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-stone-200 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        <button
-          onClick={() => setActiveTab('upcoming')}
-          className={clsx(
-            'px-4 sm:px-5 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0',
-            activeTab === 'upcoming'
-              ? 'border-green-main text-green-main'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          )}
-        >
-          <Calendar className="w-4 h-4" />
-          Sắp tới & Đang làm ({upcomingShifts.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('history')}
-          className={clsx(
-            'px-4 sm:px-5 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0',
-            activeTab === 'history'
-              ? 'border-green-main text-green-main'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          )}
-        >
-          <Clock className="w-4 h-4" />
-          Lịch sử ca làm ({historyShifts.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('time_off')}
-          className={clsx(
-            'px-4 sm:px-5 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap shrink-0',
-            activeTab === 'time_off'
-              ? 'border-green-main text-green-main'
-              : 'border-transparent text-text-muted hover:text-text-main'
-          )}
-        >
-          <CalendarOff className="w-4 h-4" />
-          Đơn xin nghỉ ({timeOffRequests.length})
-        </button>
-      </div>
+      <Tabs
+        ariaLabel="Lọc ca làm"
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { id: 'upcoming', label: 'Sắp tới & đang làm', icon: Calendar, count: upcomingShifts.length },
+          { id: 'history', label: 'Lịch sử ca làm', icon: Clock, count: historyShifts.length },
+          { id: 'time_off', label: 'Đơn xin nghỉ', icon: CalendarOff, count: timeOffRequests.length },
+        ]}
+      />
 
       {/* Tab 1: Sắp tới & Đang làm */}
       {activeTab === 'upcoming' && (

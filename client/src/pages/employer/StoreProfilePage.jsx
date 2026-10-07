@@ -97,7 +97,7 @@ export default function StoreProfilePage() {
       {/* Header Banner */}
       <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-pink-main to-purple-600 text-white font-bold text-2xl flex items-center justify-center shadow-md">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-green-main to-green-dark text-white font-bold text-2xl flex items-center justify-center shadow-md">
             <Building2 className="w-8 h-8" />
           </div>
           <div>
@@ -120,7 +120,7 @@ export default function StoreProfilePage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-pink-main text-white font-semibold text-xs hover:bg-pink-dark transition-all shadow-sm disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-green-main text-white font-semibold text-xs hover:bg-green-dark transition-all shadow-sm disabled:opacity-50"
         >
           <Save className="w-4 h-4" /> {saving ? 'Đang lưu...' : 'Lưu thông tin'}
         </button>
@@ -129,7 +129,7 @@ export default function StoreProfilePage() {
       {/* Form Details */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl border border-green-50 shadow-card space-y-6">
         <h2 className="text-lg font-bold text-text-main border-b border-green-50 pb-3 flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-pink-700" /> Hồ sơ gian hàng & Xác minh pháp lý
+          <Building2 className="w-5 h-5 text-green-dark" /> Hồ sơ gian hàng & Xác minh pháp lý
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -139,7 +139,7 @@ export default function StoreProfilePage() {
               type="text"
               value={profile.storeName || user?.name || ''}
               onChange={e => setProfile({ ...profile, storeName: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-pink-main"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main"
             />
           </div>
 
@@ -148,7 +148,7 @@ export default function StoreProfilePage() {
             <select
               value={profile.category}
               onChange={e => setProfile({ ...profile, category: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-pink-main bg-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main bg-white"
             >
               <option value="Cà phê & Đồ uống">Cà phê & Đồ uống</option>
               <option value="Cửa hàng tiện lợi / Siêu thị mini">Cửa hàng tiện lợi / Siêu thị mini</option>
@@ -164,7 +164,7 @@ export default function StoreProfilePage() {
               type="text"
               value={profile.phone}
               onChange={e => setProfile({ ...profile, phone: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-pink-main"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main"
             />
           </div>
 
@@ -174,7 +174,7 @@ export default function StoreProfilePage() {
               type="text"
               value={profile.businessLicense}
               onChange={e => setProfile({ ...profile, businessLicense: e.target.value })}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-pink-main"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main"
             />
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function StoreProfilePage() {
               locationStatus: 'unconfirmed',
             }))}
             placeholder="Số nhà, tên đường, thôn/xóm..."
-            className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-pink-main"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main"
           />
         </div>
 
@@ -223,12 +223,12 @@ export default function StoreProfilePage() {
             rows={4}
             value={profile.description}
             onChange={e => setProfile({ ...profile, description: e.target.value })}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-pink-main resize-none"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main resize-none"
           />
         </div>
 
         {/* Verification Status Card */}
-        <div className="p-4 rounded-2xl bg-pink-50/60 border border-pink-100 flex items-center justify-between gap-4">
+        <div className="p-4 rounded-2xl bg-green-50/60 border border-green-100 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <ShieldCheck className={clsx("w-8 h-8 shrink-0", profile.verificationStatus === 'verified' ? "text-green-600" : "text-amber-500")} />
             <div>

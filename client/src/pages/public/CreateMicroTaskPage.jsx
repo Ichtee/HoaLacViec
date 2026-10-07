@@ -143,9 +143,9 @@ function VietmapAddressAutocomplete({
             if (suggestions.length > 0) setOpen(true);
           }}
           placeholder={placeholder}
-          className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all bg-white"
+          className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all bg-white"
         />
-        <MapPin className="w-4 h-4 text-orange-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <MapPin className="w-4 h-4 text-green-dark absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         {loading && (
           <Loader2 className="w-4 h-4 text-orange-400 animate-spin absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         )}
@@ -157,9 +157,9 @@ function VietmapAddressAutocomplete({
             <li
               key={item.refId || idx}
               onClick={() => handleSelect(item)}
-              className="p-3 hover:bg-orange-50/70 cursor-pointer transition-colors flex items-start gap-2.5"
+              className="p-3 hover:bg-green-50/70 cursor-pointer transition-colors flex items-start gap-2.5"
             >
-              <MapPin className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+              <MapPin className="w-4 h-4 text-green-dark shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="font-semibold text-text-main text-xs truncate">{item.title}</p>
                 {item.address && <p className="text-[11px] text-text-muted truncate mt-0.5">{item.address}</p>}
@@ -321,19 +321,19 @@ export default function CreateMicroTaskPage() {
       <button
         type="button"
         onClick={() => navigate('/tasks')}
-        className="inline-flex items-center gap-2 text-text-muted hover:text-orange-600 text-sm font-semibold mb-6 transition-colors group"
+        className="inline-flex items-center gap-2 text-text-muted hover:text-green-dark text-sm font-semibold mb-6 transition-colors group"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
         Quay lại Chợ Việc Vặt
       </button>
 
       {/* Main Card */}
-      <div className="bg-white rounded-3xl border border-orange-100 shadow-card overflow-hidden">
+      <div className="bg-white rounded-3xl border border-green-100 shadow-card overflow-hidden">
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-6 sm:p-8 text-white relative">
           <div className="relative z-10 max-w-2xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-bold mb-3 border border-white/30">
-              ⚡ Chợ Việc Vặt Siêu Địa Phương Hòa Lạc
+              Chợ Việc Vặt Siêu Địa Phương Hòa Lạc
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Đăng việc vặt cần nhờ sinh viên
@@ -348,7 +348,7 @@ export default function CreateMicroTaskPage() {
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           {/* Section 1: Tiêu đề & Danh mục */}
           <div className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600 flex items-center gap-2 pb-2 border-b border-gray-100">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-green-dark flex items-center gap-2 pb-2 border-b border-gray-100">
               <FileText className="w-4 h-4" /> 1. Thông tin công việc cần nhờ
             </h2>
 
@@ -364,7 +364,7 @@ export default function CreateMicroTaskPage() {
                 placeholder="VD: Nhờ mua cơm trưa giao KTX Dom A, Xe ôm sang KTX ĐHQG..."
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all"
               />
               <p className="text-[11px] text-text-muted mt-1">
                 Tiêu đề ngắn gọn, rõ ràng giúp các bạn sinh viên dễ dàng nhận diện và bấm nhận việc ngay.
@@ -386,14 +386,14 @@ export default function CreateMicroTaskPage() {
                       onClick={() => setFormData({ ...formData, category: cat.id })}
                       className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between ${
                         isSelected
-                          ? 'border-orange-500 bg-orange-50/80 ring-2 ring-orange-400/40 shadow-xs'
-                          : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50/60'
+                          ? 'border-green-main bg-green-50/80 ring-2 ring-green-main/40 shadow-xs'
+                          : 'border-gray-200 hover:border-green-200 hover:bg-gray-50/60'
                       }`}
                     >
                       <div className="flex items-center gap-2">
                         <div
                           className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
-                            isSelected ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600'
+                            isSelected ? 'bg-green-main text-white' : 'bg-gray-100 text-gray-600'
                           }`}
                         >
                           <Icon className="w-4 h-4" />
@@ -410,7 +410,7 @@ export default function CreateMicroTaskPage() {
 
           {/* Section 2: Chi phí & Thù lao */}
           <div className="space-y-4 pt-4 border-t border-gray-100">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600 flex items-center gap-2 pb-2 border-b border-gray-100">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-green-dark flex items-center gap-2 pb-2 border-b border-gray-100">
               <DollarSign className="w-4 h-4" /> 2. Tiền công thù lao & Chi phí mua sắm
             </h2>
 
@@ -427,9 +427,9 @@ export default function CreateMicroTaskPage() {
                     required
                     value={formData.reward}
                     onChange={(e) => setFormData({ ...formData, reward: e.target.value })}
-                    className="w-full pl-9 pr-12 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    className="w-full pl-9 pr-12 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-green-dark focus:outline-none focus:ring-2 focus:ring-green-main"
                   />
-                  <DollarSign className="w-4 h-4 text-orange-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <DollarSign className="w-4 h-4 text-green-dark absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <span className="text-xs font-semibold text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     VNĐ
                   </span>
@@ -449,7 +449,7 @@ export default function CreateMicroTaskPage() {
                     value={formData.itemBudget}
                     onChange={(e) => setFormData({ ...formData, itemBudget: e.target.value })}
                     placeholder="0"
-                    className="w-full pl-9 pr-12 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    className="w-full pl-9 pr-12 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-main"
                   />
                   <CreditCard className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <span className="text-xs font-semibold text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -464,7 +464,7 @@ export default function CreateMicroTaskPage() {
                 <select
                   value={formData.paymentMethod}
                   onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-main bg-white"
                 >
                   <option value="cash">Tiền mặt trực tiếp khi nhận</option>
                   <option value="banking">Chuyển khoản ngân hàng / QR</option>
@@ -476,12 +476,12 @@ export default function CreateMicroTaskPage() {
 
           {/* Section 3: Địa điểm thực hiện */}
           <div className="space-y-4 pt-4 border-t border-gray-100">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600 flex items-center gap-2 pb-2 border-b border-gray-100">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-green-dark flex items-center gap-2 pb-2 border-b border-gray-100">
               <MapPin className="w-4 h-4" /> 3. Địa điểm thực hiện công việc
             </h2>
 
             {isRouteCategory ? (
-              <div className="space-y-3 p-4 bg-orange-50/60 rounded-2xl border border-orange-100">
+              <div className="space-y-3 p-4 bg-green-50/60 rounded-2xl border border-green-100">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <VietmapAddressAutocomplete
                     label="Điểm đón / xuất phát"
@@ -555,8 +555,8 @@ export default function CreateMicroTaskPage() {
                 </div>
 
                 {calculatingRoute && (
-                  <div className="flex items-center gap-2 text-xs text-orange-700 bg-white/80 p-3 rounded-xl border border-orange-200">
-                    <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                  <div className="flex items-center gap-2 text-xs text-green-dark bg-white/80 p-3 rounded-xl border border-green-200">
+                    <Loader2 className="w-4 h-4 animate-spin text-green-dark" />
                     <span>Đang đo cự ly và thời gian di chuyển bằng xe máy qua Vietmap Route v4...</span>
                   </div>
                 )}
@@ -608,7 +608,7 @@ export default function CreateMicroTaskPage() {
 
           {/* Section 4: Thời hạn & Liên hệ */}
           <div className="space-y-4 pt-4 border-t border-gray-100">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600 flex items-center gap-2 pb-2 border-b border-gray-100">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-green-dark flex items-center gap-2 pb-2 border-b border-gray-100">
               <Clock className="w-4 h-4" /> 4. Thời gian cần xong & Thông tin liên hệ
             </h2>
 
@@ -622,7 +622,7 @@ export default function CreateMicroTaskPage() {
                   required
                   value={formData.deadlineDate}
                   onChange={(e) => setFormData({ ...formData, deadlineDate: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-main bg-white"
                 />
                 <p className="text-[11px] text-text-muted mt-1">Quá thời hạn này, việc sẽ tự động đóng nếu chưa có ai nhận.</p>
               </div>
@@ -638,7 +638,7 @@ export default function CreateMicroTaskPage() {
                     value={formData.phone}
                     placeholder="VD: 0987654321"
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-main"
                   />
                   <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -651,7 +651,7 @@ export default function CreateMicroTaskPage() {
 
           {/* Section 5: Mô tả chi tiết */}
           <div className="space-y-4 pt-4 border-t border-gray-100">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600 flex items-center gap-2 pb-2 border-b border-gray-100">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-green-dark flex items-center gap-2 pb-2 border-b border-gray-100">
               <FileText className="w-4 h-4" /> 5. Mô tả chi tiết yêu cầu
             </h2>
 
@@ -667,7 +667,7 @@ export default function CreateMicroTaskPage() {
                 value={formData.description}
                 placeholder="Ghi rõ tên món đồ cần mua, số lượng, lưu ý giao nhận, số phòng hoặc bất kỳ yêu cầu cụ thể nào..."
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full p-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 leading-relaxed"
+                className="w-full p-3.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-main leading-relaxed"
               />
             </div>
 
@@ -694,7 +694,7 @@ export default function CreateMicroTaskPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full sm:w-auto px-8 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl bg-green-main hover:bg-green-dark text-white font-bold text-sm shadow-md transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <>

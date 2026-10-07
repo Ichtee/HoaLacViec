@@ -4,6 +4,8 @@ import { MessageCircle, Send, ArrowLeft } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getChats, openChat, getChatMessages, sendChatMessage } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
+import { EmptyState } from '@/components/Feedback.jsx';
 
 const LIST_POLL_MS = 15000;
 const THREAD_POLL_MS = 5000;
@@ -106,17 +108,12 @@ export default function MessagesPage() {
   return (
     <div className="max-w-5xl mx-auto pb-10 space-y-4">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <div className="bg-white p-5 rounded-3xl border border-stone-200 shadow-card">
-        <h1 className="text-xl font-bold text-text-main flex items-center gap-2">
-          <MessageCircle className="w-6 h-6 text-green-dark" /> Tin nhắn
-        </h1>
-        <p className="text-xs text-text-muted mt-1">Trao đổi trực tiếp trong ứng dụng. Số điện thoại ứng viên chỉ hiện với cửa hàng sau khi có đề nghị nhận việc.</p>
-      </div>
+      <PageHeader icon={MessageCircle} title="Tin nhắn" description="Trao đổi trực tiếp trong ứng dụng. Số điện thoại ứng viên chỉ hiện với cửa hàng sau khi có đề nghị nhận việc." />
 
       <div className="grid md:grid-cols-[18rem_1fr] gap-4 min-h-[28rem]">
         <aside className={clsx('bg-white rounded-3xl border border-stone-200 shadow-card overflow-hidden', activeId && 'hidden md:block')}>
           {conversations.length === 0 ? (
-            <p className="p-5 text-sm text-text-muted">Chưa có cuộc trò chuyện nào. Mở từ nút "Nhắn tin" ở đơn ứng tuyển hoặc việc vặt.</p>
+            <EmptyState icon={<MessageCircle />} title="Chưa có cuộc trò chuyện nào" description='Bấm "Nhắn tin" ở đơn ứng tuyển hoặc việc vặt để bắt đầu.' />
           ) : conversations.map((c) => (
             <button
               key={c.id}
@@ -148,7 +145,7 @@ export default function MessagesPage() {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[26rem]">
-                {messages.length === 0 && <p className="text-xs text-text-muted text-center">Chưa có tin nhắn. Hãy gửi lời chào!</p>}
+                {messages.length === 0 && <EmptyState icon={<MessageCircle />} title="Chưa có tin nhắn" description="Hãy gửi lời chào để bắt đầu cuộc trò chuyện." />}
                 {messages.map((m) => (
                   <div key={m.id} className={clsx('flex', m.mine ? 'justify-end' : 'justify-start')}>
                     <div data-testid="chat-message" className={clsx('max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words',

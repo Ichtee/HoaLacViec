@@ -311,13 +311,13 @@ export default function MicroTasksPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 rounded-3xl p-8 sm:p-12 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-gradient-to-r from-green-main to-green-dark rounded-3xl p-8 sm:p-12 text-white shadow-soft relative overflow-hidden">
         <div className="max-w-2xl relative z-10 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white">
             <ShoppingBag className="w-4 h-4" /> Chợ Việc Vặt Sinh Viên Hòa Lạc
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
-            Thuê Việc Vặt — Giúp Nhau Mỗi Ngày 🛵
+            Thuê Việc Vặt — Giúp Nhau Mỗi Ngày
           </h1>
           <p className="text-amber-50 text-sm sm:text-base leading-relaxed">
             Bạn bận học, đang ốm hay không có xe? Đăng việc nhờ người đi chợ hộ, xe ôm nội khu, chuyển đồ phòng trọ, lấy bưu phẩm... hoặc nhận việc để kiếm thêm tiền tiêu vặt ngay hôm nay!
@@ -326,7 +326,7 @@ export default function MicroTasksPage() {
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
               onClick={handleOpenCreate}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-orange-600 font-bold text-sm hover:bg-amber-50 transition-all shadow-md active:scale-95"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white text-green-dark font-bold text-sm hover:bg-amber-50 transition-all shadow-md active:scale-95"
             >
               <Plus className="w-4 h-4" /> Đăng việc cần nhờ ngay
             </button>
@@ -358,7 +358,7 @@ export default function MicroTasksPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm theo khu vực, mô tả, tên việc..."
-              className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all"
+              className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-main focus:bg-white focus:border-transparent transition-all"
             />
             {search && (
               <button
@@ -374,13 +374,13 @@ export default function MicroTasksPage() {
 
           {/* 2. Dropdown: Chế độ xem / Trạng thái */}
           <div className="relative min-w-[210px] sm:min-w-[230px]">
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-orange-500">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-green-dark">
               <Filter className="w-4 h-4" />
             </div>
             <select
               value={currentTab}
               onChange={(e) => handleTabChange(e.target.value)}
-              className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
+              className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-green-main focus:bg-white focus:border-transparent transition-all cursor-pointer"
             >
               {TASK_TABS.map((tab) => (
                 <option key={tab.id} value={tab.id}>
@@ -395,13 +395,13 @@ export default function MicroTasksPage() {
 
           {/* 3. Dropdown: Phân loại danh mục */}
           <div className="relative min-w-[190px] sm:min-w-[210px]">
-            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-orange-500">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-green-dark">
               <ShoppingBag className="w-4 h-4" />
             </div>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-transparent transition-all cursor-pointer"
+              className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-green-main focus:bg-white focus:border-transparent transition-all cursor-pointer"
             >
               {TASK_CATEGORIES.map((cat) => (
                 <option key={cat.id} value={cat.id}>
@@ -420,7 +420,7 @@ export default function MicroTasksPage() {
           <div className="flex items-center gap-2 pt-2 border-t border-gray-100 text-xs text-gray-500 flex-wrap">
             <span className="font-medium text-gray-600">Đang lọc theo:</span>
             {currentTab !== 'open' && (
-              <span className="inline-flex items-center gap-1 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-lg font-medium border border-orange-200/60">
+              <span className="inline-flex items-center gap-1 bg-green-50 text-green-dark px-2.5 py-1 rounded-lg font-medium border border-green-200/60">
                 {TASK_TABS.find((t) => t.id === currentTab)?.label || currentTab}
               </span>
             )}
@@ -441,7 +441,7 @@ export default function MicroTasksPage() {
                 setCategory('all');
                 setSearch('');
               }}
-              className="ml-auto text-orange-600 hover:text-orange-700 font-semibold cursor-pointer hover:underline text-xs"
+              className="ml-auto text-green-dark hover:text-green-dark font-semibold cursor-pointer hover:underline text-xs"
             >
               Đặt lại mặc định
             </button>
@@ -470,7 +470,7 @@ export default function MicroTasksPage() {
         <div className="text-center py-16 text-text-muted">Đang tải danh sách việc vặt...</div>
       ) : filteredTasks.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-card space-y-4">
-          <Package className="w-12 h-12 text-orange-300 mx-auto" />
+          <Package className="w-12 h-12 text-green-main/50 mx-auto" />
           <h3 className="text-base font-bold text-text-main">Chưa có việc vặt nào trong mục này</h3>
           <p className="text-xs text-text-muted">
             {currentTab === 'open'

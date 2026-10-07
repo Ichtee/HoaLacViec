@@ -207,7 +207,7 @@ export default function EmployerEmployeesPage() {
 
                   {/* Position & Wage */}
                   <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    <span className="inline-flex items-center gap-1 font-bold text-purple-800 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-xl text-xs">
+                    <span className="inline-flex items-center gap-1 font-bold text-green-dark bg-green-50 border border-green-200 px-2.5 py-1 rounded-xl text-xs">
                       🎯 {emp.positionTitle}
                     </span>
                     <span className="inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl text-xs">

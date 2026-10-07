@@ -4,6 +4,8 @@ import { clsx } from 'clsx';
 import { getMyQuickShifts, createQuickShift, cancelQuickShift } from '@/services';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { LoadingPage, EmptyState } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 const STATUS_LABEL = {
   open: ['Đang mở', 'bg-green-50 text-green-700'],
@@ -73,23 +75,19 @@ export default function EmployerQuickShiftsPage() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Zap className="w-6 h-6 text-yellow-500 fill-yellow-400" /> Tuyển nhanh - ca lẻ
-          </h1>
-          <p className="text-xs text-text-muted mt-1">Cần người gấp trong vài ngày tới? Đăng ca, người tìm việc đã xác minh nhận trước được trước, không cần duyệt tin.</p>
-        </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-green-main text-white font-bold text-xs hover:bg-green-dark shadow-sm shrink-0 self-start sm:self-center"
-        >
-          <Plus className="w-4 h-4" /> Đăng ca lẻ
-        </button>
-      </div>
+      <PageHeader
+        icon={Zap}
+        title="Tuyển nhanh - ca lẻ"
+        description="Cần người gấp trong vài ngày tới? Đăng ca, người tìm việc đã xác minh nhận trước được trước, không cần duyệt tin."
+        actions={
+          <button onClick={() => setModalOpen(true)} className="btn btn-primary btn-md">
+            <Plus className="w-4 h-4" /> Đăng ca lẻ
+          </button>
+        }
+      />
 
-      {loading ? <p className="text-center text-text-muted py-10">Đang tải...</p> : shifts.length === 0 ? (
-        <p className="bg-white rounded-2xl p-6 text-sm text-text-muted text-center">Bạn chưa đăng ca lẻ nào.</p>
+      {loading ? <LoadingPage /> : shifts.length === 0 ? (
+        <EmptyState icon={<Zap />} title="Bạn chưa đăng ca lẻ nào" description="Đăng ca lẻ để tìm người làm gấp trong vài ngày tới." action={<button onClick={() => setModalOpen(true)} className="btn btn-primary btn-sm"><Plus className="w-4 h-4" /> Đăng ca lẻ</button>} className="bg-white rounded-3xl border border-green-100" />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {shifts.map((shift) => {

@@ -9,7 +9,6 @@ import {
   Send,
   Check,
 } from 'lucide-react';
-import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
   getApplications,
@@ -20,6 +19,9 @@ import {
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
+import { Tabs } from '@/components/Tabs.jsx';
+import { LoadingPage, EmptyState } from '@/components/Feedback.jsx';
 
 const PIPELINE_TABS = [
   { id: 'all', label: 'Tất cả ứng viên' },
@@ -273,64 +275,36 @@ export default function EmployerApplicationsPage() {
     return true;
   });
 
+  const countForTab = (tabId) => {
+    if (tabId === 'all') return candidates.length;
+    if (tabId === 'submitted') return candidates.filter((a) => ['submitted', 'pending'].includes(a.status) || !a.status).length;
+    if (tabId === 'screening') return candidates.filter((a) => ['screening', 'reviewing', 'shortlisted'].includes(a.status)).length;
+    if (tabId === 'rejected') return candidates.filter((a) => ['rejected', 'withdrawn', 'offer_declined', 'offer_expired', 'offer_rescinded'].includes(a.status)).length;
+    return candidates.filter((a) => a.status === tabId).length;
+  };
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Header */}
-      <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Users className="w-6 h-6 text-green-dark" /> Quản lý ứng viên tuyển dụng
-          </h1>
-          <p className="text-xs text-text-muted mt-1">
-            Quy trình tuyển dụng chuẩn: Nộp hồ sơ ➔ Sàng lọc ➔ Phỏng vấn ➔ Gửi Offer ➔ Ứng viên chấp nhận ➔ Tự động tạo Nhân viên.
-          </p>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-1.5 p-1.5 bg-cream/70 rounded-2xl border border-green-50 self-start md:self-center overflow-x-auto max-w-full">
-          {PIPELINE_TABS.map((tab) => {
-            let count = 0;
-            if (tab.id === 'all') count = candidates.length;
-            else if (tab.id === 'submitted') count = candidates.filter(a => ['submitted', 'pending'].includes(a.status) || !a.status).length;
-            else if (tab.id === 'screening') count = candidates.filter(a => ['screening', 'reviewing', 'shortlisted'].includes(a.status)).length;
-            else if (tab.id === 'interview') count = candidates.filter(a => a.status === 'interview').length;
-            else if (tab.id === 'offer_sent') count = candidates.filter(a => a.status === 'offer_sent').length;
-            else if (tab.id === 'offer_accepted') count = candidates.filter(a => a.status === 'offer_accepted').length;
-            else if (tab.id === 'rejected') count = candidates.filter(a => ['rejected', 'withdrawn', 'offer_declined', 'offer_expired', 'offer_rescinded'].includes(a.status)).length;
-
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={clsx(
-                  'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5',
-                  activeTab === tab.id
-                    ? 'bg-white text-green-dark shadow-xs'
-                    : 'text-text-muted hover:text-text-main hover:bg-white/50'
-                )}
-              >
-                <span>{tab.label}</span>
-                <span className={clsx(
-                  'text-[10px] px-1.5 py-0.2 rounded-full font-bold',
-                  activeTab === tab.id ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
-                )}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="Quản lý ứng viên tuyển dụng"
+        description="Quy trình chuẩn: Nộp hồ sơ → Sàng lọc → Phỏng vấn → Gửi Offer → Ứng viên chấp nhận → Tự động tạo nhân viên."
+      />
+      <Tabs
+        variant="pill"
+        ariaLabel="Lọc ứng viên theo giai đoạn"
+        items={PIPELINE_TABS.map((tab) => ({ ...tab, count: countForTab(tab.id) }))}
+        value={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* Applications List */}
       {loading ? (
-        <div className="text-center py-16 text-text-muted">Đang tải danh sách hồ sơ ứng viên...</div>
+        <LoadingPage />
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-gray-100 shadow-card">
-          <p className="text-sm text-text-muted">Chưa có ứng viên nào trong danh mục này.</p>
-        </div>
+        <EmptyState icon={<Users />} title="Chưa có ứng viên nào ở giai đoạn này" description="Khi sinh viên ứng tuyển, hồ sơ sẽ xuất hiện ở đây." className="bg-white rounded-3xl border border-green-100" />
       ) : (
         <div className="space-y-4">
           {filtered.map((app) => {
@@ -394,8 +368,8 @@ export default function EmployerApplicationsPage() {
 
                   {/* Interview Information Banner */}
                   {app.status === 'interview' && app.interviewSchedule?.date && (
-                    <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-100 text-xs text-purple-900 flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-purple-600 shrink-0" />
+                    <div className="p-2.5 rounded-xl bg-green-50 border border-green-100 text-xs text-green-dark flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-green-dark shrink-0" />
                       <span>
                         Lịch phỏng vấn: <strong>{app.interviewSchedule.date} ({app.interviewSchedule.time || 'Chưa định giờ'})</strong> tại <strong>{app.interviewSchedule.location}</strong>
                       </span>
@@ -481,7 +455,7 @@ export default function EmployerApplicationsPage() {
                         <button
                           type="button"
                           onClick={() => openInterviewModal(app)}
-                          className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs transition-colors"
+                          className="px-3 py-1.5 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold text-xs transition-colors"
                         >
                           Hẹn phỏng vấn
                         </button>
@@ -585,7 +559,7 @@ export default function EmployerApplicationsPage() {
                 <button
                   type="button"
                   onClick={() => openInterviewModal(selectedApp)}
-                  className="px-3.5 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold transition-colors"
+                  className="px-3.5 py-2 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold transition-colors"
                 >
                   Hẹn phỏng vấn 📅
                 </button>
@@ -658,7 +632,7 @@ export default function EmployerApplicationsPage() {
                 type="button"
                 disabled={submitting || !interviewDate || !interviewLocation}
                 onClick={handleSaveInterview}
-                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold disabled:opacity-50"
               >
                 {submitting ? 'Đang gửi...' : 'Gửi lời mời phỏng vấn'}
               </button>

@@ -6,6 +6,8 @@ import {
   getShifts, getShiftSwaps, getSwapColleagues, createShiftSwap, actOnShiftSwap,
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
+import { LoadingPage, EmptyState } from '@/components/Feedback.jsx';
 
 const STATUS = {
   pending_peer: ['Chờ đồng nghiệp trả lời', 'bg-amber-50 text-amber-700'],
@@ -99,16 +101,9 @@ export default function ShiftSwapsPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-card">
-        <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-          <Repeat className="w-6 h-6 text-green-dark" /> Đổi ca
-        </h1>
-        <p className="text-sm text-text-muted mt-2">
-          {isEmployer
+      <PageHeader icon={Repeat} title="Đổi ca" description={isEmployer
             ? 'Duyệt các đề nghị nhờ đồng nghiệp làm thay sau khi người nhận đã đồng ý.'
-            : 'Bận đột xuất? Nhờ đồng nghiệp cùng cửa hàng làm thay. Cần đồng nghiệp đồng ý và cửa hàng duyệt.'}
-        </p>
-      </div>
+            : 'Bận đột xuất? Nhờ đồng nghiệp cùng cửa hàng làm thay. Cần đồng nghiệp đồng ý và cửa hàng duyệt.'} />
 
       {!isEmployer && (
         <form
@@ -145,8 +140,8 @@ export default function ShiftSwapsPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold text-text-main">Đề nghị đổi ca ({swaps.length})</h2>
-        {loading ? <p className="text-sm text-text-muted">Đang tải...</p> : swaps.length === 0 ? (
-          <p className="bg-white rounded-2xl p-5 text-sm text-text-muted">Chưa có đề nghị nào.</p>
+        {loading ? <LoadingPage /> : swaps.length === 0 ? (
+          <EmptyState icon={<Repeat />} title="Chưa có đề nghị đổi ca nào" description="Khi bạn gửi hoặc nhận đề nghị đổi ca, chúng sẽ hiện ở đây." className="bg-white rounded-3xl border border-green-100" />
         ) : swaps.map((swap) => {
           const [label, tone] = STATUS[swap.status] || [swap.status, 'bg-gray-100 text-gray-600'];
           return (

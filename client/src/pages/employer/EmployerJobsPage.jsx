@@ -89,7 +89,7 @@ export default function EmployerJobsPage() {
       <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-pink-700" /> Quản lý tin tuyển dụng
+            <Briefcase className="w-6 h-6 text-green-dark" /> Quản lý tin tuyển dụng
           </h1>
           <p className="text-xs text-text-muted mt-1">
             Đăng tin tuyển dụng và liên kết địa chỉ Google Maps để sinh viên tìm kiếm và đến quán dễ dàng.
@@ -98,7 +98,7 @@ export default function EmployerJobsPage() {
 
         <button
           onClick={() => navigate('/employer/jobs/create')}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all self-start sm:self-center shrink-0"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white font-bold text-xs shadow-md hover:shadow-lg transition-all self-start sm:self-center shrink-0"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin tuyển mới
         </button>
@@ -126,7 +126,7 @@ export default function EmployerJobsPage() {
           </p>
           <button
             onClick={() => navigate('/employer/jobs/create')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white text-xs font-bold shadow-md transition-all"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white text-xs font-bold shadow-md transition-all"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin đầu tiên
           </button>
@@ -150,7 +150,7 @@ export default function EmployerJobsPage() {
                     <div>
                       <span className={clsx(
                         'text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider',
-                        isClosed ? 'bg-gray-200 text-gray-600' : 'bg-pink-100 text-pink-700'
+                        isClosed ? 'bg-gray-200 text-gray-600' : 'bg-green-100 text-green-dark'
                       )}>
                         {job.type === 'shift' ? 'Theo ca' : 'Part-time'}
                       </span>
@@ -226,7 +226,7 @@ export default function EmployerJobsPage() {
                   {job.positions?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {job.positions.map((pos, pIdx) => (
-                        <span key={pIdx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[10px] font-bold border border-purple-100">
+                        <span key={pIdx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-50 text-green-dark text-[10px] font-bold border border-green-100">
                           🎯 {pos.title}: {String(pos.shift || '').split('(')[0].trim()}
                         </span>
                       ))}
@@ -276,7 +276,7 @@ export default function EmployerJobsPage() {
                     })()}
                     <button
                       onClick={() => navigate(`/employer/jobs/${job._id || job.id}/edit`)}
-                      className="p-2 text-gray-500 hover:text-pink-600 hover:bg-pink-50 rounded-xl transition-colors border border-transparent hover:border-pink-200"
+                      className="p-2 text-gray-500 hover:text-green-dark hover:bg-green-50 rounded-xl transition-colors border border-transparent hover:border-green-200"
                       title="Chỉnh sửa tin tuyển dụng này"
                     >
                       <Edit className="w-4 h-4" />

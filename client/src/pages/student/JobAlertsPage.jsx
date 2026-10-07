@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { BellRing, Trash2 } from 'lucide-react';
 import { getJobAlerts, createJobAlert, deleteJobAlert } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
+import { LoadingPage, EmptyState } from '@/components/Feedback.jsx';
 
 const TYPE_LABELS = { part_time: 'Bán thời gian', shift: 'Theo ca', hourly: 'Theo giờ', event: 'Sự kiện' };
 
@@ -63,12 +65,7 @@ export default function JobAlertsPage() {
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card">
-        <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-          <BellRing className="w-6 h-6 text-green-dark" /> Thông báo việc mới
-        </h1>
-        <p className="text-sm text-text-muted mt-2">Lưu tối đa 5 bộ lọc. Khi có tin phù hợp được duyệt, bạn nhận thông báo ngay trong ứng dụng.</p>
-      </div>
+      <PageHeader icon={BellRing} title="Thông báo việc mới" description="Lưu tối đa 5 bộ lọc. Khi có tin phù hợp được duyệt, bạn nhận thông báo ngay trong ứng dụng." />
 
       <form onSubmit={handleCreate} className="bg-white p-5 rounded-3xl border border-green-50 shadow-card grid gap-3 sm:grid-cols-3 items-end">
         <label className="text-xs font-bold text-text-main sm:col-span-3">Từ khóa
@@ -91,8 +88,8 @@ export default function JobAlertsPage() {
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold text-text-main">Bộ lọc của bạn ({alerts.length}/5)</h2>
-        {loading ? <p className="text-sm text-text-muted">Đang tải...</p> : alerts.length === 0 ? (
-          <p className="bg-white rounded-2xl p-5 text-sm text-text-muted">Chưa có bộ lọc nào.</p>
+        {loading ? <LoadingPage /> : alerts.length === 0 ? (
+          <EmptyState icon={<BellRing />} title="Bạn chưa lưu bộ lọc nào" description="Nhập từ khóa ở trên, ví dụ “pha chế”, để nhận thông báo ngay khi có tin phù hợp." className="bg-white rounded-3xl border border-green-100" />
         ) : alerts.map((alert) => (
           <div key={alert._id} className="bg-white rounded-2xl p-4 border border-green-50 flex items-center justify-between gap-3">
             <p className="text-sm text-text-main">{describe(alert)}</p>
