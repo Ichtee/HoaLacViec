@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
   Leaf, LayoutDashboard, Search, Bookmark, FileText,
-  Calendar, ShoppingBag, Star, User, Zap,
+  Calendar, ShoppingBag, Star, User, Zap, MessageCircle,
   Menu, X, LogOut, ChevronLeft, Bell
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -18,6 +18,7 @@ const STUDENT_NAV = [
   { to: '/student/applications', label: 'Đơn ứng tuyển', icon: FileText },
   { to: '/student/quick-shifts', label: 'Ca lẻ', icon: Zap },
   { to: '/student/shifts', label: 'Lịch làm', icon: Calendar },
+  { to: '/student/messages', label: 'Tin nhắn', icon: MessageCircle },
   { to: '/student/reviews', label: 'Đánh giá', icon: Star },
 ];
 

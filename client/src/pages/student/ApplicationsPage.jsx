@@ -262,6 +262,13 @@ export default function ApplicationsPage() {
                       Xem chi tiết đơn
                     </button>
 
+                    <Link
+                      to={`/student/messages?open=application:${app.id || app._id}`}
+                      className="px-3 py-1.5 rounded-xl bg-green-50 hover:bg-green-100 text-green-dark font-bold text-xs transition-colors"
+                    >
+                      Nhắn tin
+                    </Link>
+
                     {['submitted', 'screening', 'pending', 'reviewing'].includes(app.status) && (
                       <button
                         type="button"

@@ -743,6 +743,27 @@ export async function apiDownloadPayrollCsv(from, to) {
   return res.blob();
 }
 
+// ─── CHAT ────────────────────────────────────────────────────────
+export async function apiGetChats() {
+  return request('/chats');
+}
+
+export async function apiGetChatUnreadCount() {
+  return request('/chats/unread-count');
+}
+
+export async function apiOpenChat(kind, refId) {
+  return request('/chats/open', { method: 'POST', body: JSON.stringify({ kind, refId }) });
+}
+
+export async function apiGetChatMessages(id, after) {
+  return request(`/chats/${id}/messages${buildQueryString({ after })}`);
+}
+
+export async function apiSendChatMessage(id, body) {
+  return request(`/chats/${id}/messages`, { method: 'POST', body: JSON.stringify({ body }) });
+}
+
 // ─── QUICK SHIFTS (ca lẻ / tuyển nhanh) ──────────────────────────
 export async function apiGetQuickShifts() {
   return request('/quick-shifts');

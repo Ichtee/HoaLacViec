@@ -450,6 +450,13 @@ export default function EmployerApplicationsPage() {
                         </a>
                       </>
                     )}
+                    <Link
+                      to={`/employer/messages?open=application:${app.id || app._id}`}
+                      className="px-3 py-2 rounded-xl bg-green-main text-white hover:bg-green-dark font-bold text-xs transition-colors"
+                      title="Nhắn tin trong ứng dụng"
+                    >
+                      Nhắn tin
+                    </Link>
                   </div>
 
                   {/* Dynamic Primary Pipeline CTA based on state */}
@@ -519,8 +526,14 @@ export default function EmployerApplicationsPage() {
             <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100 space-y-1.5">
               <p><strong>Vị trí:</strong> {selectedApp.selectedPosition || selectedApp.jobTitle}</p>
               <p><strong>Ca làm mong muốn:</strong> {selectedApp.selectedShift || 'Linh hoạt'}</p>
-              <p><strong>SĐT:</strong> {selectedApp.studentPhone || 'Chưa cập nhật'}</p>
-              <p><strong>Email:</strong> {selectedApp.studentEmail || 'Chưa cập nhật'}</p>
+              {selectedApp.contactHidden ? (
+                <p className="text-text-muted">SĐT và email ứng viên sẽ hiện sau khi bạn gửi đề nghị nhận việc. Hãy dùng nút "Nhắn tin" để trao đổi trước.</p>
+              ) : (
+                <>
+                  <p><strong>SĐT:</strong> {selectedApp.studentPhone || 'Chưa cập nhật'}</p>
+                  <p><strong>Email:</strong> {selectedApp.studentEmail || 'Chưa cập nhật'}</p>
+                </>
+              )}
               {selectedApp.note && <p><strong>Lời nhắn:</strong> "{selectedApp.note}"</p>}
             </div>
 
