@@ -6,7 +6,7 @@ import {
   Phone, MessageCircle, Flag, Search, AlertCircle, Briefcase, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
-import { getJob, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport, updateUserProfile } from '@/services';
+import { getJob, getReviews, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport, updateUserProfile } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JobCard, MatchScoreBar } from '@/components/JobCard.jsx';
 import { VerifiedBadge, Badge } from '@/components/Badge.jsx';
@@ -34,6 +34,7 @@ export default function JobDetailPage() {
   const [applySuccess, setApplySuccess] = useState(false);
   const [matchResult, setMatchResult] = useState(null);
   const [visiblePositionsCount, setVisiblePositionsCount] = useState(5);
+  const [storeReviewResult, setStoreReviewResult] = useState({ targetId: '', reviews: [] });
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState('Lừa đảo / Yêu cầu đặt cọc phí');
@@ -75,6 +76,16 @@ export default function JobDetailPage() {
   }, [user]);
 
   const { data: job, loading, error } = useAsync(() => getJob(id), [id]);
+
+  useEffect(() => {
+    const targetId = job?.employerUserId || job?.employer?.userId;
+    if (!targetId) return;
+    let active = true;
+    getReviews({ targetId, transactionType: 'shift' })
+      .then((data) => { if (active) setStoreReviewResult({ targetId, reviews: Array.isArray(data) ? data : [] }); })
+      .catch(() => { if (active) setStoreReviewResult({ targetId, reviews: [] }); });
+    return () => { active = false; };
+  }, [job?.employerUserId, job?.employer?.userId]);
 
   // Load saved status and match score
   useEffect(() => {
@@ -161,6 +172,8 @@ export default function JobDetailPage() {
   if (!job) return null;
 
   const emp = job.employer;
+  const storeReviews = storeReviewResult.targetId === (job.employerUserId || job.employer?.userId)
+    ? storeReviewResult.reviews : [];
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
   const unitLabel = SALARY_UNIT_LABELS[job.salaryUnit] || '';
   const contactPhone = job.contactPhone || emp?.contactPhone || emp?.phone || job.phone;
@@ -336,6 +349,22 @@ export default function JobDetailPage() {
                 </ul>
               </>
             )}
+          </div>
+
+          {/* Reviews from students who completed shifts at this store */}
+          <div className="card">
+            <h2 className="section-title mb-4">Đánh giá nơi làm việc</h2>
+            {storeReviews.length === 0 ? <p className="text-sm text-text-muted">Chưa có nhận xét từ sinh viên đã làm việc tại cửa hàng.</p> :
+              <div className="space-y-4">
+                {storeReviews.slice(0, 5).map((review) => <div key={review.id || review._id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-semibold text-text-main">{review.authorName}</span>
+                    <span className="text-text-muted">{review.date}</span>
+                  </div>
+                  <p className="text-yellow-600 text-sm" aria-label={`${review.rating} trên 5 sao`}>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</p>
+                  {review.comment && <p className="text-sm text-text-main mt-1">{review.comment}</p>}
+                </div>)}
+              </div>}
           </div>
 
           {/* Schedule */}

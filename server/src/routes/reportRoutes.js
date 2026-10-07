@@ -4,6 +4,7 @@ import { Report } from '../models/Report.js';
 import { User } from '../models/User.js';
 import { Job } from '../models/Job.js';
 import { Review } from '../models/Review.js';
+import { syncAggregateRating } from './reviewRoutes.js';
 import { MicroTask } from '../models/MicroTask.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate, authorize, requireActiveUser } from '../middlewares/auth.js';
@@ -232,7 +233,10 @@ router.post('/:id/resolve', authenticate, authorize('admin'), async (req, res, n
           },
         });
       } else if (report.targetType === 'review') {
-        await Review.findByIdAndUpdate(report.targetId, { status: 'hidden' });
+        const hiddenReview = await Review.findByIdAndUpdate(report.targetId, { status: 'hidden' });
+        if (hiddenReview?.targetId && ['shift', 'task'].includes(hiddenReview.transactionType)) {
+          await syncAggregateRating(hiddenReview.targetId, hiddenReview.transactionType);
+        }
       } else if (report.targetType === 'job') {
         await Job.findByIdAndUpdate(report.targetId, { status: 'closed' });
       }

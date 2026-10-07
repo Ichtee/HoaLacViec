@@ -9,9 +9,15 @@ const reviewSchema = new mongoose.Schema({
   transactionType: { type: String, enum: ['shift', 'task', 'direct'], default: 'direct' },
   transactionId: { type: mongoose.Schema.Types.ObjectId, default: null },
   tags: [{ type: String }],
+  criteria: {
+    jobAccuracy: { type: Number, min: 1, max: 5 },
+    shiftManagement: { type: Number, min: 1, max: 5 },
+    workEnvironment: { type: Number, min: 1, max: 5 },
+    payment: { type: Number, min: 1, max: 5 },
+  },
   type: { type: String, enum: ['received', 'given'], default: 'received' },
   rating: { type: Number, min: 1, max: 5, required: true },
-  comment: { type: String, required: true },
+  comment: { type: String, default: '', required() { return this.transactionType !== 'shift'; } },
   status: { type: String, enum: ['published', 'flagged', 'hidden'], default: 'published' },
 }, { timestamps: true });
 
