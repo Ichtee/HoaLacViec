@@ -7,6 +7,7 @@ import { EmployerVerification } from '../models/EmployerVerification.js';
 import { Availability } from '../models/Availability.js';
 import { Application } from '../models/Application.js';
 import { getWorkHistory } from '../services/workHistoryService.js';
+import { persistImage } from '../services/imageStorageService.js';
 import { authenticate, optionalAuthenticate } from '../middlewares/auth.js';
 import { isValidCoordinate } from '../utils/geoHelper.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
@@ -494,13 +495,15 @@ router.post('/student-verification/submit', authenticate, async (req, res, next)
       });
     }
 
+    const storedCardPhoto = await persistImage(studentCardPhoto, { folder: 'student-cards' });
+
     const profile = await StudentProfile.findOneAndUpdate(
       { userId: req.user._id },
       {
         $set: {
           userId: req.user._id,
           profileType: 'student',
-          studentCardPhoto: studentCardPhoto || '',
+          studentCardPhoto: storedCardPhoto,
           university: (university || 'Đại học FPT Hòa Lạc').trim(),
           studentCode: studentCode.trim().toUpperCase(),
           major: (major || 'Kỹ thuật phần mềm').trim(),
@@ -612,6 +615,9 @@ router.post('/worker-verification/submit', authenticate, async (req, res, next) 
       });
     }
 
+    const storedFrontPhoto = await persistImage(idCardFrontPhoto, { folder: 'id-cards' });
+    const storedBackPhoto = await persistImage(idCardBackPhoto, { folder: 'id-cards' });
+
     const profile = await StudentProfile.findOneAndUpdate(
       { userId: req.user._id },
       {
@@ -619,8 +625,8 @@ router.post('/worker-verification/submit', authenticate, async (req, res, next) 
           userId: req.user._id,
           profileType: 'worker',
           idCardNumber: cleanIdNumber,
-          idCardFrontPhoto: idCardFrontPhoto || '',
-          idCardBackPhoto: idCardBackPhoto || '',
+          idCardFrontPhoto: storedFrontPhoto,
+          idCardBackPhoto: storedBackPhoto,
           profession: (profession || 'Lao động tự do').trim(),
           transport: transport || 'xe_may',
           bio: (bio || '').trim(),
@@ -731,6 +737,15 @@ router.post('/employer-verification/submit', authenticate, async (req, res, next
       });
     }
 
+    if (Array.isArray(documents) && documents.length > 6) {
+      return res.status(400).json({ error: 'Chỉ được gửi tối đa 6 tài liệu.', code: 'TOO_MANY_DOCUMENTS' });
+    }
+    const storedDocuments = [];
+    for (const doc of Array.isArray(documents) ? documents : []) {
+      if (!doc?.url) continue;
+      storedDocuments.push({ ...doc, url: await persistImage(doc.url, { folder: 'employer-docs' }) });
+    }
+
     // Upsert hồ sơ cửa hàng
     await EmployerProfile.findOneAndUpdate(
       { userId: req.user._id },
@@ -769,7 +784,7 @@ router.post('/employer-verification/submit', authenticate, async (req, res, next
           idCardNumber: (idCardNumber || '').trim(),
           businessAddress: businessAddress.trim(),
           contactPhone: contactPhone.trim(),
-          documents: Array.isArray(documents) ? documents : [],
+          documents: storedDocuments,
           status: 'pending',
           rejectionReason: '',
           reviewedBy: null,

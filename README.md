@@ -24,6 +24,8 @@ Với tin cũ có `slots` và `remainingOpenings` lệch nhau, xem trước bằ
 
 **Tác vụ nền:** Server tự chạy mỗi 10 phút (`MAINTENANCE_INTERVAL_MS` để đổi, `DISABLE_MAINTENANCE_JOBS=true` để tắt): đánh dấu offer quá hạn, chuyển tin quá `closesAt` sang `expired` và nhắc nhân viên các ca bắt đầu trong 2 giờ tới.
 
+**Ảnh xác minh:** Đặt `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` để ảnh thẻ sinh viên, CCCD và giấy phép được tải lên Cloudinary (tên file ngẫu nhiên 128 bit) thay vì lưu base64 trong MongoDB; chỉ loại JPEG/PNG/WebP, tối đa 5MB. Khi thiếu cấu hình, hành vi cũ được giữ nguyên. Chuyển ảnh đã lưu: `cd server && npm run migrate:verification-images` (xem trước), thêm `-- --apply` để thực hiện. Nên sao lưu database trước.
+
 **Phiên đăng nhập:** Access token sống 15 phút (`ACCESS_TOKEN_TTL` để đổi). Refresh token dùng một lần, xoay vòng sau mỗi lần làm mới, chỉ lưu hash trong database và gửi qua cookie httpOnly (`/api/auth/refresh`, `/api/auth/logout`). Đổi hoặc đặt lại mật khẩu thu hồi mọi refresh token. Cookie chỉ gửi được khi frontend gọi `/api` cùng origin (proxy Vercel hoặc Vite); nếu dùng `VITE_API_URL` khác origin, cần cấu hình CORS `credentials` và cookie `SameSite=None`.
 
 **PWA và thông báo đẩy:** Ứng dụng có thể cài lên màn hình chính (manifest + service worker, chỉ đăng ký ở bản production). Để bật Web Push, chạy `cd server && npx web-push generate-vapid-keys`, rồi đặt `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` trên server. Khi thiếu cấu hình, nút bật thông báo đẩy trong chuông thông báo vẫn hiện nhưng máy chủ trả 503 và không gửi push. Mọi thông báo mới trong hệ thống tự động được đẩy tới các thiết bị đã đăng ký.
