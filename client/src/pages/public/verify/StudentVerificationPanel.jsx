@@ -151,7 +151,7 @@ export default function StudentVerificationPanel({
                 {existingStudentVerification?.verificationStatus === 'rejected' && (
                   <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 space-y-1">
                     <p className="font-bold flex items-center gap-1.5">
-                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                      <AlertCircle className="w-4 h-4 text-red-700 flex-shrink-0" />
                       Hồ sơ sinh viên trước đây bị từ chối:
                     </p>
                     <p className="pl-5.5">
@@ -164,10 +164,10 @@ export default function StudentVerificationPanel({
                   {/* Searchable University Combobox */}
                   <div className="relative" ref={uniDropdownRef}>
                     <label className="block text-xs font-bold text-text-main mb-1.5">
-                      Trường Đại học / Cao đẳng <span className="text-red-500">*</span>
+                      Trường Đại học / Cao đẳng <span className="text-red-700">*</span>
                     </label>
                     <div className="relative">
-                      <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                       <input
                         type="text"
                         required
@@ -184,7 +184,7 @@ export default function StudentVerificationPanel({
                       <button
                         type="button"
                         onClick={() => setIsUniDropdownOpen(!isUniDropdownOpen)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 p-1"
                         aria-label="Toggle university list"
                       >
                         <ChevronDown
@@ -233,7 +233,7 @@ export default function StudentVerificationPanel({
                                     <span className="truncate">{u.name}</span>
                                   </div>
                                   {u.domain && (
-                                    <span className="text-[10px] text-gray-400 font-mono flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded">
+                                    <span className="text-[10px] text-gray-500 font-mono flex-shrink-0 bg-gray-100 px-1.5 py-0.5 rounded">
                                       {u.domain}
                                     </span>
                                   )}

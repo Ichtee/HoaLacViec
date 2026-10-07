@@ -435,7 +435,7 @@ export default function StudentShiftsPage() {
                         </div>
                       )}
                       {shift.cancelReason && (
-                        <div className="text-xs text-red-600 mt-1 italic">
+                        <div className="text-xs text-red-700 mt-1 italic">
                           Lý do hủy: {shift.cancelReason}
                         </div>
                       )}
@@ -508,7 +508,7 @@ export default function StudentShiftsPage() {
                     {req.status === 'pending' && (
                       <button
                         onClick={() => handleCancelTimeOff(req._id || req.id)}
-                        className="btn btn-outline btn-xs text-red-600 hover:bg-red-50 border-red-200"
+                        className="btn btn-outline btn-xs text-red-700 hover:bg-red-50 border-red-200"
                       >
                         Hủy đơn
                       </button>
@@ -531,7 +531,7 @@ export default function StudentShiftsPage() {
           {employments.length > 1 && (
             <div>
               <label className="label">Chọn nơi làm việc / Quản lý</label>
-              <select
+              <select aria-label="Chọn nơi làm việc / Quản lý"
                 value={timeOffForm.employerUserId}
                 onChange={(e) => setTimeOffForm({ ...timeOffForm, employerUserId: e.target.value })}
                 className="input"
@@ -549,7 +549,7 @@ export default function StudentShiftsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Từ ngày</label>
-              <input
+              <input aria-label="Từ ngày"
                 type="date"
                 value={timeOffForm.startDate}
                 min={todayStr}
@@ -560,7 +560,7 @@ export default function StudentShiftsPage() {
             </div>
             <div>
               <label className="label">Đến ngày</label>
-              <input
+              <input aria-label="Đến ngày"
                 type="date"
                 value={timeOffForm.endDate}
                 min={timeOffForm.startDate || todayStr}
@@ -573,7 +573,7 @@ export default function StudentShiftsPage() {
 
           <div>
             <label className="label">Lý do xin nghỉ</label>
-            <textarea
+            <textarea aria-label="Lý do xin nghỉ"
               rows={3}
               value={timeOffForm.reason}
               onChange={(e) => setTimeOffForm({ ...timeOffForm, reason: e.target.value })}

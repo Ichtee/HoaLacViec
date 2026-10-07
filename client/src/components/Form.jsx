@@ -7,7 +7,7 @@ export function Input({ label, error, hint, id, className, required, ...props })
       {label && (
         <label htmlFor={id} className="label">
           {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
+          {required && <span className="text-red-700 ml-0.5">*</span>}
         </label>
       )}
       <input
@@ -27,7 +27,7 @@ export function Textarea({ label, error, hint, id, className, required, rows = 3
       {label && (
         <label htmlFor={id} className="label">
           {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
+          {required && <span className="text-red-700 ml-0.5">*</span>}
         </label>
       )}
       <textarea
@@ -48,7 +48,7 @@ export function Select({ label, error, hint, id, className, wrapperClassName, re
       {label && (
         <label htmlFor={id} className="label">
           {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
+          {required && <span className="text-red-700 ml-0.5">*</span>}
         </label>
       )}
       <div className="relative">
@@ -69,7 +69,7 @@ export function Select({ label, error, hint, id, className, wrapperClassName, re
               })
             : children}
         </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-500">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
           </svg>

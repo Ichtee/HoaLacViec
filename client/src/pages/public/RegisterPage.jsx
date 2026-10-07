@@ -169,7 +169,7 @@ export default function RegisterPage() {
             </div>
 
             {errors.submit && (
-              <p className="p-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-semibold">{errors.submit}</p>
+              <p className="p-2.5 rounded-xl bg-red-50 text-red-700 text-xs font-semibold">{errors.submit}</p>
             )}
 
             <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full mt-2">

@@ -250,7 +250,7 @@ function getVerificationTargetType(req) {
         {/* Sub-Filters: Status & Search */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-            <span className="text-gray-400 text-[11px] font-semibold uppercase tracking-wider mr-1">
+            <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-wider mr-1">
               Trạng thái:
             </span>
             {[
@@ -275,7 +275,7 @@ function getVerificationTargetType(req) {
           </div>
 
           <div className="relative min-w-[220px]">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -289,11 +289,11 @@ function getVerificationTargetType(req) {
 
       {/* Verification Cards List */}
       {loading ? (
-        <div className="bg-white p-12 text-center rounded-3xl border border-gray-100 text-gray-400 text-xs flex items-center justify-center gap-2">
+        <div className="bg-white p-12 text-center rounded-3xl border border-gray-100 text-gray-500 text-xs flex items-center justify-center gap-2">
           <RefreshCw className="w-4 h-4 animate-spin" /> Đang tải danh sách hồ sơ...
         </div>
       ) : filteredRequests.length === 0 ? (
-        <div className="bg-white p-12 text-center rounded-3xl border border-gray-100 text-gray-400 text-xs">
+        <div className="bg-white p-12 text-center rounded-3xl border border-gray-100 text-gray-500 text-xs">
           Không có hồ sơ xác minh nào phù hợp bộ lọc hiện tại.
         </div>
       ) : (
@@ -353,7 +353,7 @@ function getVerificationTargetType(req) {
                     </Badge>
 
                     {req.createdAt && (
-                      <span className="text-[11px] text-gray-400">
+                      <span className="text-[11px] text-gray-500">
                         {new Date(req.createdAt).toLocaleDateString('vi-VN', {
                           day: '2-digit',
                           month: '2-digit',
@@ -534,7 +534,7 @@ function getVerificationTargetType(req) {
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={() => handleReview(targetId, 'rejected', targetType)}
-                        className="px-3.5 py-2 rounded-xl bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 transition-colors"
+                        className="px-3.5 py-2 rounded-xl bg-red-50 text-red-700 font-bold text-xs hover:bg-red-100 transition-colors"
                       >
                         Từ chối
                       </button>

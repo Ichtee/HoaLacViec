@@ -380,7 +380,7 @@ export default function EmployerApplicationsPage() {
                   {app.status === 'offer_sent' && app.offer && (
                     <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-100 text-xs text-emerald-900 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <Send className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <Send className="w-4 h-4 text-emerald-700 shrink-0" />
                         <span>
                           Đã gửi Offer vị trí <strong>{app.offer.position}</strong> ({Number(app.offer.wage).toLocaleString('vi-VN')}đ/{app.offer.wageUnit}). Đang chờ phản hồi.
                         </span>
@@ -388,7 +388,7 @@ export default function EmployerApplicationsPage() {
                       <button
                         type="button"
                         onClick={() => handleRescindOffer(app)}
-                        className="text-red-600 hover:text-red-700 font-bold text-[11px] underline shrink-0"
+                        className="text-red-700 hover:text-red-700 font-bold text-[11px] underline shrink-0"
                       >
                         Thu hồi Offer
                       </button>
@@ -518,7 +518,7 @@ export default function EmployerApplicationsPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Ghi chú nội bộ (Chỉ nhà tuyển dụng thấy):</label>
-              <textarea
+              <textarea aria-label="Ghi chú nội bộ (Chỉ nhà tuyển dụng thấy):"
                 rows={2}
                 value={internalNote}
                 onChange={(e) => setInternalNote(e.target.value)}
@@ -529,7 +529,7 @@ export default function EmployerApplicationsPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Tin nhắn gửi ứng viên:</label>
-              <textarea
+              <textarea aria-label="Tin nhắn gửi ứng viên:"
                 rows={2}
                 value={candidateFeedback}
                 onChange={(e) => setCandidateFeedback(e.target.value)}
@@ -543,7 +543,7 @@ export default function EmployerApplicationsPage() {
                 type="button"
                 onClick={() => handleStatusChange('rejected')}
                 disabled={submitting}
-                className="px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-bold transition-colors"
+                className="px-3 py-2 rounded-xl text-red-700 hover:bg-red-50 font-bold transition-colors"
               >
                 Từ chối hồ sơ
               </button>
@@ -580,7 +580,7 @@ export default function EmployerApplicationsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-bold text-gray-800 block mb-1">Ngày phỏng vấn *</label>
-                <input
+                <input aria-label="Ngày phỏng vấn"
                   type="date"
                   value={interviewDate}
                   onChange={(e) => setInterviewDate(e.target.value)}
@@ -589,7 +589,7 @@ export default function EmployerApplicationsPage() {
               </div>
               <div>
                 <label className="font-bold text-gray-800 block mb-1">Giờ phỏng vấn *</label>
-                <input
+                <input aria-label="Giờ phỏng vấn"
                   type="time"
                   value={interviewTime}
                   onChange={(e) => setInterviewTime(e.target.value)}
@@ -600,7 +600,7 @@ export default function EmployerApplicationsPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Địa điểm phỏng vấn (hoặc link online) *</label>
-              <input
+              <input aria-label="Địa điểm phỏng vấn (hoặc link online)"
                 type="text"
                 value={interviewLocation}
                 onChange={(e) => setInterviewLocation(e.target.value)}
@@ -611,7 +611,7 @@ export default function EmployerApplicationsPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Lời nhắn / dặn dò ứng viên:</label>
-              <textarea
+              <textarea aria-label="Lời nhắn / dặn dò ứng viên:"
                 rows={2}
                 value={interviewNote}
                 onChange={(e) => setInterviewNote(e.target.value)}
@@ -659,7 +659,7 @@ export default function EmployerApplicationsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-bold text-gray-800 block mb-1">Vị trí nhận việc *</label>
-                <input
+                <input aria-label="Vị trí nhận việc"
                   type="text"
                   value={offerPosition}
                   onChange={(e) => setOfferPosition(e.target.value)}
@@ -691,7 +691,7 @@ export default function EmployerApplicationsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="font-bold text-gray-800 block mb-1">Ca làm việc dự kiến</label>
-                <input
+                <input aria-label="Ca làm việc dự kiến"
                   type="text"
                   value={offerSchedule}
                   onChange={(e) => setOfferSchedule(e.target.value)}
@@ -700,7 +700,7 @@ export default function EmployerApplicationsPage() {
               </div>
               <div>
                 <label className="font-bold text-gray-800 block mb-1">Ngày bắt đầu làm việc</label>
-                <input
+                <input aria-label="Ngày bắt đầu làm việc"
                   type="date"
                   value={offerStartDate}
                   onChange={(e) => setOfferStartDate(e.target.value)}
@@ -711,7 +711,7 @@ export default function EmployerApplicationsPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Thời hạn phản hồi offer</label>
-              <select
+              <select aria-label="Thời hạn phản hồi offer"
                 value={offerExpiryDays}
                 onChange={(e) => setOfferExpiryDays(e.target.value)}
                 className="w-full p-2 rounded-xl border border-gray-200 bg-white font-semibold"
@@ -725,7 +725,7 @@ export default function EmployerApplicationsPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Lời nhắn gửi kèm offer:</label>
-              <textarea
+              <textarea aria-label="Lời nhắn gửi kèm offer:"
                 rows={2}
                 value={offerNote}
                 onChange={(e) => setOfferNote(e.target.value)}

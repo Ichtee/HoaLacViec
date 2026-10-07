@@ -150,7 +150,7 @@ export default function ChangePasswordPage() {
 
       {/* Error Alert */}
       {error && (
-        <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-600 font-medium flex items-center gap-2.5 animate-fade-in">
+        <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-700 font-medium flex items-center gap-2.5 animate-fade-in">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -162,7 +162,7 @@ export default function ChangePasswordPage() {
         {hasExistingPassword && (
           <div>
             <label className="block text-xs font-bold text-text-main mb-1.5">
-              Mật khẩu hiện tại <span className="text-red-500">*</span>
+              Mật khẩu hiện tại <span className="text-red-700">*</span>
             </label>
             <div className="relative">
               <input
@@ -176,7 +176,7 @@ export default function ChangePasswordPage() {
               <button
                 type="button"
                 onClick={() => setShowOldPass(!showOldPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 p-1"
                 aria-label="Toggle password visibility"
               >
                 {showOldPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -188,7 +188,7 @@ export default function ChangePasswordPage() {
         {/* New password */}
         <div>
           <label className="block text-xs font-bold text-text-main mb-1.5">
-            Mật khẩu mới (Từ 6 đến 32 ký tự) <span className="text-red-500">*</span>
+            Mật khẩu mới (Từ 6 đến 32 ký tự) <span className="text-red-700">*</span>
           </label>
           <div className="relative">
             <input
@@ -204,7 +204,7 @@ export default function ChangePasswordPage() {
             <button
               type="button"
               onClick={() => setShowNewPass(!showNewPass)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 p-1"
               aria-label="Toggle password visibility"
             >
               {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -215,7 +215,7 @@ export default function ChangePasswordPage() {
         {/* Confirm password */}
         <div>
           <label className="block text-xs font-bold text-text-main mb-1.5">
-            Xác nhận mật khẩu mới <span className="text-red-500">*</span>
+            Xác nhận mật khẩu mới <span className="text-red-700">*</span>
           </label>
           <input
             type={showNewPass ? 'text' : 'password'}

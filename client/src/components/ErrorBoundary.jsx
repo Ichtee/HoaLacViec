@@ -34,7 +34,7 @@ export class ErrorBoundary extends React.Component {
       return (
         <div className="min-h-[50vh] flex items-center justify-center p-6">
           <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-red-100 shadow-modal text-center space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-700 flex items-center justify-center mx-auto">
               <AlertCircle className="w-8 h-8" />
             </div>
             <h2 className="text-xl font-bold text-gray-900">Đã xảy ra lỗi không mong muốn</h2>

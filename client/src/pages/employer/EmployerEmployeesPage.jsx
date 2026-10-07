@@ -119,7 +119,7 @@ export default function EmployerEmployeesPage() {
       {/* SEARCH BAR */}
       <div className="bg-white p-3.5 rounded-3xl border border-gray-100 shadow-card flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+          <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-3" />
           <input
             type="text"
             value={searchQuery}
@@ -194,11 +194,11 @@ export default function EmployerEmployeesPage() {
                             {emp.studentName}
                           </h3>
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold text-[11px] border border-emerald-200">
-                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                            <CheckCircle className="w-3 h-3 text-emerald-700" />
                             {emp.status === 'onboarding' ? 'Đang thử việc' : 'Nhân viên chính thức'}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-gray-500 mt-1">
                           Ngày bắt đầu: <strong className="text-gray-600">{startDateFormatted}</strong> • {emp.workplace}
                         </p>
                       </div>
@@ -223,7 +223,7 @@ export default function EmployerEmployeesPage() {
                     </p>
                     {emp.studentEmail && (
                       <p className="text-gray-600 flex items-center gap-2">
-                        <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <Mail className="w-3.5 h-3.5 text-gray-500 shrink-0" />
                         <span>Email: {emp.studentEmail}</span>
                       </p>
                     )}
@@ -265,7 +265,7 @@ export default function EmployerEmployeesPage() {
                     <button
                       type="button"
                       onClick={() => setTerminatingEmp(emp)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-red-200 text-xs font-bold text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-red-200 text-xs font-bold text-red-700 hover:bg-red-50 hover:border-red-300 transition-colors"
                     >
                       <UserX className="w-3.5 h-3.5" /> Kết thúc làm việc
                     </button>
@@ -299,7 +299,7 @@ export default function EmployerEmployeesPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Lý do kết thúc *</label>
-              <select
+              <select aria-label="Lý do kết thúc"
                 value={terminationReason}
                 onChange={e => setTerminationReason(e.target.value)}
                 className="w-full p-2.5 rounded-xl border border-gray-200 bg-white font-semibold"
@@ -313,7 +313,7 @@ export default function EmployerEmployeesPage() {
 
             <div>
               <label className="font-bold text-gray-800 block mb-1">Ghi chú chi tiết:</label>
-              <textarea
+              <textarea aria-label="Ghi chú chi tiết:"
                 rows={2}
                 value={terminationNote}
                 onChange={e => setTerminationNote(e.target.value)}
@@ -328,7 +328,7 @@ export default function EmployerEmployeesPage() {
                   type="checkbox"
                   checked={cancelFutureShifts}
                   onChange={e => setCancelFutureShifts(e.target.checked)}
-                  className="rounded border-gray-300 text-red-600 focus:ring-red-500 w-4 h-4"
+                  className="rounded border-gray-300 text-red-700 focus:ring-red-500 w-4 h-4"
                 />
                 <span>Tự động hủy các ca làm trong tương lai của nhân viên này</span>
               </label>

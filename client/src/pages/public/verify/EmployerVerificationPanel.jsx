@@ -227,7 +227,7 @@ export default function EmployerVerificationPanel({
                           <button
                             type="button"
                             onClick={() => setStorePhoto('')}
-                            className="text-xs text-red-600 hover:underline font-medium"
+                            className="text-xs text-red-700 hover:underline font-medium"
                           >
                             Đổi ảnh khác
                           </button>

@@ -155,8 +155,8 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t border-green-700 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-green-300 text-sm">© 2026 Hoa Lạc Việc — Nền tảng việc làm & Hỗ trợ sinh viên Hòa Lạc</p>
-          <span className="text-xs text-green-300 font-medium">Phiên bản chính thức v1.0.0</span>
+          <p className="text-green-200 text-sm">© 2026 Hoa Lạc Việc — Nền tảng việc làm & Hỗ trợ sinh viên Hòa Lạc</p>
+          <span className="text-xs text-green-200 font-medium">Phiên bản chính thức v1.0.0</span>
         </div>
       </div>
     </footer>

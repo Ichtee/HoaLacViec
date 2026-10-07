@@ -93,7 +93,7 @@ export default function JobAlertsPage() {
         ) : alerts.map((alert) => (
           <div key={alert._id} className="bg-white rounded-2xl p-4 border border-green-50 flex items-center justify-between gap-3">
             <p className="text-sm text-text-main">{describe(alert)}</p>
-            <button onClick={() => handleDelete(alert._id)} aria-label="Xóa bộ lọc" className="p-2 rounded-xl text-red-600 hover:bg-red-50">
+            <button onClick={() => handleDelete(alert._id)} aria-label="Xóa bộ lọc" className="p-2 rounded-xl text-red-700 hover:bg-red-50">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>

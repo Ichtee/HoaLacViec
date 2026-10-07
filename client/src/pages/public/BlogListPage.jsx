@@ -60,7 +60,7 @@ export default function BlogListPage() {
           {/* Search bar */}
           <div className="pt-2 max-w-md">
             <div className="relative">
-              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
                 value={search}

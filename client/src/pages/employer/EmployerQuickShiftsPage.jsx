@@ -117,7 +117,7 @@ export default function EmployerQuickShiftsPage() {
                 {(shift.status === 'open' || shift.status === 'filled') && (
                   <button
                     onClick={() => handleCancel(shift)}
-                    className="w-full rounded-xl bg-red-50 text-red-600 py-2 text-sm font-semibold hover:bg-red-100"
+                    className="w-full rounded-xl bg-red-50 text-red-700 py-2 text-sm font-semibold hover:bg-red-100"
                   >
                     Huỷ ca
                   </button>

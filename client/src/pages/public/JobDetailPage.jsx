@@ -457,8 +457,8 @@ export default function JobDetailPage() {
               <MatchScoreBar {...matchResult} />
               {matchResult.hasConflict && (
                 <div className="flex items-start gap-2 mt-3 p-3 bg-red-50 rounded-xl">
-                  <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-red-600">Một số ca làm có thể trùng với lịch học của bạn.</p>
+                  <AlertTriangle className="w-4 h-4 text-red-700 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-700">Một số ca làm có thể trùng với lịch học của bạn.</p>
                 </div>
               )}
             </div>
@@ -566,7 +566,7 @@ export default function JobDetailPage() {
           {/* Safety & Report Scam */}
           <div className="card bg-red-50/40 border border-red-100 p-4">
             <div className="flex items-start gap-2.5">
-              <Shield className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <Shield className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
               <div className="space-y-1 text-xs">
                 <p className="font-bold text-gray-800">Cảnh báo an toàn</p>
                 <p className="text-gray-500 text-[11px] leading-relaxed">
@@ -575,7 +575,7 @@ export default function JobDetailPage() {
                 <button
                   type="button"
                   onClick={() => setReportOpen(true)}
-                  className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 font-bold pt-1 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-red-700 hover:text-red-700 font-bold pt-1 transition-colors"
                 >
                   <Flag className="w-3.5 h-3.5" /> Báo cáo tin có dấu hiệu lừa đảo
                 </button>
@@ -597,7 +597,7 @@ export default function JobDetailPage() {
             </div>
             <div className="text-right shrink-0">
               <span className="text-[10px] font-bold text-green-dark">Mức lương:</span>
-              <p className="font-bold text-sm text-orange-600">{formatVND(job.salaryAmount)}{unitLabel}</p>
+              <p className="font-bold text-sm text-orange-700">{formatVND(job.salaryAmount)}{unitLabel}</p>
             </div>
           </div>
 
@@ -605,7 +605,7 @@ export default function JobDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-text-main mb-1">
-                Họ và tên sinh viên <span className="text-red-500">*</span>
+                Họ và tên sinh viên <span className="text-red-700">*</span>
               </label>
               <input
                 type="text"
@@ -618,7 +618,7 @@ export default function JobDetailPage() {
             </div>
             <div>
               <label className="block font-bold text-text-main mb-1">
-                Số điện thoại / Zalo <span className="text-red-500">*</span>
+                Số điện thoại / Zalo <span className="text-red-700">*</span>
               </label>
               <input
                 type="tel"
@@ -633,7 +633,7 @@ export default function JobDetailPage() {
 
           <div>
             <label className="block font-bold text-text-main mb-1">
-              Vị trí & Ca làm việc ứng tuyển <span className="text-red-500">*</span>
+              Vị trí & Ca làm việc ứng tuyển <span className="text-red-700">*</span>
             </label>
             {job.positions?.length > 0 ? (
               <select
@@ -684,7 +684,7 @@ export default function JobDetailPage() {
             <span>Số điện thoại/Zalo của bạn sẽ được gửi trực tiếp đến chủ quán để sắp xếp phỏng vấn.</span>
           </div>
 
-          {applyError && <p className="text-red-500 font-semibold text-xs">{applyError}</p>}
+          {applyError && <p className="text-red-700 font-semibold text-xs">{applyError}</p>}
 
           <div className="flex gap-2 justify-end pt-2">
             <button
@@ -719,7 +719,7 @@ export default function JobDetailPage() {
           <form onSubmit={handleReportSubmit} className="space-y-4 text-xs">
             <div>
               <label className="block font-bold text-text-main mb-1">Lý do báo cáo vi phạm:</label>
-              <select
+              <select aria-label="Lý do báo cáo vi phạm:"
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
                 className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-red-500 font-medium"
@@ -734,7 +734,7 @@ export default function JobDetailPage() {
 
             <div>
               <label className="block font-bold text-text-main mb-1">
-                Mô tả chi tiết bằng chứng <span className="text-red-500">*</span>:
+                Mô tả chi tiết bằng chứng <span className="text-red-700">*</span>:
               </label>
               <textarea
                 rows={4}

@@ -9,6 +9,7 @@ import {
   DollarSign,
   Star,
   Download,
+  List,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { formatShortDate } from '@/utils/statusHelpers.js';
@@ -31,7 +32,9 @@ import {
 } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
-import { Toast } from '@/components/Feedback.jsx';
+import { Toast, LoadingPage, EmptyState } from '@/components/Feedback.jsx';
+import { Tabs } from '@/components/Tabs.jsx';
+import { ShiftWeekCalendar } from './ShiftWeekCalendar.jsx';
 
 function getTodayString() {
   const d = new Date();
@@ -107,6 +110,7 @@ export default function EmployerShiftsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [payrollMonth, setPayrollMonth] = useState(() => getTodayString().slice(0, 7));
   const [busyShiftId, setBusyShiftId] = useState(null);
+  const [viewMode, setViewMode] = useState('cards');
   const [reviewedShiftIds, setReviewedShiftIds] = useState(() => new Set());
   const [reviewShift, setReviewShift] = useState(null);
   const [reviewRating, setReviewRating] = useState(0);
@@ -331,7 +335,7 @@ export default function EmployerShiftsPage() {
             <Check className="w-3.5 h-3.5" /> Duyệt chốt công
           </button>
           <button onClick={() => { setDisputeModalShift(shift); setDisputeReason(''); }}
-            className={clsx(secondary, 'bg-red-50 hover:bg-red-100 text-red-600')}>
+            className={clsx(secondary, 'bg-red-50 hover:bg-red-100 text-red-700')}>
             Đối soát
           </button>
         </div>
@@ -372,10 +376,10 @@ export default function EmployerShiftsPage() {
     }
 
     if (attendance === 'disputed') {
-      return <span className="text-xs font-semibold text-red-600">Đang chờ đối soát</span>;
+      return <span className="text-xs font-semibold text-red-700">Đang chờ đối soát</span>;
     }
     if (attendance === 'no_show') {
-      return <span className="text-xs font-semibold text-red-600">Nhân viên vắng mặt</span>;
+      return <span className="text-xs font-semibold text-red-700">Nhân viên vắng mặt</span>;
     }
 
     // Ca đã công bố, chưa bắt đầu
@@ -386,7 +390,7 @@ export default function EmployerShiftsPage() {
           <Clock className="w-3.5 h-3.5" /> Ghi nhận vào ca
         </button>
         <button disabled={busy} onClick={() => runShiftAction(id, (shiftId) => recordAttendanceNoShow(shiftId, { reason: 'Vắng mặt' }), 'Đã ghi nhận vắng mặt.')}
-          className={clsx(secondary, 'bg-red-50 hover:bg-red-100 text-red-600')}>
+          className={clsx(secondary, 'bg-red-50 hover:bg-red-100 text-red-700')}>
           Vắng mặt
         </button>
       </div>
@@ -492,21 +496,41 @@ export default function EmployerShiftsPage() {
         </div>
         <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
           <p className="text-xs text-text-muted">Đã hoàn tất</p>
-          <p className="text-2xl font-bold text-emerald-600 mt-1">{completedCount}</p>
+          <p className="text-2xl font-bold text-emerald-700 mt-1">{completedCount}</p>
         </div>
       </div>
 
+      {shifts.length > 0 && (
+        <Tabs
+          variant="pill"
+          className="self-start"
+          ariaLabel="Chế độ xem ca làm"
+          value={viewMode}
+          onChange={setViewMode}
+          items={[
+            { id: 'cards', label: 'Danh sách ca', icon: List },
+            { id: 'week', label: 'Lịch tuần', icon: Calendar },
+          ]}
+        />
+      )}
+
       {/* Shifts List */}
       {loading ? (
-        <div className="text-center py-12 text-text-muted">Đang tải danh sách ca làm...</div>
+        <LoadingPage />
       ) : shifts.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-stone-200 shadow-card space-y-3">
-          <Calendar className="w-12 h-12 text-text-muted mx-auto opacity-40" />
-          <h3 className="text-base font-bold text-text-main">Chưa có ca làm nào</h3>
-          <p className="text-xs text-text-muted">
-            Bấm "Phân ca mới" để xếp ca làm việc cho sinh viên trúng tuyển tại quán.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Calendar />}
+          title="Chưa có ca làm nào"
+          description='Bấm "Phân ca mới" để xếp ca làm việc cho sinh viên trúng tuyển tại quán.'
+          className="bg-white rounded-3xl border border-green-100"
+        />
+      ) : viewMode === 'week' ? (
+        <ShiftWeekCalendar
+          shifts={shifts}
+          getBadge={(shift) => getShiftBadge(shift.status)}
+          getName={(shift) => shift.studentName || shift.studentUserId?.name || shift.employeeUserId?.name || 'Sinh viên nhận ca'}
+          renderActions={renderShiftActions}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {shifts.map((shift) => {
@@ -563,7 +587,7 @@ export default function EmployerShiftsPage() {
                           <Navigation className="w-3.5 h-3.5 text-blue-500" />
                           GPS Check-in: <strong>{distance}m</strong>{' '}
                           {isVerified ? (
-                            <span className="text-emerald-600 font-bold">✓ Hợp lệ tại quán</span>
+                            <span className="text-emerald-700 font-bold">✓ Hợp lệ tại quán</span>
                           ) : (
                             <span className="text-amber-600 font-bold">⚠️ Ngoài bán kính</span>
                           )}
@@ -580,7 +604,7 @@ export default function EmployerShiftsPage() {
                         )}
                       </div>
                     ) : (
-                      <p className="text-[11px] text-gray-400 italic">Chưa thực hiện check-in GPS</p>
+                      <p className="text-[11px] text-gray-500 italic">Chưa thực hiện check-in GPS</p>
                     )}
 
                     {shift.disputeReason && (
@@ -647,7 +671,7 @@ export default function EmployerShiftsPage() {
 
             <div>
               <label className="font-bold text-text-main block mb-1">Vị trí / Vai trò:</label>
-              <input
+              <input aria-label="Vị trí / Vai trò:"
                 type="text"
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -659,7 +683,7 @@ export default function EmployerShiftsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
                 <label className="font-bold text-text-main block mb-1">Ngày làm việc:</label>
-                <input
+                <input aria-label="Ngày làm việc:"
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
@@ -669,7 +693,7 @@ export default function EmployerShiftsPage() {
               </div>
               <div>
                 <label className="font-bold text-text-main block mb-1">Giờ bắt đầu:</label>
-                <input
+                <input aria-label="Giờ bắt đầu:"
                   type="time"
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
@@ -679,7 +703,7 @@ export default function EmployerShiftsPage() {
               </div>
               <div>
                 <label className="font-bold text-text-main block mb-1">Giờ kết thúc:</label>
-                <input
+                <input aria-label="Giờ kết thúc:"
                   type="time"
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
@@ -691,7 +715,7 @@ export default function EmployerShiftsPage() {
 
             <div>
               <label className="font-bold text-text-main block mb-1">Lương theo giờ (VNĐ/giờ):</label>
-              <input
+              <input aria-label="Lương theo giờ (VNĐ/giờ):"
                 type="number"
                 step="1000"
                 min="15000"

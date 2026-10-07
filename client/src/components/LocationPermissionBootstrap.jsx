@@ -223,7 +223,7 @@ export function LocationPermissionBootstrap() {
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <AlertTriangle className="w-5 h-5 text-red-700 flex-shrink-0" />
             <span>
               <strong>Cảnh báo bảo mật:</strong> Định vị GPS yêu cầu kết nối bảo mật HTTPS (hoặc localhost). Kết nối HTTP (như IP LAN 192.168.x.x) không được hỗ trợ bởi trình duyệt.
             </span>
@@ -231,7 +231,7 @@ export function LocationPermissionBootstrap() {
           <button
             onClick={dismiss}
             aria-label="Đóng thông báo"
-            className="p-1 text-red-600 hover:text-red-900 rounded-lg"
+            className="p-1 text-red-700 hover:text-red-900 rounded-lg"
           >
             <X className="w-4 h-4" />
           </button>
@@ -265,7 +265,7 @@ export function LocationPermissionBootstrap() {
       <div className="bg-orange-50 border-b border-orange-200 text-orange-900 px-4 py-2.5 text-xs sm:text-sm shadow-sm animate-fade-in">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-orange-700 flex-shrink-0" />
             <span>{error || 'Hết thời gian chờ định vị. Vui lòng thử lại.'}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -273,12 +273,12 @@ export function LocationPermissionBootstrap() {
               onClick={handleManualAllow}
               className="px-2.5 py-1 bg-white hover:bg-orange-100 text-orange-800 font-semibold rounded-lg border border-orange-200 text-xs flex items-center gap-1"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-orange-600" />
+              <RotateCcw className="w-3.5 h-3.5 text-orange-700" />
               Cho phép truy cập vị trí
             </button>
             <button
               onClick={dismiss}
-              className="p-1 text-orange-600 hover:text-orange-900"
+              className="p-1 text-orange-700 hover:text-orange-900"
             >
               <X className="w-4 h-4" />
             </button>
@@ -337,7 +337,7 @@ export function LocationPermissionBootstrap() {
       <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-950 px-4 py-2.5 text-xs sm:text-sm shadow-sm animate-fade-in">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <MapPin className="w-4 h-4 text-emerald-700 flex-shrink-0" />
             <span>Cho phép định vị để tự động sắp xếp các việc làm gần bạn nhất quanh Hòa Lạc.</span>
           </div>
           <div className="flex items-center gap-2">

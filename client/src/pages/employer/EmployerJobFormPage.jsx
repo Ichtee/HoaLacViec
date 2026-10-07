@@ -18,6 +18,7 @@ import { Toast } from '@/components/Feedback.jsx';
 import LocationPicker from '@/components/LocationPicker';
 import { isValidCoordinate, getGoogleMapsDirectionsUrl } from '@/utils';
 import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
+import { JobFormStepper } from './JobFormStepper.jsx';
 
 export const PRESET_SHIFTS = [
   'Ca sáng (07:00 - 12:00)',
@@ -500,23 +501,39 @@ export default function EmployerJobFormPage() {
         </div>
       </div>
 
+      <JobFormStepper
+        formData={formData}
+        storeName={user?.name || 'Cửa hàng của bạn'}
+        previewJob={{
+          id: 'preview',
+          title: formData.title || 'Tiêu đề công việc',
+          type: formData.jobType,
+          salaryAmount: Number(formData.salaryAmount) || 0,
+          salaryUnit: formData.salaryUnit,
+          address: formData.address,
+          slots: (formData.positions || []).reduce((sum, p) => sum + (Number(p.quantity) || 0), 0) || formData.slots,
+          employer: { storeName: user?.name || 'Cửa hàng của bạn', verified: true },
+          postedAt: new Date().toISOString(),
+        }}
+      />
+
       <form id="job-form" onSubmit={handleSubmit} className="space-y-6">
         {/* CARD 1: THÔNG TIN CƠ BẢN */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-5">
+        <div id="job-step-1" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-5">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
             <div className="w-8 h-8 rounded-xl bg-green-50 text-green-dark flex items-center justify-center font-bold text-sm">
               1
             </div>
             <div>
               <h2 className="text-sm font-bold text-gray-900">Thông tin cơ bản</h2>
-              <p className="text-[11px] text-gray-400">Tiêu đề, hình thức và mức thu nhập cho ứng viên</p>
+              <p className="text-[11px] text-gray-500">Tiêu đề, hình thức và mức thu nhập cho ứng viên</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
               <label className="block font-bold text-gray-800 text-xs mb-1.5">
-                Tiêu đề công việc <span className="text-red-500">*</span>
+                Tiêu đề công việc <span className="text-red-700">*</span>
               </label>
               <input
                 type="text"
@@ -524,14 +541,14 @@ export default function EmployerJobFormPage() {
                 placeholder="Ví dụ: Tuyển Nhân viên Pha chế & Phục vụ ca Tối (Quán Café Xanh)"
                 value={formData.title}
                 onChange={e => setFormData({ ...formData, title: e.target.value })}
-                className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
+                className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-500"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block font-bold text-gray-800 text-xs mb-1.5">Loại hình việc làm</label>
-                <select
+                <select aria-label="Loại hình việc làm"
                   value={formData.jobType}
                   onChange={e => setFormData({ ...formData, jobType: e.target.value })}
                   className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main bg-white text-xs font-semibold text-gray-800"
@@ -543,22 +560,23 @@ export default function EmployerJobFormPage() {
 
               <div>
                 <label className="block font-bold text-gray-800 text-xs mb-1.5 flex items-center gap-1">
-                  <DollarSign className="w-3.5 h-3.5 text-orange-500" /> Mức lương (VNĐ/giờ) <span className="text-red-500">*</span>
+                  <DollarSign className="w-3.5 h-3.5 text-orange-500" /> Mức lương (VNĐ/giờ) <span className="text-red-700">*</span>
                 </label>
                 <input
+                  aria-label="Mức lương (VNĐ/giờ)"
                   type="number"
                   required
                   min={15000}
                   step={1000}
                   value={formData.salaryAmount}
                   onChange={e => setFormData({ ...formData, salaryAmount: e.target.value })}
-                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-bold text-orange-600"
+                  className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-bold text-orange-700"
                 />
               </div>
 
               <div>
                 <label className="block font-bold text-gray-800 text-xs mb-1.5 flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-green-600" /> SĐT / Zalo liên hệ <span className="text-red-500">*</span>
+                  <Phone className="w-3.5 h-3.5 text-green-600" /> SĐT / Zalo liên hệ <span className="text-red-700">*</span>
                 </label>
                 <input
                   type="tel"
@@ -574,7 +592,7 @@ export default function EmployerJobFormPage() {
         </div>
 
         {/* CARD 2: VỊ TRÍ TUYỂN DỤNG & SỐ LƯỢNG */}
-        <div className="bg-white p-6 rounded-3xl border border-green-100 shadow-xs space-y-4">
+        <div id="job-step-2" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-green-100 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-green-50 pb-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-green-100 text-green-dark flex items-center justify-center font-bold text-sm">
@@ -583,7 +601,7 @@ export default function EmployerJobFormPage() {
               <div>
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
                   <Briefcase className="w-4 h-4 text-green-dark" /> Vị trí tuyển dụng & Ca làm việc
-                  <span className="text-red-500">*</span>
+                  <span className="text-red-700">*</span>
                 </h2>
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   Thêm các vị trí, chọn ca làm và nhập số lượng ứng viên cần tuyển cho từng vị trí.
@@ -625,13 +643,14 @@ export default function EmployerJobFormPage() {
                     placeholder="Tên vị trí (Ví dụ: Phục vụ bàn, Thu ngân, Pha chế...)"
                     value={pos.title}
                     onChange={e => handlePositionChange(idx, 'title', e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
+                    className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-500"
                   />
                 </div>
 
                 {/* Ô 2: Dropdown Ca làm việc */}
                 <div className="w-full md:w-64">
                   <select
+                    aria-label={`Ca làm việc của vị trí ${idx + 1}`}
                     value={pos.shift}
                     onChange={e => handlePositionChange(idx, 'shift', e.target.value)}
                     className="w-full p-2.5 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-800"
@@ -662,7 +681,7 @@ export default function EmployerJobFormPage() {
                   <button
                     type="button"
                     onClick={() => handleRemovePosition(idx)}
-                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors shrink-0 self-end md:self-auto cursor-pointer"
+                    className="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors shrink-0 self-end md:self-auto cursor-pointer"
                     title="Xóa vị trí này"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -689,7 +708,7 @@ export default function EmployerJobFormPage() {
         </div>
 
         {/* CARD 3: ĐỊA CHỈ & GHIM VỊ TRÍ BẢN ĐỒ */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-5">
+        <div id="job-step-3" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-5">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
@@ -697,9 +716,9 @@ export default function EmployerJobFormPage() {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-red-500" /> Địa điểm làm việc & Ghim Bản đồ (GPS)
+                  <MapPin className="w-4 h-4 text-red-700" /> Địa điểm làm việc & Ghim Bản đồ (GPS)
                 </h2>
-                <p className="text-[11px] text-gray-400">Ghim đúng cửa vào nơi làm việc để chỉ đường và chấm công GPS chính xác</p>
+                <p className="text-[11px] text-gray-500">Ghim đúng cửa vào nơi làm việc để chỉ đường và chấm công GPS chính xác</p>
               </div>
             </div>
 
@@ -718,7 +737,7 @@ export default function EmployerJobFormPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block font-bold text-gray-800 text-xs mb-1">Tỉnh / Thành phố *</label>
-              <select
+              <select aria-label="Tỉnh / Thành phố"
                 required
                 value={selectedProvinceCode}
                 onChange={handleProvinceChange}
@@ -733,7 +752,7 @@ export default function EmployerJobFormPage() {
 
             <div>
               <label className="block font-bold text-gray-800 text-xs mb-1">Quận / Huyện *</label>
-              <select
+              <select aria-label="Quận / Huyện"
                 required
                 disabled={!selectedProvinceCode || loadingDistricts}
                 value={selectedDistrictCode}
@@ -749,7 +768,7 @@ export default function EmployerJobFormPage() {
 
             <div>
               <label className="block font-bold text-gray-800 text-xs mb-1">Xã / Phường *</label>
-              <select
+              <select aria-label="Xã / Phường"
                 required
                 disabled={!selectedDistrictCode || loadingWards}
                 value={selectedWardCode}
@@ -775,7 +794,7 @@ export default function EmployerJobFormPage() {
               placeholder="Ví dụ: Số 12 ngõ 8, Thôn 3, cạnh cổng Đại học FPT..."
               value={detailAddress}
               onChange={e => handleDetailAddressChange(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-400"
+              className="w-full p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs font-semibold text-gray-900 placeholder:text-gray-500"
             />
           </div>
 
@@ -826,20 +845,20 @@ export default function EmployerJobFormPage() {
         </div>
 
         {/* CARD 4: MÔ TẢ & YÊU CẦU */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-4">
+        <div id="job-step-4" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
             <div className="w-8 h-8 rounded-xl bg-green-50 text-green-dark flex items-center justify-center font-bold text-sm">
               4
             </div>
             <div>
               <h2 className="text-sm font-bold text-gray-900">Mô tả công việc & Yêu cầu</h2>
-              <p className="text-[11px] text-gray-400">Nêu rõ nhiệm vụ hàng ngày và tiêu chuẩn tuyển dụng</p>
+              <p className="text-[11px] text-gray-500">Nêu rõ nhiệm vụ hàng ngày và tiêu chuẩn tuyển dụng</p>
             </div>
           </div>
 
           <div>
             <label className="block font-bold text-gray-800 text-xs mb-1.5">Mô tả công việc chi tiết</label>
-            <textarea
+            <textarea aria-label="Mô tả công việc chi tiết"
               rows={3}
               placeholder="Nêu rõ công việc hàng ngày: Pha chế đồ uống, dọn dẹp quầy bar, phục vụ khách, kiểm kê hàng hóa cuối ca..."
               value={formData.description}
@@ -850,7 +869,7 @@ export default function EmployerJobFormPage() {
 
           <div>
             <label className="block font-bold text-gray-800 text-xs mb-1.5">Yêu cầu & Quyền lợi (mỗi ý 1 dòng)</label>
-            <textarea
+            <textarea aria-label="Yêu cầu & Quyền lợi (mỗi ý 1 dòng)"
               rows={3}
               placeholder="Ví dụ:&#10;- Chăm chỉ, đúng giờ, giao tiếp thân thiện&#10;- Ưu tiên sinh viên có thể làm ca xoay&#10;- Bao cơm ca, thưởng doanh số theo tháng"
               value={formData.requirements}

@@ -5,7 +5,7 @@ export default {
     extend: {
       colors: {
         green: {
-          main: '#4D9363',
+          main: '#3E7A50',
           dark: '#285C3A',
           light: '#EAF5E8',
           50: '#EAF5E8',
@@ -13,8 +13,8 @@ export default {
           200: '#AAD9A3',
           300: '#7FC675',
           400: '#5DB056',
-          500: '#4D9363',
-          600: '#3E7A50',
+          500: '#3E7A50',
+          600: '#346B45',
           700: '#306140',
           800: '#285C3A',
           900: '#1A3D26',
@@ -37,8 +37,8 @@ export default {
         cream: '#FFFDF6',
         text: {
           main: '#243C2C',
-          muted: '#6B7A6F',
-          light: '#9BB09F',
+          muted: '#566759',
+          light: '#64776A',
         },
       },
       fontFamily: {

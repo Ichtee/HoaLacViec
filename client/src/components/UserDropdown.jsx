@@ -249,9 +249,9 @@ export function UserDropdown({ showWelcome = true, className = '' }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-50 transition-colors text-left font-semibold"
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-red-700 hover:bg-red-50 transition-colors text-left font-semibold"
             >
-              <div className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-red-50 text-red-700 flex items-center justify-center shrink-0">
                 <LogOut className="w-4 h-4" />
               </div>
               <span>Đăng xuất</span>

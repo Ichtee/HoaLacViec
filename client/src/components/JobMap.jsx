@@ -567,7 +567,7 @@ export function JobMap({
               </h4>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/80">
+              <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/80">
                 {formatVND(activeJob.salaryAmount)}{SALARY_UNIT_LABELS[activeJob.salaryUnit] || '/h'}
               </span>
               <button
@@ -576,7 +576,7 @@ export function JobMap({
                   e.stopPropagation();
                   onSelectJob?.(null);
                 }}
-                className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="p-1 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                 title="Đóng xem trước"
               >
                 <X className="w-3.5 h-3.5" />
@@ -585,7 +585,7 @@ export function JobMap({
           </div>
 
           <p className="text-xs text-text-muted flex items-center gap-1.5 min-w-0">
-            <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <MapPin className="w-3.5 h-3.5 text-red-700 shrink-0" />
             <span className="truncate">{activeJob.address || 'Hòa Lạc'}</span>
           </p>
 

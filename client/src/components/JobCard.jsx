@@ -34,7 +34,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
           <button
             onClick={handleSave}
             aria-label={isSaved ? 'Bỏ lưu' : 'Lưu việc'}
-            className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-green-main hover:bg-green-50 transition-all z-10"
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-500 hover:text-green-main hover:bg-green-50 transition-all z-10"
           >
             {isSaved ? <BookmarkCheck className="w-5 h-5 text-green-main" /> : <Bookmark className="w-5 h-5" />}
           </button>
@@ -99,7 +99,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
               </div>
 
               <div className="flex items-center gap-1.5 min-w-0" title={job.address || employer?.address || 'Hòa Lạc'}>
-                <MapPin className="w-4 h-4 flex-shrink-0 text-red-500" />
+                <MapPin className="w-4 h-4 flex-shrink-0 text-red-700" />
                 <span className="truncate">{job.address?.split(',')[0] || employer?.address?.split(',')[0] || 'Hòa Lạc'}</span>
               </div>
 
@@ -168,7 +168,7 @@ export function MatchScoreBar({
     <div className="p-4 bg-green-50 rounded-2xl space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-text-main">Mức độ phù hợp tổng quan</span>
-        <span className={clsx('text-xl font-bold', hasConflict ? 'text-red-500' : 'text-green-dark')}>
+        <span className={clsx('text-xl font-bold', hasConflict ? 'text-red-700' : 'text-green-dark')}>
           {score}%
         </span>
       </div>

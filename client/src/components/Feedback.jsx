@@ -101,7 +101,7 @@ export function ErrorAlert({ message, onRetry }) {
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
       <AlertCircle className="w-10 h-10 text-red-400" />
-      <p className="text-red-600 font-medium">{message}</p>
+      <p className="text-red-700 font-medium">{message}</p>
       {onRetry && (
         <button onClick={onRetry} className="btn-outline btn btn-sm">
           Thử lại

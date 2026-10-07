@@ -14,7 +14,7 @@ test('tin chờ duyệt chỉ hiển thị công khai sau khi quản trị viên
 
   await signIn(page, admin.email);
   await page.goto('/admin/jobs');
-  const card = page.getByText(title).first().locator('xpath=ancestor::div[.//button[contains(., "Phê duyệt")]][1]');
+  const card = page.getByRole('row').filter({ hasText: title });
   await card.getByRole('button', { name: /Phê duyệt/ }).click();
   await expect(page.getByText(/Đã duyệt bài đăng/)).toBeVisible();
 

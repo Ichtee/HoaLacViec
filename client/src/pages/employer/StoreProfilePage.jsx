@@ -135,7 +135,7 @@ export default function StoreProfilePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-text-muted mb-1">Tên cửa hàng / Doanh nghiệp</label>
-            <input
+            <input aria-label="Tên cửa hàng / Doanh nghiệp"
               type="text"
               value={profile.storeName || user?.name || ''}
               onChange={e => setProfile({ ...profile, storeName: e.target.value })}
@@ -145,7 +145,7 @@ export default function StoreProfilePage() {
 
           <div>
             <label className="block text-xs font-semibold text-text-muted mb-1">Mô hình kinh doanh</label>
-            <select
+            <select aria-label="Mô hình kinh doanh"
               value={profile.category}
               onChange={e => setProfile({ ...profile, category: e.target.value })}
               className="w-full px-3.5 py-2.5 rounded-xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main bg-white"
@@ -160,7 +160,7 @@ export default function StoreProfilePage() {
 
           <div>
             <label className="block text-xs font-semibold text-text-muted mb-1">Số điện thoại liên hệ tuyển dụng</label>
-            <input
+            <input aria-label="Số điện thoại liên hệ tuyển dụng"
               type="text"
               value={profile.phone}
               onChange={e => setProfile({ ...profile, phone: e.target.value })}
@@ -170,7 +170,7 @@ export default function StoreProfilePage() {
 
           <div>
             <label className="block text-xs font-semibold text-text-muted mb-1">Mã đăng ký GPKD / Mã định danh</label>
-            <input
+            <input aria-label="Mã đăng ký GPKD / Mã định danh"
               type="text"
               value={profile.businessLicense}
               onChange={e => setProfile({ ...profile, businessLicense: e.target.value })}
@@ -181,7 +181,7 @@ export default function StoreProfilePage() {
 
         <div>
           <label className="block text-xs font-semibold text-text-muted mb-1">Địa chỉ chi tiết tại khu vực Hòa Lạc</label>
-          <input
+          <input aria-label="Địa chỉ chi tiết tại khu vực Hòa Lạc"
             type="text"
             value={profile.address}
             onChange={e => setProfile(prev => ({
@@ -219,7 +219,7 @@ export default function StoreProfilePage() {
 
         <div>
           <label className="block text-xs font-semibold text-text-muted mb-1">Giới thiệu về cửa hàng & Văn hóa làm việc</label>
-          <textarea
+          <textarea aria-label="Giới thiệu về cửa hàng & Văn hóa làm việc"
             rows={4}
             value={profile.description}
             onChange={e => setProfile({ ...profile, description: e.target.value })}

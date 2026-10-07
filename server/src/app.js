@@ -102,7 +102,7 @@ const authLimiter = rateLimit({
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 600,
+  max: Number(process.env.API_RATE_LIMIT_MAX) || 600,
   standardHeaders: true,
   legacyHeaders: false,
 });

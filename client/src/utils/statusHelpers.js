@@ -36,3 +36,18 @@ export function todayString(now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
+
+/** Cộng/trừ ngày cho chuỗi YYYY-MM-DD (tính theo lịch địa phương, không lệch múi giờ). */
+export function addDaysToDateString(dateStr, days) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return todayString(new Date(y, m - 1, d + days));
+}
+
+/** Bảy ngày của tuần chứa dateStr, bắt đầu từ thứ Hai. */
+export function weekDaysOf(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dayOfWeek = new Date(y, m - 1, d).getDay(); // 0 = CN
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = addDaysToDateString(dateStr, mondayOffset);
+  return Array.from({ length: 7 }, (_, i) => addDaysToDateString(monday, i));
+}

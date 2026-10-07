@@ -263,7 +263,7 @@ export default function AdminBlogsPage() {
 
         {/* Search Input */}
         <div className="relative">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             value={search}
@@ -276,11 +276,11 @@ export default function AdminBlogsPage() {
 
       {/* Blog Cards / List */}
       {loading ? (
-        <div className="p-12 text-center text-gray-400 text-xs bg-white rounded-3xl border border-gray-100">
+        <div className="p-12 text-center text-gray-500 text-xs bg-white rounded-3xl border border-gray-100">
           ⏳ Đang tải danh sách bài viết...
         </div>
       ) : filteredBlogs.length === 0 ? (
-        <div className="p-12 text-center text-gray-400 text-xs bg-white rounded-3xl border border-gray-100 space-y-2">
+        <div className="p-12 text-center text-gray-500 text-xs bg-white rounded-3xl border border-gray-100 space-y-2">
           <BookOpen className="w-8 h-8 text-gray-300 mx-auto" />
           <p>Không tìm thấy bài viết nào phù hợp.</p>
           <Button variant="ghost" size="sm" onClick={handleOpenCreate} className="text-green-dark">
@@ -360,7 +360,7 @@ export default function AdminBlogsPage() {
                       type="button"
                       onClick={() => handleDelete(blog)}
                       title="Xóa bài viết"
-                      className="p-1.5 rounded-xl hover:bg-red-50 text-red-600 transition-colors"
+                      className="p-1.5 rounded-xl hover:bg-red-50 text-red-700 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -381,7 +381,7 @@ export default function AdminBlogsPage() {
       >
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[75vh]">
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-600 flex items-center gap-2">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               <span>{formError}</span>
             </div>
@@ -432,7 +432,7 @@ export default function AdminBlogsPage() {
 
             {/* Quick cover suggestions */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-gray-400">Gợi ý ảnh mẫu:</span>
+              <span className="text-[10px] text-gray-500">Gợi ý ảnh mẫu:</span>
               {SAMPLE_COVERS.map((sample, idx) => (
                 <button
                   key={idx}

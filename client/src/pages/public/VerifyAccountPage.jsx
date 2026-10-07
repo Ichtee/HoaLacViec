@@ -451,7 +451,7 @@ export default function VerifyAccountPage() {
               logout();
               navigate('/login');
             }}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-text-muted hover:text-red-600 hover:border-red-200 text-xs font-medium transition-colors"
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-text-muted hover:text-red-700 hover:border-red-200 text-xs font-medium transition-colors"
           >
             <LogOut className="w-4 h-4" /> Đăng xuất
           </button>
@@ -459,7 +459,7 @@ export default function VerifyAccountPage() {
 
         {/* Global Notifications */}
         {error && (
-          <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-600 font-medium flex items-center gap-2.5 animate-fade-in">
+          <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-700 font-medium flex items-center gap-2.5 animate-fade-in">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span>{error}</span>
           </div>

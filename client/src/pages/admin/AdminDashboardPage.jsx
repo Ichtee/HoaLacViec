@@ -86,10 +86,10 @@ export default function AdminDashboardPage() {
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Báo cáo vi phạm</span>
-            <Flag className="w-5 h-5 text-red-500" />
+            <Flag className="w-5 h-5 text-red-700" />
           </div>
           <div className="text-2xl font-bold text-gray-900 mt-2">{pendingReports.length}</div>
-          <Link to="/admin/reports" className="text-xs text-red-500 font-semibold hover:underline mt-1 block">
+          <Link to="/admin/reports" className="text-xs text-red-700 font-semibold hover:underline mt-1 block">
             Xử lý báo cáo →
           </Link>
         </div>
@@ -97,10 +97,10 @@ export default function AdminDashboardPage() {
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Bài viết Blog</span>
-            <BookOpen className="w-5 h-5 text-emerald-600" />
+            <BookOpen className="w-5 h-5 text-emerald-700" />
           </div>
           <div className="text-2xl font-bold text-gray-900 mt-2">{blogs.length}</div>
-          <Link to="/admin/blogs" className="text-xs text-emerald-600 font-semibold hover:underline mt-1 block">
+          <Link to="/admin/blogs" className="text-xs text-emerald-700 font-semibold hover:underline mt-1 block">
             Quản lý Blog →
           </Link>
         </div>
@@ -131,7 +131,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {pendingVerifications.length === 0 ? (
-            <p className="text-xs text-gray-400 py-4 text-center">Không có yêu cầu chờ duyệt</p>
+            <p className="text-xs text-gray-500 py-4 text-center">Không có yêu cầu chờ duyệt</p>
           ) : (
             <div className="space-y-3">
               {pendingVerifications.slice(0, 3).map(item => (
@@ -156,15 +156,15 @@ export default function AdminDashboardPage() {
         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <Flag className="w-4 h-4 text-red-500" /> Phản hồi & Báo cáo tranh chấp
+              <Flag className="w-4 h-4 text-red-700" /> Phản hồi & Báo cáo tranh chấp
             </h3>
-            <Link to="/admin/reports" className="text-xs text-red-500 font-semibold hover:underline">
+            <Link to="/admin/reports" className="text-xs text-red-700 font-semibold hover:underline">
               Tất cả
             </Link>
           </div>
 
           {pendingReports.length === 0 ? (
-            <p className="text-xs text-gray-400 py-4 text-center">Không có báo cáo vi phạm mới</p>
+            <p className="text-xs text-gray-500 py-4 text-center">Không có báo cáo vi phạm mới</p>
           ) : (
             <div className="space-y-3">
               {pendingReports.slice(0, 3).map(rep => (

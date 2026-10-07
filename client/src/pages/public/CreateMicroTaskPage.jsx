@@ -124,10 +124,10 @@ function VietmapAddressAutocomplete({
     <div ref={wrapperRef} className="relative">
       <div className="flex items-center justify-between mb-1.5">
         <label className="block text-xs font-bold text-text-main">
-          {label} {required && <span className="text-red-500">*</span>}
+          {label} {required && <span className="text-red-700">*</span>}
         </label>
         {isConfirmed && (
-          <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+          <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
             <CheckCircle className="w-3.5 h-3.5" /> Tọa độ Vietmap xác nhận
           </span>
         )}
@@ -354,7 +354,7 @@ export default function CreateMicroTaskPage() {
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1.5">
-                Tiêu đề việc cần nhờ <span className="text-red-500">*</span>
+                Tiêu đề việc cần nhờ <span className="text-red-700">*</span>
               </label>
               <input
                 type="text"
@@ -373,7 +373,7 @@ export default function CreateMicroTaskPage() {
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-2">
-                Phân loại danh mục <span className="text-red-500">*</span>
+                Phân loại danh mục <span className="text-red-700">*</span>
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {CATEGORIES.map((cat) => {
@@ -417,7 +417,7 @@ export default function CreateMicroTaskPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-text-main mb-1.5">
-                  Tiền công thù lao (VNĐ) <span className="text-red-500">*</span>
+                  Tiền công thù lao (VNĐ) <span className="text-red-700">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -451,7 +451,7 @@ export default function CreateMicroTaskPage() {
                     placeholder="0"
                     className="w-full pl-9 pr-12 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-green-main"
                   />
-                  <CreditCard className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <CreditCard className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <span className="text-xs font-semibold text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     VNĐ
                   </span>
@@ -461,7 +461,7 @@ export default function CreateMicroTaskPage() {
 
               <div>
                 <label className="block text-xs font-bold text-text-main mb-1.5">Hình thức trả tiền</label>
-                <select
+                <select aria-label="Hình thức trả tiền"
                   value={formData.paymentMethod}
                   onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-main bg-white"
@@ -564,7 +564,7 @@ export default function CreateMicroTaskPage() {
                 {formData.route && (
                   <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs">
                     <div className="flex items-center gap-2 text-emerald-900 font-semibold">
-                      <Navigation className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <Navigation className="w-4 h-4 text-emerald-700 shrink-0" />
                       <span>
                         Lộ trình Vietmap: <strong>{formData.route.distanceKm} km</strong> (~<strong>{formData.route.durationMin} phút</strong> đi xe máy)
                       </span>
@@ -615,7 +615,7 @@ export default function CreateMicroTaskPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-text-main mb-1.5">
-                  Thời hạn cần xong (Hạn chót) <span className="text-red-500">*</span>
+                  Thời hạn cần xong (Hạn chót) <span className="text-red-700">*</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -629,7 +629,7 @@ export default function CreateMicroTaskPage() {
 
               <div>
                 <label className="block text-xs font-bold text-text-main mb-1.5">
-                  Số điện thoại di động / Zalo <span className="text-red-500">*</span>
+                  Số điện thoại di động / Zalo <span className="text-red-700">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -640,7 +640,7 @@ export default function CreateMicroTaskPage() {
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-main"
                   />
-                  <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Phone className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
                 <p className="text-[11px] text-text-muted mt-1">
                   🛡️ SĐT được bảo mật và chỉ hiển thị đầy đủ cho bạn sinh viên nhận việc.
@@ -657,7 +657,7 @@ export default function CreateMicroTaskPage() {
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1.5">
-                Nội dung chi tiết việc cần nhờ <span className="text-red-500">*</span>
+                Nội dung chi tiết việc cần nhờ <span className="text-red-700">*</span>
               </label>
               <textarea
                 rows={4}

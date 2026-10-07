@@ -352,7 +352,7 @@ export default function MicroTasksPage() {
         <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
           {/* 1. Search Input */}
           <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
               value={search}
@@ -364,7 +364,7 @@ export default function MicroTasksPage() {
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-600 p-0.5 rounded-full"
                 title="Xóa tìm kiếm"
               >
                 <X className="w-3.5 h-3.5" />
@@ -378,6 +378,7 @@ export default function MicroTasksPage() {
               <Filter className="w-4 h-4" />
             </div>
             <select
+              aria-label="Lọc theo mục việc vặt"
               value={currentTab}
               onChange={(e) => handleTabChange(e.target.value)}
               className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-green-main focus:bg-white focus:border-transparent transition-all cursor-pointer"
@@ -388,7 +389,7 @@ export default function MicroTasksPage() {
                 </option>
               ))}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
               <ChevronDown className="w-4 h-4" />
             </div>
           </div>
@@ -399,6 +400,7 @@ export default function MicroTasksPage() {
               <ShoppingBag className="w-4 h-4" />
             </div>
             <select
+              aria-label="Lọc theo danh mục"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full pl-10 pr-8 py-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs sm:text-sm font-semibold text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-green-main focus:bg-white focus:border-transparent transition-all cursor-pointer"
@@ -409,7 +411,7 @@ export default function MicroTasksPage() {
                 </option>
               ))}
             </select>
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
               <ChevronDown className="w-4 h-4" />
             </div>
           </div>
@@ -452,7 +454,7 @@ export default function MicroTasksPage() {
       {/* When in Disputed Tab: Explanatory Context Banner */}
       {currentTab === 'disputed' && (
         <div className="bg-red-50/80 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-red-950 text-xs sm:text-sm animate-fade-in shadow-xs">
-          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <AlertTriangle className="w-5 h-5 text-red-700 shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold text-red-900">Mục khiếu nại & hỗ trợ giải quyết sự cố (Dispute):</p>
             <p className="text-xs text-red-800 leading-relaxed">

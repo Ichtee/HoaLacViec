@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  Search, Clock, Shield, Zap, ChevronRight, Coffee, ShoppingBag, Dumbbell, BookOpen, Leaf, ArrowRight
+  Search, Clock, Shield, Briefcase, ShieldCheck, Zap, ChevronRight, Coffee, ShoppingBag, Dumbbell, BookOpen, Leaf, ArrowRight
 } from 'lucide-react';
 
 import { useAsync } from '@/hooks';
@@ -57,6 +57,7 @@ export default function HomePage() {
 
   const jobsList = Array.isArray(latestJobsData) ? latestJobsData : (latestJobsData?.jobs || []);
   const featured = jobsList.slice(0, 6);
+  const totalOpenJobs = Number(latestJobsData?.total) || 0;
 
   function handleSearch(e) {
     e.preventDefault();
@@ -129,6 +130,20 @@ export default function HomePage() {
             ))}
           </div>
 
+          {/* Số liệu thật + lời hứa giá trị */}
+          <ul className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium text-green-dark">
+            {totalOpenJobs > 0 && (
+              <li className="inline-flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-green-main" /> {totalOpenJobs} việc đang tuyển
+              </li>
+            )}
+            <li className="inline-flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-green-main" /> Cửa hàng được xác thực
+            </li>
+            <li className="inline-flex items-center gap-2">
+              <Clock className="w-4 h-4 text-green-main" /> Ứng tuyển không cần CV
+            </li>
+          </ul>
 
         </div>
       </section>

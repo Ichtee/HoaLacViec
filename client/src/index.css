@@ -74,7 +74,7 @@
     @apply block text-sm font-semibold text-text-main mb-1.5;
   }
   .error-msg {
-    @apply text-xs text-red-500 mt-1;
+    @apply text-xs text-red-700 mt-1;
   }
 
   /* Badges */

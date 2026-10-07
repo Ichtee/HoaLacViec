@@ -33,7 +33,7 @@ export default function RoleTabCard({ role, tone, Icon, title, description, badg
         <div className="flex items-start justify-between">
           <div className={clsx(
             'w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl font-bold mb-3',
-            isLockedOut ? 'bg-gray-100 text-gray-400' : t.icon
+            isLockedOut ? 'bg-gray-100 text-gray-500' : t.icon
           )}>
             <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
@@ -47,7 +47,7 @@ export default function RoleTabCard({ role, tone, Icon, title, description, badg
             </span>
           )}
         </div>
-        <h3 className={clsx('text-sm sm:text-base font-bold', isLockedOut ? 'text-gray-400' : 'text-text-main')}>{title}</h3>
+        <h3 className={clsx('text-sm sm:text-base font-bold', isLockedOut ? 'text-gray-500' : 'text-text-main')}>{title}</h3>
         <p className="text-[11px] sm:text-xs text-text-muted mt-1 leading-relaxed">{description}</p>
       </div>
       {isLockedOut && (

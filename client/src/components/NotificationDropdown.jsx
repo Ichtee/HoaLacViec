@@ -239,7 +239,7 @@ export function NotificationDropdown() {
                     <button
                       type="button"
                       onClick={(e) => handleDelete(item._id, e)}
-                      className="p-1 text-text-muted hover:text-red-500 hover:bg-white rounded-md transition-colors"
+                      className="p-1 text-text-muted hover:text-red-700 hover:bg-white rounded-md transition-colors"
                       title="Xóa thông báo"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

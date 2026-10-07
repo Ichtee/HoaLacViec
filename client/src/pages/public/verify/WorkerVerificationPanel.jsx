@@ -133,7 +133,7 @@ export default function WorkerVerificationPanel({
                   {existingWorkerVerification?.verificationStatus === 'rejected' && (
                     <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-700 space-y-1">
                       <p className="font-bold flex items-center gap-1.5">
-                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                        <AlertCircle className="w-4 h-4 text-red-700 flex-shrink-0" />
                         Hồ sơ xác minh trước đây bị từ chối:
                       </p>
                       <p className="pl-5.5">

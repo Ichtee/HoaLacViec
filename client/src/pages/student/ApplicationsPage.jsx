@@ -208,7 +208,7 @@ export default function ApplicationsPage() {
                   <div className="space-y-2 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-gray-500 flex items-center gap-1">
-                        <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                        <Building2 className="w-3.5 h-3.5 text-gray-500" />
                         {app.storeName || 'Cửa hàng tuyển dụng'}
                       </span>
                       <span className="text-gray-300">•</span>
@@ -260,7 +260,7 @@ export default function ApplicationsPage() {
                       <button
                         type="button"
                         onClick={() => setWithdrawId(app.id || app._id)}
-                        className="px-3 py-1.5 rounded-xl text-red-600 hover:bg-red-50 font-bold text-xs transition-colors"
+                        className="px-3 py-1.5 rounded-xl text-red-700 hover:bg-red-50 font-bold text-xs transition-colors"
                       >
                         Rút đơn
                       </button>
@@ -272,7 +272,7 @@ export default function ApplicationsPage() {
                 {isOffer && (
                   <div className="mt-2 p-4 rounded-2xl bg-white border border-emerald-200 shadow-xs space-y-3">
                     <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                      <Sparkles className="w-5 h-5 text-emerald-600" />
+                      <Sparkles className="w-5 h-5 text-emerald-700" />
                       <span>Đề nghị nhận việc chính thức (Job Offer)</span>
                     </div>
 
@@ -389,7 +389,7 @@ export default function ApplicationsPage() {
             </p>
             <div>
               <label className="font-bold text-gray-800 block mb-1">Lý do từ chối (tùy chọn):</label>
-              <textarea
+              <textarea aria-label="Lý do từ chối (tùy chọn):"
                 rows={2}
                 value={declineReason}
                 onChange={(e) => setDeclineReason(e.target.value)}

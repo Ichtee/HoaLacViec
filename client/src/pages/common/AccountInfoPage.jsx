@@ -147,7 +147,7 @@ export default function AccountInfoPage() {
 
       {/* Error alert */}
       {error && (
-        <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-600 font-medium flex items-center gap-2.5 animate-fade-in">
+        <div className="p-4 bg-red-50 rounded-2xl border border-red-100 text-xs text-red-700 font-medium flex items-center gap-2.5 animate-fade-in">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -193,7 +193,7 @@ export default function AccountInfoPage() {
                 <button
                   type="button"
                   onClick={() => setAvatar('')}
-                  className="text-xs text-red-600 hover:underline font-medium inline-block pt-1"
+                  className="text-xs text-red-700 hover:underline font-medium inline-block pt-1"
                 >
                   Xóa ảnh đại diện
                 </button>
@@ -245,7 +245,7 @@ export default function AccountInfoPage() {
             <label className="block text-xs font-bold text-text-main mb-1.5">Vai trò tài khoản</label>
             <div className="px-3.5 py-2.5 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-semibold flex items-center justify-between">
               <span className="flex items-center gap-2">
-                {role === 'student' && <GraduationCap className="w-4 h-4 text-emerald-600" />}
+                {role === 'student' && <GraduationCap className="w-4 h-4 text-emerald-700" />}
                 {(role === 'worker' || role === 'freelancer') && <Briefcase className="w-4 h-4 text-blue-600" />}
                 {role === 'employer' && <Building2 className="w-4 h-4 text-purple-600" />}
                 {role === 'admin' && <ShieldCheck className="w-4 h-4 text-gray-800" />}
@@ -262,7 +262,7 @@ export default function AccountInfoPage() {
                     : 'Tài khoản chờ duyệt'}
                 </span>
               </span>
-              <span className="text-[11px] text-gray-400 font-normal">Hệ thống</span>
+              <span className="text-[11px] text-gray-500 font-normal">Hệ thống</span>
             </div>
             <p className="text-[11px] text-text-muted mt-1">Phân quyền do hệ thống Hoa Lạc Việc quản lý.</p>
           </div>

@@ -177,7 +177,7 @@ export default function StudentProfilePage() {
 
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1">Họ và tên</label>
-              <input
+              <input aria-label="Họ và tên"
                 type="text"
                 value={profile.name}
                 onChange={e => setProfile({ ...profile, name: e.target.value })}
@@ -189,18 +189,19 @@ export default function StudentProfilePage() {
               <label className="block text-xs font-semibold text-text-muted mb-1">Email</label>
               <div className="relative">
                 <input
+                  aria-label="Email"
                   type="email"
                   disabled
                   value={profile.email || user?.email || ''}
                   className="w-full px-3.5 py-2 rounded-xl border border-gray-100 text-sm bg-gray-50 text-gray-500"
                 />
-                <Mail className="w-4 h-4 text-gray-400 absolute right-3 top-2.5" />
+                <Mail className="w-4 h-4 text-gray-500 absolute right-3 top-2.5" />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1">Số điện thoại</label>
-              <input
+              <input aria-label="Số điện thoại"
                 type="text"
                 value={profile.phone}
                 onChange={e => setProfile({ ...profile, phone: e.target.value })}
@@ -211,7 +212,7 @@ export default function StudentProfilePage() {
 
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1">Khu vực sinh sống tại Hòa Lạc</label>
-              <select
+              <select aria-label="Khu vực sinh sống tại Hòa Lạc"
                 value={profile.area}
                 onChange={e => setProfile({ ...profile, area: e.target.value })}
                 className="w-full px-3.5 py-2 rounded-xl border border-green-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-main bg-white"
@@ -232,7 +233,7 @@ export default function StudentProfilePage() {
 
             <div>
               <label className="block text-xs font-semibold text-text-muted mb-1">Giới thiệu ngắn</label>
-              <textarea
+              <textarea aria-label="Giới thiệu ngắn"
                 rows={3}
                 value={profile.bio}
                 onChange={e => setProfile({ ...profile, bio: e.target.value })}
@@ -255,7 +256,7 @@ export default function StudentProfilePage() {
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-green-50 text-green-dark text-xs font-medium border border-green-100"
                 >
                   {skill}
-                  <button onClick={() => handleRemoveSkill(skill)} className="hover:text-red-500">
+                  <button onClick={() => handleRemoveSkill(skill)} className="hover:text-red-700">
                     ×
                   </button>
                 </span>
@@ -376,7 +377,7 @@ export default function StudentProfilePage() {
               <div className="py-8 text-center text-text-muted">
                 <Briefcase className="w-8 h-8 mx-auto mb-2 text-gray-300 stroke-[1.5]" />
                 <p className="text-sm font-medium text-text-main">Chưa có kinh nghiệm làm việc nào được ghi nhận</p>
-                <p className="text-xs text-gray-400 mt-1">Các công việc bạn hoàn thành trên nền tảng sẽ được tích lũy tại đây.</p>
+                <p className="text-xs text-gray-500 mt-1">Các công việc bạn hoàn thành trên nền tảng sẽ được tích lũy tại đây.</p>
               </div>
             )}
           </div>

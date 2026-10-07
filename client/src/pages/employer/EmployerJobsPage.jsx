@@ -210,12 +210,12 @@ export default function EmployerJobsPage() {
                   )}
 
                   <div className="mt-3 space-y-1 text-xs text-text-muted">
-                    <div className="flex items-center gap-1.5 text-orange-600 font-bold">
+                    <div className="flex items-center gap-1.5 text-orange-700 font-bold">
                       <DollarSign className="w-3.5 h-3.5 text-orange-500 shrink-0" />
                       <span>{formatVND(job.salaryAmount || 25000)}/giờ</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      <MapPin className="w-3.5 h-3.5 text-red-700 shrink-0" />
                       <span className="truncate">{job.address || 'Hòa Lạc'}</span>
                     </div>
                     <div className="flex items-center gap-1.5">

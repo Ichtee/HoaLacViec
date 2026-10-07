@@ -154,7 +154,7 @@ export default function MicroTaskCard({
 
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <User className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
               <span>Người nhờ: <strong className="text-text-main">{task.requesterName}</strong></span>
             </div>
             {isParticipant && task.requesterPhone && (
@@ -193,7 +193,7 @@ export default function MicroTaskCard({
         {isParticipant && isDisputed && task.disputeReason && (
           <div className="p-2.5 rounded-xl bg-red-50 border border-red-100 text-xs space-y-1">
             <p className="font-bold text-red-900 flex items-center gap-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-red-600" /> Lý do khiếu nại tranh chấp:
+              <AlertTriangle className="w-3.5 h-3.5 text-red-700" /> Lý do khiếu nại tranh chấp:
             </p>
             <p className="text-red-800">{task.disputeReason}</p>
           </div>
@@ -209,7 +209,7 @@ export default function MicroTaskCard({
                 <span className="text-xs text-text-muted italic">Đang chờ bạn nhận việc...</span>
                 <button
                   onClick={() => setCancelModalTask(task)}
-                  className="px-3 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
+                  className="px-3 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
                 >
                   Hủy bài đăng
                 </button>
@@ -241,7 +241,7 @@ export default function MicroTaskCard({
                 </button>
                 <button
                   onClick={() => setDisputeModalTask(task)}
-                  className="px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 text-xs font-medium"
+                  className="px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-700 text-xs font-medium"
                   title="Báo cáo sự cố hoặc tranh chấp"
                 >
                   Khiếu nại
@@ -254,7 +254,7 @@ export default function MicroTaskCard({
                 </span>
                 <button
                   onClick={() => setDisputeModalTask(task)}
-                  className="px-2.5 py-1.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
+                  className="px-2.5 py-1.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
                 >
                   Báo sự cố
                 </button>
@@ -277,7 +277,7 @@ export default function MicroTaskCard({
                 </button>
                 <button
                   onClick={() => setDisputeModalTask(task)}
-                  className="px-3 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
+                  className="px-3 py-2 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold"
                 >
                   Khiếu nại
                 </button>
@@ -289,7 +289,7 @@ export default function MicroTaskCard({
                 </span>
                 <button
                   onClick={() => setDisputeModalTask(task)}
-                  className="px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600 text-xs"
+                  className="px-2.5 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-700 text-xs"
                 >
                   Khiếu nại
                 </button>
@@ -333,7 +333,7 @@ export default function MicroTaskCard({
         )}
 
         {isExpired && (
-          <div className="w-full text-center text-xs text-gray-400 py-1.5 bg-gray-50 rounded-xl">
+          <div className="w-full text-center text-xs text-gray-500 py-1.5 bg-gray-50 rounded-xl">
             Đã hết hạn hoàn thành
           </div>
         )}

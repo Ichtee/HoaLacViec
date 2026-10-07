@@ -45,7 +45,7 @@ export function IconButton({ icon, label, variant = 'ghost', size = 'md', classN
   const variantClass = {
     ghost: 'text-text-muted hover:bg-green-50 hover:text-green-dark rounded-xl',
     primary: 'text-white bg-green-main hover:bg-green-dark rounded-xl',
-    danger: 'text-red-500 hover:bg-red-50 rounded-xl',
+    danger: 'text-red-700 hover:bg-red-50 rounded-xl',
   }[variant];
 
   return (

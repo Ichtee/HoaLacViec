@@ -14,7 +14,7 @@ const STATUS = {
   pending_employer: ['Chờ cửa hàng duyệt', 'bg-blue-50 text-blue-700'],
   approved: ['Đã duyệt', 'bg-green-50 text-green-700'],
   declined: ['Đồng nghiệp từ chối', 'bg-gray-100 text-gray-600'],
-  rejected: ['Cửa hàng từ chối', 'bg-red-50 text-red-600'],
+  rejected: ['Cửa hàng từ chối', 'bg-red-50 text-red-700'],
   cancelled: ['Đã rút lại', 'bg-gray-100 text-gray-600'],
   expired: ['Hết hạn', 'bg-gray-100 text-gray-600'],
 };
@@ -90,7 +90,7 @@ export default function ShiftSwapsPage() {
     }
     if (swap.status === 'pending_employer' && isEmployer) {
       act('Duyệt', 'approve', 'bg-green-main text-white', 'Đã chuyển ca.');
-      act('Từ chối', 'reject', 'bg-red-50 text-red-600', 'Đã từ chối.');
+      act('Từ chối', 'reject', 'bg-red-50 text-red-700', 'Đã từ chối.');
     }
     if (['pending_peer', 'pending_employer'].includes(swap.status) && String(swap.requesterUserId) === me) {
       act('Rút lại', 'cancel', 'bg-gray-100 text-text-muted', 'Đã rút lại đề nghị.');

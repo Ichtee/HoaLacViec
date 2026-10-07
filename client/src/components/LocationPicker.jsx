@@ -501,19 +501,24 @@ export default function LocationPicker({
     <div className={`space-y-3 ${className}`}>
       {/* Top Search & Actions Bar */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <form onSubmit={handleSearch} className="flex-1 flex gap-2 relative">
+        <div role="search" className="flex-1 flex gap-2 relative">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
             <input
               type="text"
+              aria-label="Tìm địa điểm trên bản đồ"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearch(e);
+              }}
               placeholder={addressHint ? `Tìm trên Vietmap (gợi ý: ${addressHint})` : 'Tìm kiếm quán, đường phố trên Vietmap...'}
               className="w-full pl-9 pr-8 py-2 rounded-xl border border-green-200 bg-white text-xs text-text-main focus:outline-none focus:ring-2 focus:ring-green-main focus:border-transparent transition-all shadow-sm"
             />
             {searchQuery && (
               <button
                 type="button"
+                aria-label="Xóa nội dung tìm kiếm"
                 onClick={() => {
                   setSearchQuery('');
                   setCandidates([]);
@@ -525,14 +530,15 @@ export default function LocationPicker({
             )}
           </div>
           <button
-            type="submit"
+            type="button"
+            onClick={handleSearch}
             disabled={searching}
             className="px-4 py-2 rounded-xl bg-green-main hover:bg-green-dark text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 shrink-0 disabled:opacity-50"
           >
             {searching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
             <span>Tìm</span>
           </button>
-        </form>
+        </div>
 
         <div className="flex items-center gap-2">
           <button
@@ -550,7 +556,7 @@ export default function LocationPicker({
             <button
               type="button"
               onClick={handleClearLocation}
-              className="p-2 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-all text-xs"
+              className="p-2 rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 transition-all text-xs"
               title="Xóa ghim vị trí"
             >
               <Trash2 className="w-4 h-4" />
@@ -564,7 +570,7 @@ export default function LocationPicker({
         <div className="bg-white rounded-2xl shadow-xl border border-green-100 p-2 max-h-56 overflow-y-auto space-y-1">
           <div className="text-[11px] font-semibold text-text-muted px-2 py-1 flex items-center justify-between border-b border-gray-100 mb-1">
             <span>Gợi ý địa điểm từ Vietmap ({candidates.length})</span>
-            <span className="text-[10px] text-orange-600">Chọn địa điểm để xem vị trí</span>
+            <span className="text-[10px] text-orange-700">Chọn địa điểm để xem vị trí</span>
           </div>
           {candidates.map((candidate, idx) => (
             <button
@@ -590,7 +596,7 @@ export default function LocationPicker({
       {/* Errors and Warnings */}
       {searchError && (
         <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-700" />
           <span>{searchError}</span>
         </div>
       )}
@@ -640,7 +646,7 @@ export default function LocationPicker({
             <span className="text-xs font-bold text-text-main">Trạng thái vị trí:</span>
             {hasConfirmedLocation ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã xác nhận trên Vietmap
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> Đã xác nhận trên Vietmap
               </span>
             ) : currentDisplayStatus === 'pending_confirmation' ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 animate-pulse">

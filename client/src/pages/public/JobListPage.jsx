@@ -10,6 +10,7 @@ import { useAsync, useDebounce, useGeolocation } from '@/hooks';
 import { getJobs, toggleSaveJob, getSavedJobs, apiVietmapMatrix, geocodeAddress } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JOB_TYPE_LABELS, AREAS } from '@/constants';
+import { useMediaQuery } from '@/hooks/useMediaQuery.js';
 import { haversineDistance, isValidCoordinate } from '@/utils';
 
 const PAGE_SIZE = 12;
@@ -26,6 +27,7 @@ export default function JobListPage() {
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
   // Màn hình rộng: bản đồ trên đầu. Điện thoại: danh sách trước, bản đồ nằm sau nút chuyển.
   const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches ? 'map' : 'list'));
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [page, setPage] = useState(1);
@@ -355,6 +357,25 @@ export default function JobListPage() {
 
   const hasFilters = Boolean(search || type || area || verifiedOnly || featuredOnly || minSalary || sort !== 'newest');
 
+  const renderMap = (mapClassName) => (
+      <Suspense fallback={<div className="h-[300px] rounded-2xl bg-stone-100 animate-pulse" />}>
+      <JobMap
+        jobs={jobsForMap}
+        userLocation={userLocation}
+        selectedJobId={selectedJobId}
+        onSelectJob={(j) => {
+          const id = j._id || j.id;
+          setSelectedJobId(id);
+          const el = document.getElementById(`job-card-${id}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }}
+                      className={mapClassName}
+      />
+      </Suspense>
+    );
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Page Header + View Switcher */}
@@ -412,7 +433,7 @@ export default function JobListPage() {
       {/* Search + Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-2.5">
         <div className="flex-1 relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
           <input
             id="job-search"
             value={search}
@@ -442,6 +463,7 @@ export default function JobListPage() {
 
         <Select
           id="sort-select"
+          aria-label="Sắp xếp việc làm"
           value={sort}
           onChange={(e) => handleSortChange(e.target.value)}
           wrapperClassName="w-full sm:w-auto"
@@ -455,6 +477,45 @@ export default function JobListPage() {
           <option value="salary_asc">Lương thấp đến cao</option>
           <option value="oldest">Cũ nhất</option>
         </Select>
+      </div>
+
+      {/* Chip lọc nhanh */}
+      <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Lọc nhanh">
+        {[{ value: '', label: 'Tất cả' }, ...Object.entries(JOB_TYPE_LABELS).map(([value, label]) => ({ value, label }))].map((chip) => (
+          <button
+            key={chip.value || 'all'}
+            type="button"
+            aria-pressed={type === chip.value}
+            onClick={() => {
+              setType(chip.value);
+              setPage(1);
+            }}
+            className={clsx(
+              'shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors',
+              type === chip.value
+                ? 'bg-green-main text-white border-green-main'
+                : 'bg-white text-text-main border-gray-200 hover:border-green-main hover:text-green-dark'
+            )}
+          >
+            {chip.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          aria-pressed={verifiedOnly}
+          onClick={() => {
+            setVerifiedOnly(!verifiedOnly);
+            setPage(1);
+          }}
+          className={clsx(
+            'shrink-0 whitespace-nowrap px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors inline-flex items-center gap-1.5',
+            verifiedOnly
+              ? 'bg-green-main text-white border-green-main'
+              : 'bg-white text-text-main border-gray-200 hover:border-green-main hover:text-green-dark'
+          )}
+        >
+          Cửa hàng xác thực
+        </button>
       </div>
 
       {/* Expanded Filters Panel */}
@@ -549,7 +610,7 @@ export default function JobListPage() {
               </span>
               <button
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-bold hover:underline"
+                className="inline-flex items-center gap-1 text-xs text-red-700 hover:text-red-700 font-bold hover:underline"
               >
                 <X className="w-3.5 h-3.5" /> Xóa tất cả bộ lọc
               </button>
@@ -559,7 +620,7 @@ export default function JobListPage() {
       )}
 
       {/* MAP ON TOP (STICKY WHEN VIEW MODE === 'MAP') */}
-      {viewMode === 'map' && (
+      {viewMode === 'map' && !isDesktop && (
         <div
           className={clsx(
             'sticky top-16 z-30 bg-[#FFFDF6]/95 backdrop-blur-md -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 border-b transition-all duration-300',
@@ -599,29 +660,14 @@ export default function JobListPage() {
               </button>
             </div>
 
-            <Suspense fallback={<div className="h-[300px] rounded-2xl bg-stone-100 animate-pulse" />}>
-            <JobMap
-              jobs={jobsForMap}
-              userLocation={userLocation}
-              selectedJobId={selectedJobId}
-              onSelectJob={(j) => {
-                const id = j._id || j.id;
-                setSelectedJobId(id);
-                const el = document.getElementById(`job-card-${id}`);
-                if (el) {
-                  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }
-              }}
-              className={clsx(
-                'w-full rounded-2xl overflow-hidden shadow-xs border border-stone-200/80 transition-all duration-300 ease-in-out',
-                isMapExpanded
-                  ? 'h-[380px] sm:h-[480px]'
-                  : isScrolled
-                    ? 'h-[170px] sm:h-[210px]'
-                    : 'h-[300px] sm:h-[380px]'
-              )}
-            />
-            </Suspense>
+            {renderMap(clsx(
+              'w-full rounded-2xl overflow-hidden shadow-xs border border-stone-200/80 transition-all duration-300 ease-in-out',
+              isMapExpanded
+                ? 'h-[380px] sm:h-[480px]'
+                : isScrolled
+                  ? 'h-[170px] sm:h-[210px]'
+                  : 'h-[300px] sm:h-[380px]'
+            ))}
 
             {jobsForMap.some(j => !isValidCoordinate(
               j.location?.lat ?? j.geoPoint?.coordinates?.[1] ?? j.mapDisplayLocation?.lat,
@@ -636,8 +682,9 @@ export default function JobListPage() {
         </div>
       )}
 
-      {/* JOBS SECTION BELOW MAP */}
-      <div className="space-y-4 pt-2">
+      {/* Danh sách việc; ở màn hình rộng nằm cạnh bản đồ cố định */}
+      <div className={clsx(viewMode === 'map' && isDesktop && 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6 items-start')}>
+      <div className="space-y-4 pt-2 min-w-0">
         <div className="flex items-center justify-between pb-1 border-b border-gray-100">
           <h3 className="font-semibold text-xs sm:text-sm text-text-muted flex items-center gap-1.5">
             <span>
@@ -677,7 +724,9 @@ export default function JobListPage() {
         ) : (
           <>
             <div className={clsx(
-              "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 transition-opacity duration-150 items-stretch",
+              viewMode === 'map' && isDesktop
+                ? 'grid grid-cols-1 xl:grid-cols-2 gap-4 transition-opacity duration-150 items-stretch'
+                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 transition-opacity duration-150 items-stretch',
               loading && "opacity-60"
             )}>
               {paginated.map((job) => (
@@ -730,6 +779,12 @@ export default function JobListPage() {
             )}
           </>
         )}
+      </div>
+      {viewMode === 'map' && isDesktop && (
+        <aside className="sticky top-20 h-[calc(100vh-6rem)] min-w-0" aria-label="Bản đồ việc làm">
+          {renderMap('w-full h-full rounded-2xl overflow-hidden border border-stone-200/80 shadow-xs')}
+        </aside>
+      )}
       </div>
     </div>
   );

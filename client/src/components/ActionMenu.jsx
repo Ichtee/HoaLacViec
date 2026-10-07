@@ -47,7 +47,7 @@ export function ActionMenu({ items, label = 'Thêm hành động', className }) 
             const Icon = item.icon;
             const cls = clsx(
               'w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-left transition-colors',
-              item.danger ? 'text-red-600 hover:bg-red-50' : 'text-text-main hover:bg-green-50'
+              item.danger ? 'text-red-700 hover:bg-red-50' : 'text-text-main hover:bg-green-50'
             );
             const content = (
               <>

@@ -66,7 +66,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Số điện thoại liên hệ của bạn *</label>
-              <input
+              <input aria-label="Số điện thoại liên hệ của bạn"
                 type="tel"
                 required
                 value={acceptPhone}
@@ -78,7 +78,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Lời nhắn (không bắt buộc)</label>
-              <input
+              <input aria-label="Lời nhắn (không bắt buộc)"
                 type="text"
                 value={acceptNote}
                 placeholder="VD: Mình có xe máy, khoảng 15 phút nữa mình ghé..."
@@ -130,7 +130,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Link ảnh minh chứng hoặc biên nhận</label>
-              <input
+              <input aria-label="Link ảnh minh chứng hoặc biên nhận"
                 type="text"
                 value={completionProof}
                 placeholder="VD: Link ảnh Google Drive, Imgur hoặc mô tả đã giao..."
@@ -141,7 +141,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Ghi chú cho người nhờ</label>
-              <textarea
+              <textarea aria-label="Ghi chú cho người nhờ"
                 rows={3}
                 value={completionNote}
                 placeholder="VD: Đã gửi đồ tại bàn lễ tân KTX Dom A cho bạn..."
@@ -186,7 +186,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Lý do khiếu nại *</label>
-              <input
+              <input aria-label="Lý do khiếu nại"
                 type="text"
                 required
                 value={disputeReason}
@@ -198,7 +198,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Nội dung giải trình chi tiết</label>
-              <textarea
+              <textarea aria-label="Nội dung giải trình chi tiết"
                 rows={3}
                 value={disputeContent}
                 placeholder="Mô tả cụ thể sự việc, mốc thời gian và yêu cầu giải quyết..."
@@ -209,7 +209,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Link bằng chứng (nếu có)</label>
-              <input
+              <input aria-label="Link bằng chứng (nếu có)"
                 type="text"
                 value={disputeEvidence}
                 placeholder="Link ảnh chụp tin nhắn, cuộc gọi, hóa đơn..."
@@ -249,7 +249,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Lý do hủy (tùy chọn)</label>
-              <input
+              <input aria-label="Lý do hủy (tùy chọn)"
                 type="text"
                 value={cancelReason}
                 placeholder="VD: Đã tìm được người quen giúp, thay đổi kế hoạch..."
@@ -306,7 +306,7 @@ export default function MicroTaskModals({
 
             <div>
               <label className="block text-xs font-bold text-text-main mb-1">Nhận xét chi tiết *</label>
-              <textarea
+              <textarea aria-label="Nhận xét chi tiết"
                 rows={3}
                 required
                 value={reviewComment}
