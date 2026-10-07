@@ -151,7 +151,7 @@ export default function MessagesPage() {
                 {messages.length === 0 && <p className="text-xs text-text-muted text-center">Chưa có tin nhắn. Hãy gửi lời chào!</p>}
                 {messages.map((m) => (
                   <div key={m.id} className={clsx('flex', m.mine ? 'justify-end' : 'justify-start')}>
-                    <div className={clsx('max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
+                    <div data-testid="chat-message" className={clsx('max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words',
                       m.mine ? 'bg-green-main text-white' : 'bg-stone-100 text-text-main')}>
                       {m.body}
                       <p className={clsx('text-[10px] mt-1', m.mine ? 'text-green-100' : 'text-text-muted')}>{formatTime(m.createdAt)}</p>

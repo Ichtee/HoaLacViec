@@ -5,8 +5,12 @@
  * - Dùng trong test tích hợp: const t = await startTestServer(); ... await t.stop();
  * - Chạy độc lập cho Playwright:  node test/e2e/testServer.mjs  (mặc định cổng 5055)
  */
+import { fileURLToPath } from 'node:url';
 import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
+
+// Dùng chung một thư mục cache cho binary mongod dù chạy từ server/ hay client/
+process.env.MONGOMS_DOWNLOAD_DIR ||= fileURLToPath(new URL('../../node_modules/.cache/mongodb-memory-server', import.meta.url));
 
 export const PASSWORD = 'Passw0rd!';
 
@@ -46,6 +50,55 @@ export async function startTestServer({ port = 0 } = {}) {
 }
 
 let counter = 0;
+
+/**
+ * Endpoint chỉ dành cho E2E: tạo dữ liệu nhanh để các spec không phải bấm qua mọi bước chuẩn bị.
+ * Chỉ tồn tại trong tiến trình testServer độc lập, không nằm trong ứng dụng thật.
+ */
+async function mountSeedRoutes(t) {
+  const { default: express } = await import('express');
+  const { default: app } = await import('../../src/app.js');
+  const router = express.Router();
+  router.use(express.json());
+  const { models } = t;
+  const vnSlot = (hoursAhead, durationHours = 4) => {
+    const fmt = (ms) => {
+      const iso = new Date(ms + 7 * 3600 * 1000).toISOString();
+      return { date: iso.slice(0, 10), time: iso.slice(11, 16) };
+    };
+    const start = Date.now() + hoursAhead * 3600 * 1000;
+    const a = fmt(start);
+    const b = fmt(start + durationHours * 3600 * 1000);
+    return { date: a.date, startTime: a.time, endTime: b.time };
+  };
+  router.post('/user', async (req, res) => {
+    const user = await createUser(models, req.body);
+    res.json({ id: user._id, email: user.email, name: user.name });
+  });
+  router.post('/job', async (req, res) => {
+    const employer = await models.User.findById(req.body.employerId);
+    const job = await createApprovedJob(models, employer, req.body.extra || {});
+    res.json({ id: job._id, title: job.title });
+  });
+  router.post('/employment', async (req, res) => {
+    const { employerId, employeeId, jobId } = req.body;
+    const employment = await models.Employment.create({
+      employerUserId: employerId, employeeUserId: employeeId, jobId, status: 'active', positionTitle: 'Pha chế',
+    });
+    res.json({ id: employment._id });
+  });
+  router.post('/shift', async (req, res) => {
+    const { employerId, studentId, studentName, hoursAhead = 24, extra = {} } = req.body;
+    const slot = vnSlot(hoursAhead);
+    const shift = await models.Shift.create({
+      employerUserId: employerId, studentUserId: studentId, studentName, storeName: 'Quán E2E', ...slot,
+      scheduleStatus: 'published', assignmentStatus: 'accepted', wageRate: 30000, ...extra,
+    });
+    res.json({ id: shift._id, ...slot });
+  });
+  app.use('/__e2e', router);
+}
+
 export async function createUser(models, { role, name, email, extra = {} }) {
   counter += 1;
   const user = await models.User.create({
@@ -122,6 +175,7 @@ if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}` || proce
   await createUser(t.models, { role: 'student', name: 'Sinh Viên E2E', email: 'student@e2e.test' });
   await createUser(t.models, { role: 'student', name: 'Sinh Viên Hai', email: 'student2@e2e.test' });
   await createApprovedJob(t.models, employer);
+  await mountSeedRoutes(t);
   console.log(`[e2e] server ready on ${t.url} (admin id ${admin._id})`);
   const shutdown = async () => { await t.stop(); process.exit(0); };
   process.on('SIGINT', shutdown);

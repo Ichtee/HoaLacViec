@@ -15,6 +15,11 @@ import {
   getReviews,
   createReview,
   downloadPayrollCsv,
+  recordAttendanceStart,
+  recordAttendanceEnd,
+  recordAttendanceNoShow,
+  markPayrollReady,
+  markPaid,
 } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
@@ -36,7 +41,11 @@ function getShiftBadge(status) {
     case 'paid':
       return { variant: 'success', label: 'Đã chốt công 🎉' };
     case 'pending_approval':
+    case 'completed_pending_review':
+    case 'needs_review':
       return { variant: 'purple', label: 'Chờ duyệt công ⏳' };
+    case 'no_show':
+      return { variant: 'danger', label: 'Vắng mặt' };
     case 'checked_in':
       return { variant: 'warning', label: 'Đang làm việc' };
     case 'disputed':
@@ -89,6 +98,7 @@ export default function EmployerShiftsPage() {
   const [toast, setToast] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [payrollMonth, setPayrollMonth] = useState(() => getTodayString().slice(0, 7));
+  const [busyShiftId, setBusyShiftId] = useState(null);
   const [reviewedShiftIds, setReviewedShiftIds] = useState(() => new Set());
   const [reviewShift, setReviewShift] = useState(null);
   const [reviewRating, setReviewRating] = useState(0);
@@ -269,6 +279,111 @@ export default function EmployerShiftsPage() {
     }
   }
 
+  async function runShiftAction(shiftId, action, successMessage) {
+    setBusyShiftId(shiftId);
+    try {
+      await action(shiftId);
+      setToast({ type: 'success', message: successMessage });
+      await loadData();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Thao tác không thành công.' });
+    } finally {
+      setBusyShiftId(null);
+    }
+  }
+
+  function renderShiftActions(shift) {
+    const id = shift._id || shift.id;
+    const busy = busyShiftId === id;
+    const attendance = shift.attendanceStatus || shift.status;
+    const payroll = shift.payrollStatus || (shift.status === 'paid' ? 'paid' : shift.status === 'payroll_ready' ? 'ready' : 'not_ready');
+    const primary = 'flex-1 py-2 px-3 rounded-xl text-white font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1 disabled:opacity-50';
+    const secondary = 'py-2 px-3 rounded-xl font-semibold text-xs transition-colors disabled:opacity-50';
+
+    if (shift.scheduleStatus === 'cancelled' || shift.status === 'cancelled') {
+      return <span className="text-xs text-text-muted">Ca đã hủy</span>;
+    }
+
+    if (attendance === 'checked_in') {
+      return (
+        <div className="flex items-center gap-2 w-full">
+          <button disabled={busy} onClick={() => runShiftAction(id, recordAttendanceEnd, 'Đã ghi nhận tan ca.')}
+            className={clsx(primary, 'bg-amber-600 hover:bg-amber-700')}>
+            <Clock className="w-3.5 h-3.5" /> Ghi nhận tan ca
+          </button>
+        </div>
+      );
+    }
+
+    if (['completed_pending_review', 'checked_out', 'needs_review', 'pending_approval'].includes(attendance)) {
+      return (
+        <div className="flex items-center gap-2 w-full">
+          <button disabled={busy} onClick={() => handleApproveShift(id)} className={clsx(primary, 'bg-emerald-600 hover:bg-emerald-700')}>
+            <Check className="w-3.5 h-3.5" /> Duyệt chốt công
+          </button>
+          <button onClick={() => { setDisputeModalShift(shift); setDisputeReason(''); }}
+            className={clsx(secondary, 'bg-red-50 hover:bg-red-100 text-red-600')}>
+            Đối soát
+          </button>
+        </div>
+      );
+    }
+
+    if (['approved', 'completed', 'payroll_ready', 'paid'].includes(attendance) || shift.attendanceStatus === 'approved') {
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+          <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+            <CheckCircle className="w-4 h-4 text-emerald-500" />
+            {payroll === 'paid' ? 'Đã thanh toán' : payroll === 'ready' ? 'Chờ thanh toán' : 'Đã hoàn tất công ca'}
+          </span>
+          <div className="flex items-center gap-2">
+            {payroll === 'not_ready' && (
+              <button disabled={busy} onClick={() => runShiftAction(id, markPayrollReady, 'Đã chốt lương cho ca này.')}
+                className={clsx(secondary, 'bg-blue-50 hover:bg-blue-100 text-blue-700')}>
+                Chốt lương
+              </button>
+            )}
+            {payroll === 'ready' && (
+              <button disabled={busy} onClick={() => runShiftAction(id, (shiftId) => markPaid(shiftId, {}), 'Đã xác nhận thanh toán.')}
+                className={clsx(secondary, 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700')}>
+                Xác nhận đã thanh toán
+              </button>
+            )}
+            {reviewedShiftIds.has(String(id)) ? (
+              <span className="text-[11px] font-semibold text-text-muted">Đã đánh giá</span>
+            ) : (
+              <button onClick={() => openReviewModal(shift)}
+                className={clsx(secondary, 'bg-yellow-50 hover:bg-yellow-100 text-yellow-700 flex items-center gap-1')}>
+                <Star className="w-3.5 h-3.5" /> Đánh giá nhân viên
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (attendance === 'disputed') {
+      return <span className="text-xs font-semibold text-red-600">Đang chờ đối soát</span>;
+    }
+    if (attendance === 'no_show') {
+      return <span className="text-xs font-semibold text-red-600">Nhân viên vắng mặt</span>;
+    }
+
+    // Ca đã công bố, chưa bắt đầu
+    return (
+      <div className="flex items-center gap-2 w-full">
+        <button disabled={busy} onClick={() => runShiftAction(id, recordAttendanceStart, 'Đã ghi nhận nhân viên vào ca.')}
+          className={clsx(primary, 'bg-green-main hover:bg-green-dark')}>
+          <Clock className="w-3.5 h-3.5" /> Ghi nhận vào ca
+        </button>
+        <button disabled={busy} onClick={() => runShiftAction(id, (shiftId) => recordAttendanceNoShow(shiftId, { reason: 'Vắng mặt' }), 'Đã ghi nhận vắng mặt.')}
+          className={clsx(secondary, 'bg-red-50 hover:bg-red-100 text-red-600')}>
+          Vắng mặt
+        </button>
+      </div>
+    );
+  }
+
   async function handleApproveShift(shiftId) {
     try {
       await approveAttendance(shiftId);
@@ -276,6 +391,7 @@ export default function EmployerShiftsPage() {
         prev.map((s) => ((s._id === shiftId || s.id === shiftId) ? { ...s, status: 'approved', attendanceStatus: 'approved' } : s))
       );
       setToast({ type: 'success', message: 'Đã xác nhận duyệt công và tiền lương cho sinh viên!' });
+      await loadData();
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi duyệt công.' });
     }
@@ -466,42 +582,9 @@ export default function EmployerShiftsPage() {
                   </div>
                 </div>
 
-                {/* Actions Footer */}
-                <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-2">
-                  {shift.status === 'pending_approval' || shift.attendanceStatus === 'pending_approval' || shift.status === 'checked_in' || shift.attendanceStatus === 'checked_in' ? (
-                    <div className="flex items-center gap-2 w-full">
-                      <button
-                        onClick={() => handleApproveShift(shift._id || shift.id)}
-                        className="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1"
-                      >
-                        <Check className="w-3.5 h-3.5" /> Duyệt chốt công
-                      </button>
-                      <button
-                        onClick={() => { setDisputeModalShift(shift); setDisputeReason(''); }}
-                        className="py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-semibold text-xs transition-colors"
-                      >
-                        Đối soát
-                      </button>
-                    </div>
-                  ) : ['approved', 'completed', 'payroll_ready', 'paid'].includes(shift.status) || shift.attendanceStatus === 'approved' ? (
-                    <div className="flex items-center justify-between gap-2 w-full">
-                      <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
-                        <CheckCircle className="w-4 h-4 text-emerald-500" /> Đã hoàn tất công ca
-                      </span>
-                      {reviewedShiftIds.has(String(shift._id || shift.id)) ? (
-                        <span className="text-[11px] font-semibold text-text-muted">Đã đánh giá</span>
-                      ) : (
-                        <button
-                          onClick={() => openReviewModal(shift)}
-                          className="py-1.5 px-3 rounded-xl bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-semibold text-xs transition-colors flex items-center gap-1"
-                        >
-                          <Star className="w-3.5 h-3.5" /> Đánh giá nhân viên
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-text-muted">Chờ sinh viên đến ca</span>
-                  )}
+                {/* Actions Footer: đi hết vòng đời ca - vào ca, tan ca, duyệt công, chốt lương, thanh toán */}
+                <div className="pt-4 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2">
+                  {renderShiftActions(shift)}
                 </div>
               </div>
             );
