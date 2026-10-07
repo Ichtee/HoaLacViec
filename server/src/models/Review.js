@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const reviewSchema = new mongoose.Schema({
   reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   reviewerName: { type: String, required: true },
-  reviewerRole: { type: String, enum: ['student', 'employer', 'admin'], required: true },
+  reviewerRole: { type: String, enum: ['student', 'worker', 'freelancer', 'employer', 'admin'], required: true },
   targetId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   storeName: { type: String, default: '' },
   transactionType: { type: String, enum: ['shift', 'task', 'direct'], default: 'direct' },
@@ -14,6 +14,10 @@ const reviewSchema = new mongoose.Schema({
     shiftManagement: { type: Number, min: 1, max: 5 },
     workEnvironment: { type: Number, min: 1, max: 5 },
     payment: { type: Number, min: 1, max: 5 },
+    // Tiêu chí cửa hàng đánh giá nhân viên
+    punctuality: { type: Number, min: 1, max: 5 },
+    attitude: { type: Number, min: 1, max: 5 },
+    skill: { type: Number, min: 1, max: 5 },
   },
   type: { type: String, enum: ['received', 'given'], default: 'received' },
   rating: { type: Number, min: 1, max: 5, required: true },

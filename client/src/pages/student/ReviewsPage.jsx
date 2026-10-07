@@ -6,6 +6,12 @@ import { getReviews, getShifts, createReview } from '@/services';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
+const WORKER_CRITERIA = [
+  ['punctuality', 'Đúng giờ'],
+  ['attitude', 'Thái độ làm việc'],
+  ['skill', 'Kỹ năng, hiệu quả'],
+];
+
 const CRITERIA = [
   ['jobAccuracy', 'Công việc đúng mô tả'],
   ['shiftManagement', 'Ca làm và hướng dẫn'],
@@ -53,6 +59,7 @@ export default function StudentReviewsPage() {
   }, [user?.id]);
 
   const sent = reviews.filter((review) => review.transactionType === 'shift' && review.type === 'given');
+  const received = reviews.filter((review) => review.transactionType === 'shift' && review.type === 'received');
   const reviewedIds = new Set(sent.map((review) => String(review.transactionId)));
   const eligible = shifts.filter((shift) =>
     (shift.attendanceStatus ? shift.attendanceStatus === 'approved' : ['approved', 'completed', 'payroll_ready', 'paid'].includes(shift.status)) &&
@@ -101,6 +108,18 @@ export default function StudentReviewsPage() {
               <div><p className="font-bold text-text-main">{shift.storeName || shift.workplaceName || 'Cửa hàng'}</p>
                 <p className="text-sm text-text-muted">Ca ngày {shift.date} · {shift.startTime}–{shift.endTime}</p></div>
               <button onClick={() => openReview(shift)} className="shrink-0 px-4 py-2 rounded-xl bg-green-main text-white text-sm font-semibold">Đánh giá</button>
+            </div>)}
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold text-text-main">Đánh giá từ cửa hàng ({received.length})</h2>
+          {received.length === 0 ? <p className="bg-white rounded-2xl p-5 text-sm text-text-muted">Chưa có cửa hàng nào đánh giá bạn sau ca làm.</p> :
+            received.map((review) => <div key={review.id || review._id} className="bg-white rounded-2xl p-5 border border-green-50 space-y-2">
+              <div className="flex items-center justify-between gap-3"><p className="font-bold text-text-main">{review.storeName || review.authorName || 'Cửa hàng'}</p>
+                <span className="text-sm text-text-muted">{review.date}</span></div>
+              <p className="text-yellow-600 font-semibold">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</p>
+              {review.comment && <p className="text-sm text-text-main">{review.comment}</p>}
+              {WORKER_CRITERIA.filter(([key]) => review.criteria?.[key]).map(([key, label]) =>
+                <p key={key} className="text-xs text-text-muted">{label}: {review.criteria[key]}/5</p>)}
             </div>)}
         </section>
         <section className="space-y-3">

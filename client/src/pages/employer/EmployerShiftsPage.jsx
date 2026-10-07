@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Calendar, Clock, CheckCircle, Plus, Users, Check, X,
-  Navigation, AlertTriangle, ShieldCheck, DollarSign
+  Navigation, AlertTriangle, ShieldCheck, DollarSign, Star
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -12,6 +12,8 @@ import {
   disputeShift,
   getApplications,
   getEmployments,
+  getReviews,
+  createReview,
 } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
@@ -47,6 +49,34 @@ function getShiftBadge(status) {
   }
 }
 
+const WORKER_CRITERIA = [
+  ['punctuality', 'Đúng giờ'],
+  ['attitude', 'Thái độ làm việc'],
+  ['skill', 'Kỹ năng, hiệu quả'],
+];
+
+function StarRow({ label, value, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-text-main">{label}</span>
+      <div className="flex gap-0.5" role="group" aria-label={label}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange(star)}
+            aria-label={`${label}: ${star} sao`}
+            aria-pressed={value === star}
+            className="p-0.5"
+          >
+            <Star className={clsx('w-5 h-5', star <= value ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300')} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function EmployerShiftsPage() {
   const { user } = useAuth();
   const [shifts, setShifts] = useState([]);
@@ -57,6 +87,11 @@ export default function EmployerShiftsPage() {
   const [disputeReason, setDisputeReason] = useState('');
   const [toast, setToast] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [reviewedShiftIds, setReviewedShiftIds] = useState(() => new Set());
+  const [reviewShift, setReviewShift] = useState(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewCriteria, setReviewCriteria] = useState({});
+  const [reviewComment, setReviewComment] = useState('');
 
   const [formData, setFormData] = useState({
     studentUserId: '',
@@ -71,6 +106,48 @@ export default function EmployerShiftsPage() {
   useEffect(() => {
     loadData();
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    getReviews({ reviewerId: user.id, transactionType: 'shift' })
+      .then((rows) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        setReviewedShiftIds(new Set(rows.map((r) => String(r.transactionId)).filter(Boolean)));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  function openReviewModal(shift) {
+    setReviewShift(shift);
+    setReviewRating(0);
+    setReviewCriteria({});
+    setReviewComment('');
+  }
+
+  async function handleSubmitReview(event) {
+    event.preventDefault();
+    if (!reviewRating || !reviewShift || submitting) return;
+    const shiftId = reviewShift._id || reviewShift.id;
+    setSubmitting(true);
+    try {
+      await createReview({
+        transactionType: 'shift',
+        transactionId: shiftId,
+        rating: reviewRating,
+        criteria: reviewCriteria,
+        comment: reviewComment.trim(),
+      });
+      setReviewedShiftIds((prev) => new Set(prev).add(String(shiftId)));
+      setReviewShift(null);
+      setToast({ type: 'success', message: 'Đã gửi đánh giá nhân viên.' });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Không thể gửi đánh giá.' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function loadData() {
     try {
@@ -370,9 +447,21 @@ export default function EmployerShiftsPage() {
                       </button>
                     </div>
                   ) : ['approved', 'completed', 'payroll_ready', 'paid'].includes(shift.status) || shift.attendanceStatus === 'approved' ? (
-                    <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
-                      <CheckCircle className="w-4 h-4 text-emerald-500" /> Đã hoàn tất công ca
-                    </span>
+                    <div className="flex items-center justify-between gap-2 w-full">
+                      <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4 text-emerald-500" /> Đã hoàn tất công ca
+                      </span>
+                      {reviewedShiftIds.has(String(shift._id || shift.id)) ? (
+                        <span className="text-[11px] font-semibold text-text-muted">Đã đánh giá</span>
+                      ) : (
+                        <button
+                          onClick={() => openReviewModal(shift)}
+                          className="py-1.5 px-3 rounded-xl bg-yellow-50 hover:bg-yellow-100 text-yellow-700 font-semibold text-xs transition-colors flex items-center gap-1"
+                        >
+                          <Star className="w-3.5 h-3.5" /> Đánh giá nhân viên
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-xs text-text-muted">Chờ sinh viên đến ca</span>
                   )}
@@ -498,6 +587,67 @@ export default function EmployerShiftsPage() {
                 className="px-5 py-2.5 rounded-xl bg-green-main text-white font-bold hover:bg-green-dark disabled:opacity-50 shadow-sm"
               >
                 {submitting ? 'Đang tạo ca...' : 'Xác nhận phân ca'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal Đánh Giá Nhân Viên */}
+      {reviewShift && (
+        <Modal
+          isOpen={true}
+          onClose={() => { if (!submitting) setReviewShift(null); }}
+          title="Đánh giá nhân viên"
+        >
+          <form onSubmit={handleSubmitReview} className="space-y-4 text-xs">
+            <p className="text-text-main">
+              Ca của{' '}
+              <strong>
+                {reviewShift.studentName ||
+                  reviewShift.studentUserId?.name ||
+                  reviewShift.employeeUserId?.name ||
+                  'nhân viên'}
+              </strong>{' '}
+              ngày {reviewShift.date}
+            </p>
+            <StarRow label="Đánh giá tổng thể *" value={reviewRating} onChange={setReviewRating} />
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <p className="font-semibold text-text-main">Đánh giá chi tiết (không bắt buộc)</p>
+              {WORKER_CRITERIA.map(([key, label]) => (
+                <StarRow
+                  key={key}
+                  label={label}
+                  value={reviewCriteria[key] || 0}
+                  onChange={(value) => setReviewCriteria((prev) => ({ ...prev, [key]: value }))}
+                />
+              ))}
+            </div>
+            <label className="block font-semibold text-text-main">
+              Nhận xét (không bắt buộc)
+              <textarea
+                rows={3}
+                maxLength={1000}
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Nhận xét về thái độ và hiệu quả làm việc"
+                className="mt-1.5 w-full p-2.5 rounded-xl border border-gray-200 font-normal focus:ring-2 focus:ring-green-main focus:outline-none resize-none"
+              />
+            </label>
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setReviewShift(null)}
+                className="px-4 py-2 rounded-xl bg-gray-100 text-text-muted font-semibold"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={!reviewRating || submitting}
+                className="px-4 py-2 rounded-xl bg-green-main text-white font-bold disabled:opacity-50"
+              >
+                {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
               </button>
             </div>
           </form>

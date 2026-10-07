@@ -11,11 +11,15 @@ import { authenticate } from '../middlewares/auth.js';
 
 const router = express.Router();
 
-// Store ratings come from completed shifts; task reputation is separate.
-export async function syncAggregateRating(targetUserId, transactionType) {
+// Điểm cửa hàng lấy từ đánh giá ca làm của nhân viên; điểm uy tín của người lao động
+// gồm cả đánh giá việc vặt và đánh giá của cửa hàng sau ca làm.
+// targetRole: 'student' | 'employer' (mặc định suy ra từ transactionType).
+export async function syncAggregateRating(targetUserId, transactionType, targetRole) {
+  const updatesStudent = targetRole ? targetRole === 'student' : transactionType === 'task';
+  const matchShiftOnly = !updatesStudent && transactionType === 'shift';
   try {
     const stats = await Review.aggregate([
-      { $match: { targetId: new mongoose.Types.ObjectId(targetUserId), status: 'published', ...(transactionType === 'shift' ? { transactionType: 'shift' } : {}) } },
+      { $match: { targetId: new mongoose.Types.ObjectId(targetUserId), status: 'published', ...(matchShiftOnly ? { transactionType: 'shift' } : {}) } },
       {
         $group: {
           _id: '$targetId',
@@ -27,7 +31,7 @@ export async function syncAggregateRating(targetUserId, transactionType) {
 
     const avg = stats.length ? Number(stats[0].averageRating.toFixed(1)) : 0;
     const total = stats.length ? stats[0].totalReviews : 0;
-    if (transactionType === 'task') {
+    if (updatesStudent) {
       await StudentProfile.findOneAndUpdate(
         { userId: targetUserId },
         { $set: { reputationScore: avg, reputationCount: total } }
@@ -129,6 +133,7 @@ router.post('/', authenticate, async (req, res, next) => {
     let finalTargetId = targetId;
     let finalStoreName = storeName || '';
     let validatedCriteria = undefined;
+    let targetRole;
 
     if (transactionType === 'shift') {
       const shift = await Shift.findById(transactionId);
@@ -146,25 +151,38 @@ router.post('/', authenticate, async (req, res, next) => {
         });
       }
 
+      const uid = req.user._id.toString();
       const isStudentParticipant =
-        (shift.studentUserId && shift.studentUserId.toString() === req.user._id.toString()) ||
-        (shift.studentId && shift.studentId.toString() === req.user._id.toString());
+        (shift.studentUserId && shift.studentUserId.toString() === uid) ||
+        (shift.studentId && shift.studentId.toString() === uid);
+      const isEmployerOwner =
+        (shift.employerUserId && shift.employerUserId.toString() === uid) ||
+        (shift.employerId && shift.employerId.toString() === uid);
 
-      if (req.user.role !== 'student' || !isStudentParticipant) {
+      let allowedCriteria;
+      if (req.user.role === 'student' && isStudentParticipant) {
+        // Nhân viên đánh giá cửa hàng
+        const employerProfile = await EmployerProfile.findOne({ userId: shift.employerUserId });
+        if (!employerProfile) {
+          return res.status(404).json({ error: 'Không tìm thấy hồ sơ cửa hàng.', code: 'STORE_NOT_FOUND' });
+        }
+        finalTargetId = employerProfile.userId;
+        finalStoreName = shift.storeName || employerProfile.storeName;
+        targetRole = 'employer';
+        allowedCriteria = ['jobAccuracy', 'shiftManagement', 'workEnvironment', 'payment'];
+      } else if (req.user.role === 'employer' && isEmployerOwner) {
+        // Cửa hàng đánh giá nhân viên đã làm ca
+        finalTargetId = shift.studentUserId || shift.studentId;
+        finalStoreName = shift.storeName || '';
+        targetRole = 'student';
+        allowedCriteria = ['punctuality', 'attitude', 'skill'];
+      } else {
         return res.status(403).json({
-          error: 'Chỉ sinh viên đã làm ca này mới có thể đánh giá cửa hàng.',
+          error: 'Chỉ nhân viên đã làm ca hoặc cửa hàng sở hữu ca này mới có thể đánh giá.',
           code: 'FORBIDDEN',
         });
       }
 
-      const employerProfile = await EmployerProfile.findOne({ userId: shift.employerUserId });
-      if (!employerProfile) {
-        return res.status(404).json({ error: 'Không tìm thấy hồ sơ cửa hàng.', code: 'STORE_NOT_FOUND' });
-      }
-      finalTargetId = employerProfile.userId;
-      finalStoreName = shift.storeName || employerProfile.storeName;
-
-      const allowedCriteria = ['jobAccuracy', 'shiftManagement', 'workEnvironment', 'payment'];
       if (criteria && (typeof criteria !== 'object' || Array.isArray(criteria) ||
         Object.keys(criteria).some((key) => !allowedCriteria.includes(key)))) {
         return res.status(400).json({ error: 'Tiêu chí đánh giá không hợp lệ.', code: 'INVALID_CRITERIA' });
@@ -210,6 +228,7 @@ router.post('/', authenticate, async (req, res, next) => {
       }
 
       finalStoreName = `Việc vặt: ${task.title}`;
+      targetRole = 'student';
     } else {
       return res.status(400).json({ error: 'Loại giao dịch không hợp lệ (hỗ trợ: shift, task).', code: 'INVALID_TRANSACTION_TYPE' });
     }
@@ -253,16 +272,16 @@ router.post('/', authenticate, async (req, res, next) => {
     });
 
     // Asynchronously recalculate target aggregate rating
-    await syncAggregateRating(finalTargetId, transactionType);
+    await syncAggregateRating(finalTargetId, transactionType, targetRole);
 
     // Send notification to target user
     try {
       await Notification.create({
         userId: finalTargetId,
-        title: transactionType === 'shift' ? 'Cửa hàng nhận được đánh giá mới ⭐' : 'Bạn nhận được đánh giá mới ⭐',
-        message: `${req.user.name || 'Một thành viên'} đã đánh giá ${transactionType === 'shift' ? 'cửa hàng' : 'bạn'} ${numRating} sao${comment?.trim() ? `: "${comment.trim().slice(0, 80)}..."` : '.'}`,
+        title: targetRole === 'employer' ? 'Cửa hàng nhận được đánh giá mới ⭐' : 'Bạn nhận được đánh giá mới ⭐',
+        message: `${req.user.name || 'Một thành viên'} đã đánh giá ${targetRole === 'employer' ? 'cửa hàng' : 'bạn'} ${numRating} sao${comment?.trim() ? `: "${comment.trim().slice(0, 80)}..."` : '.'}`,
         type: 'system',
-        link: transactionType === 'shift' ? '/employer/profile' : (req.user.role === 'student' ? '/employer/profile' : '/student/reviews'),
+        link: targetRole === 'employer' ? '/employer/profile' : '/student/reviews',
       });
     } catch (notifErr) {
       console.warn('Failed to send review notification:', notifErr.message);
