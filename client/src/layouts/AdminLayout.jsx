@@ -1,5 +1,5 @@
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Leaf, LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, BookOpen, LogOut } from 'lucide-react';
+import { Outlet, NavLink, Link } from 'react-router-dom';
+import { LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, BookOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { UserDropdown } from '@/components/UserDropdown.jsx';
@@ -14,8 +14,7 @@ const ADMIN_NAV = [
 ];
 
 export default function AdminLayout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

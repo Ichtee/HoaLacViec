@@ -1,19 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   ShieldCheck,
-  CheckCircle,
-  XCircle,
-  FileText,
   Building2,
   GraduationCap,
   Briefcase,
-  MapPin,
   Eye,
   X,
-  Filter,
   RefreshCw,
   Search,
-  ExternalLink,
 } from 'lucide-react';
 import { getVerificationRequests, reviewVerification } from '@/services';
 import { Badge } from '@/components/Badge.jsx';

@@ -1,8 +1,13 @@
 
 import { useState, useEffect } from 'react';
 import {
-  User, Mail, Phone, MapPin, Calendar, Clock, Award, Save, CheckCircle,
-  Briefcase, BookOpen, Plus, Trash2, ShieldCheck, Sparkles
+  User,
+  Mail,
+  Calendar,
+  Award,
+  Save,
+  Briefcase,
+  ShieldCheck,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -59,7 +64,7 @@ export default function StudentProfilePage() {
 
   const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [newSkill, setNewSkill] = useState('');
+  const [, setNewSkill] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -114,7 +119,7 @@ export default function StudentProfilePage() {
         if (updateUser) updateUser({ ...user, phone: profile.phone.trim() });
       }
       setToast({ type: 'success', message: 'Cập nhật hồ sơ rảnh ca thành công!' });
-    } catch (err) {
+    } catch {
       setToast({ type: 'error', message: 'Lỗi khi lưu thông tin. Vui lòng thử lại.' });
     } finally {
       setSaving(false);

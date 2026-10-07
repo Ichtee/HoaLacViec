@@ -1,8 +1,9 @@
 
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  Leaf, Menu, X, ChevronDown, LogOut, User, Settings, Bell
+  Menu,
+  X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -16,17 +17,9 @@ const NAV_PUBLIC = [
 ];
 
 export function Navbar({ hideNavLinks = false }) {
-  const { user, role, logout, isAuthenticated } = useAuth();
+  const { user, role, isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [dropOpen, setDropOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
-
-  function handleLogout() {
-    logout();
-    navigate('/');
-    setDropOpen(false);
-  }
 
   const isPending = user?.status === 'pending' || role === 'pending';
   const isDetailPage = /^\/(?:student\/)?jobs\/[^/]+$/.test(location.pathname) || /^\/blogs\/[^/]+$/.test(location.pathname);

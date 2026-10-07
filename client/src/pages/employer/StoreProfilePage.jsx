@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-  Building2, MapPin, Phone, Mail, Clock, ShieldCheck, Upload, Save,
-  FileCheck, Sparkles, AlertCircle
+  Building2,
+  MapPin,
+  Clock,
+  ShieldCheck,
+  Save,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -80,7 +83,7 @@ export default function StoreProfilePage() {
         } catch {}
       }
       setToast({ type: 'success', message: 'Cập nhật thông tin cửa hàng thành công!' });
-    } catch (err) {
+    } catch {
       setToast({ type: 'error', message: 'Lỗi khi lưu thông tin cửa hàng.' });
     } finally {
       setSaving(false);

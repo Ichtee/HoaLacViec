@@ -11,7 +11,6 @@ import {
   Briefcase,
   Clock,
   Sparkles,
-  ArrowRight,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';

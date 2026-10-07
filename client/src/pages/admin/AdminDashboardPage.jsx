@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, Clock, AlertTriangle, CheckCircle, BookOpen
+  ShieldCheck,
+  Briefcase,
+  Flag,
+  Users,
+  BookOpen,
 } from 'lucide-react';
 import { getVerificationRequests, getReports, adminGetJobs, getAllUsers, getBlogs } from '@/services';
-import { Badge } from '@/components/Badge.jsx';
+
 import { PlatformMetrics } from '@/components/PlatformMetrics.jsx';
 
 export default function AdminDashboardPage() {
@@ -13,7 +17,7 @@ export default function AdminDashboardPage() {
   const [jobs, setJobs] = useState([]);
   const [users, setUsers] = useState([]);
   const [blogs, setBlogs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadAdminData() {

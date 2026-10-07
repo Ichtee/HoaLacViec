@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Building2, Briefcase, Users, Calendar, ArrowLeftRight, CheckCircle, Clock,
-  Plus, ChevronRight, ShieldCheck, DollarSign, Star
+  Briefcase,
+  Users,
+  Calendar,
+  Plus,
+  ChevronRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getJobs, getApplications, getShifts } from '@/services';
@@ -14,7 +18,7 @@ export default function EmployerDashboardPage() {
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [shifts, setShifts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDashboard() {

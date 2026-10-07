@@ -1,21 +1,39 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import {
-  MapPin, Clock, DollarSign, Users, Star, CheckCircle, Shield,
-  Bookmark, BookmarkCheck, Send, ArrowLeft, Bus, AlertTriangle, Calendar, Navigation, ExternalLink,
-  Phone, MessageCircle, Flag, Search, AlertCircle, Briefcase, ChevronDown, ChevronUp
+  MapPin,
+  Clock,
+  DollarSign,
+  Users,
+  Star,
+  CheckCircle,
+  Shield,
+  Bookmark,
+  BookmarkCheck,
+  Send,
+  ArrowLeft,
+  Bus,
+  AlertTriangle,
+  Calendar,
+  Navigation,
+  Phone,
+  MessageCircle,
+  Flag,
+  Briefcase,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useAsync } from '@/hooks';
 import { getJob, getReviews, applyToJob, toggleSaveJob, isSavedJob, getAvailability, getStudentProfile, createReport, updateUserProfile } from '@/services';
 import { useAuth } from '@/hooks/useAuth.jsx';
-import { JobCard, MatchScoreBar } from '@/components/JobCard.jsx';
+import { MatchScoreBar } from '@/components/JobCard.jsx';
 import { VerifiedBadge, Badge } from '@/components/Badge.jsx';
 import { Button } from '@/components/Button.jsx';
 import { Modal } from '@/components/Modal.jsx';
-import { Textarea } from '@/components/Form.jsx';
+
 import { LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS, DAYS_OF_WEEK } from '@/constants';
-import { formatVND, formatDate, computeMatchScore, formatDistance, haversineDistance, getGoogleMapsDirectionsUrl } from '@/utils';
+import { formatVND, formatDate, computeMatchScore, getGoogleMapsDirectionsUrl } from '@/utils';
 
 export default function JobDetailPage() {
   const { id } = useParams();

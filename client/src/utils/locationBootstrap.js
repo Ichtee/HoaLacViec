@@ -81,7 +81,7 @@ export async function executeLocationBootstrap({
 
   let gpsInvoked = false;
 
-  const triggerGps = (source = 'auto') => {
+  const triggerGps = (_source = 'auto') => {
     gpsInvoked = true;
     onStatusChange('requesting');
     navigatorObj.geolocation.getCurrentPosition(

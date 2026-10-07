@@ -628,7 +628,7 @@ export async function apiGetWorkerVerification() {
 export async function apiGetUniversities() {
   try {
     return await request('/universities');
-  } catch (err) {
+  } catch {
     // Direct Hipolabs fetch fallback
     try {
       const res = await fetch('http://universities.hipolabs.com/search?country=Vietnam');

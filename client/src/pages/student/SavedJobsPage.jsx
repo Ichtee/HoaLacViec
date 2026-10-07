@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Bookmark, Search, Trash2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Bookmark, Search } from 'lucide-react';
 import { getSavedJobs, getJobs, toggleSaveJob } from '@/services';
 import { JobCard } from '@/components/JobCard.jsx';
 import { Toast } from '@/components/Feedback.jsx';
@@ -10,11 +10,7 @@ export default function SavedJobsPage() {
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    loadSavedJobs();
-  }, []);
-
-  async function loadSavedJobs() {
+  const loadSavedJobs = useCallback(async () => {
     try {
       setLoading(true);
       const res = await getSavedJobs();
@@ -37,7 +33,12 @@ export default function SavedJobsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadSavedJobs();
+  }, [loadSavedJobs]);
+
 
   async function handleToggleSave(jobId) {
     const res = await toggleSaveJob(jobId);

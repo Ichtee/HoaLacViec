@@ -1,9 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Users, CheckCircle, XCircle, Clock, Eye, Calendar, Sparkles, MapPin,
-  Building2, MessageSquare, ShieldCheck, Phone, MessageCircle, FileText,
-  UserCheck, AlertCircle, ArrowRight, Send, Check, Undo2
+  Users,
+  Clock,
+  Calendar,
+  Phone,
+  MessageCircle,
+  Send,
+  Check,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -87,11 +91,7 @@ export default function EmployerApplicationsPage() {
   const [offerExpiryDays, setOfferExpiryDays] = useState('3');
   const [offerNote, setOfferNote] = useState('');
 
-  useEffect(() => {
-    loadApps();
-  }, [user]);
-
-  async function loadApps() {
+  const loadApps = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getApplications({
@@ -105,7 +105,12 @@ export default function EmployerApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user?.id, user?.name]);
+
+  useEffect(() => {
+    loadApps();
+  }, [loadApps]);
+
 
   // Active candidates list
   const candidates = useMemo(() => {
@@ -246,7 +251,7 @@ export default function EmployerApplicationsPage() {
 
     try {
       setSubmitting(true);
-      const result = await rescindOffer(appId, 'Thu hồi theo yêu cầu của nhà tuyển dụng');
+      await rescindOffer(appId, 'Thu hồi theo yêu cầu của nhà tuyển dụng');
       setApplications((prev) =>
         prev.map((a) => ((a._id || a.id) === appId ? { ...a, status: 'offer_rescinded' } : a))
       );

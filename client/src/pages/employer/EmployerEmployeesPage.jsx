@@ -1,12 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   UserCheck, Phone, MessageCircle, Calendar,
-  Search, Trash2, Mail, Clock, AlertTriangle, ShieldCheck, UserX, CheckCircle
+  Search, Mail, AlertTriangle, UserX, CheckCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getEmployments, terminateEmployment } from '@/services';
-import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
@@ -24,11 +23,7 @@ export default function EmployerEmployeesPage() {
   const [cancelFutureShifts, setCancelFutureShifts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadEmployments();
-  }, [user]);
-
-  async function loadEmployments() {
+  const loadEmployments = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getEmployments({
@@ -41,7 +36,12 @@ export default function EmployerEmployeesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadEmployments();
+  }, [loadEmployments]);
+
 
   // Active employees
   const activeEmployees = useMemo(() => {

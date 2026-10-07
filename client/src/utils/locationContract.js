@@ -1,4 +1,3 @@
-import { isValidCoordinate } from './index.js';
 
 export const LOCATION_STATUSES = {
   UNCONFIRMED: 'unconfirmed',

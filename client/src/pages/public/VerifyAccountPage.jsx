@@ -11,12 +11,10 @@ import {
   LogOut,
   RefreshCw,
   ShieldCheck,
-  Camera,
   ArrowRight,
   Search,
   ChevronDown,
   Check,
-  IdCard,
   Lock,
 } from 'lucide-react';
 
@@ -67,7 +65,7 @@ export default function VerifyAccountPage() {
 
   const [activeTab, setActiveTab] = useState('student'); // 'student' | 'employer'
   const [loading, setLoading] = useState(false);
-  const [fetchingStatus, setFetchingStatus] = useState(true);
+  const [, setFetchingStatus] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -231,7 +229,7 @@ export default function VerifyAccountPage() {
         } else {
           setActiveTab('student');
         }
-      } catch (err) {
+      } catch {
         // No record yet
       } finally {
         setFetchingStatus(false);

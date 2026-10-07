@@ -1,8 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Calendar, Clock, CheckCircle, AlertCircle,
-  RefreshCw, FileText, CheckCircle2, Loader2,
-  CalendarOff, Plus, MapPin, DollarSign, UserCheck
+  Calendar,
+  Clock,
+  RefreshCw,
+  Loader2,
+  CalendarOff,
+  Plus,
+  MapPin,
+  DollarSign,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';

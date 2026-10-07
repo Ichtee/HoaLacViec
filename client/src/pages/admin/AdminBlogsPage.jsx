@@ -1,15 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BookOpen, Plus, Search, Eye, Edit3, Trash2, Star, Sparkles,
-  ExternalLink, Calendar, User, Tag, AlertTriangle, RefreshCw, CheckCircle2
+  BookOpen,
+  Plus,
+  Search,
+  Eye,
+  Edit3,
+  Trash2,
+  Star,
+  ExternalLink,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getBlogs, createBlog, updateBlog, deleteBlog } from '@/services';
 import { Modal } from '@/components/Modal.jsx';
 import { Input, Textarea, Select } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
-import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 
 const BLOG_CATEGORIES = [

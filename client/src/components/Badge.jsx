@@ -1,5 +1,4 @@
 import { clsx } from 'clsx';
-import { CheckCircle2 } from 'lucide-react';
 
 export function Badge({ children, variant = 'green', className, ...props }) {
   const variantClass = {

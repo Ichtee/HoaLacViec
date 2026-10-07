@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  FileText, Clock, CheckCircle, XCircle, AlertCircle, MapPin, Calendar,
-  Building2, ChevronRight, Eye, Trash2, Send, Check, X, Sparkles, Phone
+  FileText,
+  MapPin,
+  Calendar,
+  Building2,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -31,11 +35,7 @@ export default function ApplicationsPage() {
   const [declineModalApp, setDeclineModalApp] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
 
-  useEffect(() => {
-    loadApps();
-  }, [user]);
-
-  async function loadApps() {
+  const loadApps = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getApplications({ studentId: user?.id });
@@ -45,7 +45,12 @@ export default function ApplicationsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user?.id]);
+
+  useEffect(() => {
+    loadApps();
+  }, [loadApps]);
+
 
   // Handle Accept Offer
   async function handleAcceptOffer(app) {

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BookOpen, Calendar, User, Eye, ArrowRight, Search, ShieldAlert,
-  Sparkles, Tag, Clock, ChevronRight
+  BookOpen,
+  Eye,
+  ArrowRight,
+  Search,
+  Clock,
+  ChevronRight,
 } from 'lucide-react';
 import { getBlogs } from '@/services';
-import { Badge } from '@/components/Badge.jsx';
 
 const CATEGORIES = [
   { id: 'all', label: 'Tất cả bài viết' },

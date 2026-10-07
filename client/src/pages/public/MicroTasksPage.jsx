@@ -1,25 +1,36 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ShoppingBag, Utensils, Bike, Truck, Package, Printer, Plus, CheckCircle,
-  Clock, MapPin, User, Search,
-  AlertTriangle, ShieldAlert, Star, ExternalLink, Send,
-  Filter, ChevronDown, X, Loader2
+  ShoppingBag,
+  Utensils,
+  Bike,
+  Truck,
+  Package,
+  Printer,
+  Plus,
+  CheckCircle,
+  Clock,
+  MapPin,
+  User,
+  Search,
+  AlertTriangle,
+  ShieldAlert,
+  Star,
+  ExternalLink,
+  Send,
+  Filter,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {
   getTasks,
-  createTask,
   acceptTask,
   submitTaskCompletion,
   completeTask,
   disputeTask,
   cancelTask,
   createReview,
-  updateUserProfile,
-  apiVietmapAutocomplete,
-  apiVietmapPlace,
-  apiVietmapRoute,
 } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
@@ -44,144 +55,10 @@ const TASK_TABS = [
   { id: 'disputed', label: 'Cần hỗ trợ / Khiếu nại', icon: AlertTriangle },
 ];
 
-function VietmapAddressAutocomplete({
-  label,
-  value,
-  placeholder,
-  required = false,
-  isConfirmed = false,
-  onChange,
-  onSelect,
-}) {
-  const [suggestions, setSuggestions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-  const wrapperRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleInputChange = (text) => {
-    onChange(text);
-    if (!text || text.trim().length < 2) {
-      setSuggestions([]);
-      setOpen(false);
-      return;
-    }
-    setLoading(true);
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const res = await apiVietmapAutocomplete(text.trim(), '21.0128,105.5255', controller.signal);
-        const rawItems = res?.items || res?.suggestions || [];
-        if (rawItems.length > 0) {
-          const mapped = rawItems.map((item) => ({
-            refId: item.refId,
-            title: item.display || item.name || item.title || '',
-            address: item.currentAddress || item.legacyAddress || item.address || '',
-          }));
-          setSuggestions(mapped.slice(0, 8));
-          setOpen(mapped.length > 0);
-        } else {
-          setSuggestions([]);
-          setOpen(false);
-        }
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          console.warn('[VietmapSuggest]', err.message);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  };
-
-  const handleSelect = async (item) => {
-    setOpen(false);
-    setSuggestions([]);
-    try {
-      setLoading(true);
-      const place = await apiVietmapPlace(item.refId);
-      if (place && typeof place.lat === 'number' && typeof place.lng === 'number') {
-        onSelect({
-          address: place.display || place.formattedAddress || item.title,
-          lat: place.lat,
-          lng: place.lng,
-          refId: place.refId || item.refId,
-        });
-      } else {
-        onChange(item.title);
-      }
-    } catch (err) {
-      console.warn('[VietmapPlace]', err.message);
-      onChange(item.title);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <div className="flex items-center justify-between mb-1">
-        <label className="block text-xs font-bold text-text-main">{label}</label>
-        {isConfirmed && (
-          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
-            <CheckCircle className="w-3 h-3" /> Tọa độ Vietmap
-          </span>
-        )}
-      </div>
-      <div className="relative">
-        <input
-          type="text"
-          required={required}
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => handleInputChange(e.target.value)}
-          onFocus={() => {
-            if (suggestions.length > 0) setOpen(true);
-          }}
-          className="w-full px-3 py-2 pr-8 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
-        />
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin text-orange-500" /> : <MapPin className="w-4 h-4" />}
-        </div>
-      </div>
-
-      {open && suggestions.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-100 py-1 text-xs">
-          {suggestions.map((item, idx) => (
-            <button
-              key={item.refId || idx}
-              type="button"
-              onClick={() => handleSelect(item)}
-              className="w-full text-left px-3 py-2 hover:bg-orange-50 transition-colors flex flex-col gap-0.5 border-b border-gray-50 last:border-b-0"
-            >
-              <span className="font-semibold text-text-main line-clamp-1">{item.title}</span>
-              {item.address && <span className="text-[11px] text-text-muted line-clamp-1">{item.address}</span>}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function MicroTasksPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, isAuthenticated, updateUser } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const currentTab = searchParams.get('tab') || 'open';
 
@@ -216,7 +93,6 @@ export default function MicroTasksPage() {
   const [reviewModalTask, setReviewModalTask] = useState(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
-
 
   useEffect(() => {
     let mounted = true;

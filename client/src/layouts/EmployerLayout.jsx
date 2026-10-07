@@ -1,8 +1,8 @@
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
+import { Outlet, NavLink, Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  Leaf, LayoutDashboard, Briefcase, Users, Calendar,
-  Building2, Menu, X, LogOut, UserCheck, Zap, MessageCircle, Repeat
+  LayoutDashboard, Briefcase, Users, Calendar,
+  Menu, X, UserCheck, Zap, MessageCircle, Repeat
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';

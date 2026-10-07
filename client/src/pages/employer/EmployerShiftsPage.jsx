@@ -1,7 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-  Calendar, Clock, CheckCircle, Plus, Users, Check, X,
-  Navigation, AlertTriangle, ShieldCheck, DollarSign, Star, Download
+  Calendar,
+  Clock,
+  CheckCircle,
+  Plus,
+  Check,
+  Navigation,
+  DollarSign,
+  Star,
+  Download,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
@@ -115,72 +122,7 @@ export default function EmployerShiftsPage() {
     wageRate: 25000,
   });
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
-  useEffect(() => {
-    if (!user?.id) return undefined;
-    let cancelled = false;
-    getReviews({ reviewerId: user.id, transactionType: 'shift' })
-      .then((rows) => {
-        if (cancelled || !Array.isArray(rows)) return;
-        setReviewedShiftIds(new Set(rows.map((r) => String(r.transactionId)).filter(Boolean)));
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [user?.id]);
-
-  async function handleExportPayroll() {
-    const [year, month] = payrollMonth.split('-').map(Number);
-    if (!year || !month) return;
-    const lastDay = new Date(year, month, 0).getDate();
-    try {
-      const blob = await downloadPayrollCsv(`${payrollMonth}-01`, `${payrollMonth}-${String(lastDay).padStart(2, '0')}`);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `bang-luong-${payrollMonth}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Không thể xuất bảng lương.' });
-    }
-  }
-
-  function openReviewModal(shift) {
-    setReviewShift(shift);
-    setReviewRating(0);
-    setReviewCriteria({});
-    setReviewComment('');
-  }
-
-  async function handleSubmitReview(event) {
-    event.preventDefault();
-    if (!reviewRating || !reviewShift || submitting) return;
-    const shiftId = reviewShift._id || reviewShift.id;
-    setSubmitting(true);
-    try {
-      await createReview({
-        transactionType: 'shift',
-        transactionId: shiftId,
-        rating: reviewRating,
-        criteria: reviewCriteria,
-        comment: reviewComment.trim(),
-      });
-      setReviewedShiftIds((prev) => new Set(prev).add(String(shiftId)));
-      setReviewShift(null);
-      setToast({ type: 'success', message: 'Đã gửi đánh giá nhân viên.' });
-    } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Không thể gửi đánh giá.' });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [shiftData, empData, appsData] = await Promise.all([
@@ -243,7 +185,73 @@ export default function EmployerShiftsPage() {
     } finally {
       setLoading(false);
     }
+  }, [user?.id, user?.name]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (!user?.id) return undefined;
+    let cancelled = false;
+    getReviews({ reviewerId: user.id, transactionType: 'shift' })
+      .then((rows) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        setReviewedShiftIds(new Set(rows.map((r) => String(r.transactionId)).filter(Boolean)));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  async function handleExportPayroll() {
+    const [year, month] = payrollMonth.split('-').map(Number);
+    if (!year || !month) return;
+    const lastDay = new Date(year, month, 0).getDate();
+    try {
+      const blob = await downloadPayrollCsv(`${payrollMonth}-01`, `${payrollMonth}-${String(lastDay).padStart(2, '0')}`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bang-luong-${payrollMonth}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Không thể xuất bảng lương.' });
+    }
   }
+
+  function openReviewModal(shift) {
+    setReviewShift(shift);
+    setReviewRating(0);
+    setReviewCriteria({});
+    setReviewComment('');
+  }
+
+  async function handleSubmitReview(event) {
+    event.preventDefault();
+    if (!reviewRating || !reviewShift || submitting) return;
+    const shiftId = reviewShift._id || reviewShift.id;
+    setSubmitting(true);
+    try {
+      await createReview({
+        transactionType: 'shift',
+        transactionId: shiftId,
+        rating: reviewRating,
+        criteria: reviewCriteria,
+        comment: reviewComment.trim(),
+      });
+      setReviewedShiftIds((prev) => new Set(prev).add(String(shiftId)));
+      setReviewShift(null);
+      setToast({ type: 'success', message: 'Đã gửi đánh giá nhân viên.' });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Không thể gửi đánh giá.' });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
 
   async function handleCreateShift(e) {
     e.preventDefault();

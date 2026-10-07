@@ -44,7 +44,7 @@ export function loadGoogleMapsScript(apiKey) {
       }
     };
 
-    script.onerror = (err) => {
+    script.onerror = () => {
       loadPromise = null;
       reject(new Error('Không thể tải Google Maps API. Kiểm tra kết nối mạng hoặc API key.'));
     };

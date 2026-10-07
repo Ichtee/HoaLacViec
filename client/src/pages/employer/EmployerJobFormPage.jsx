@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Briefcase, ArrowLeft, MapPin, DollarSign,
   Phone, CheckCircle2, AlertCircle, Save,
-  Building2, ExternalLink, Plus, Trash2
+  ExternalLink, Plus, Trash2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {

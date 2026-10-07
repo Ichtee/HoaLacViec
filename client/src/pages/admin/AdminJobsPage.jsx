@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Briefcase, Flag, ShieldCheck, Trash2, Eye, MapPin, CheckCircle, XCircle } from 'lucide-react';
+import { Briefcase, MapPin, CheckCircle, XCircle } from 'lucide-react';
 import { adminGetJobs, apiApproveJob, apiRejectJob } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';

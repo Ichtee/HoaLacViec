@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Clock, DollarSign, Users, CheckCircle, Star, Bookmark, BookmarkCheck, Calendar, Navigation } from 'lucide-react';
+import { MapPin, DollarSign, Users, CheckCircle, Star, Bookmark, BookmarkCheck, Calendar, Navigation } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Badge, VerifiedBadge } from './Badge.jsx';
+import { Badge } from './Badge.jsx';
 import { JOB_TYPE_LABELS, SALARY_UNIT_LABELS } from '@/constants';
 import { formatVND, formatDate, getGoogleMapsDirectionsUrl } from '@/utils';
 
@@ -158,7 +158,6 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
 export function MatchScoreBar({
   score = 85,
   scheduleScore,
-  distanceScore,
   distanceKm,
   recommendation,
   reasons = [],

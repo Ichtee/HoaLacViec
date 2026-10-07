@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User,
-  Mail,
-  Phone,
   Camera,
   CheckCircle2,
   AlertCircle,

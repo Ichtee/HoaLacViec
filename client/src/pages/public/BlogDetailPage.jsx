@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Calendar, Eye, User, Share2, Tag, BookOpen, Clock, ChevronRight
+  ArrowLeft, Eye, Share2, Tag, Clock
 } from 'lucide-react';
 import { getBlog } from '@/services';
 import { Badge } from '@/components/Badge.jsx';

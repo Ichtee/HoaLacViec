@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, ShoppingBag, Utensils, Bike, Truck, Package, Printer,
-  MapPin, Clock, DollarSign, Phone, FileText, CheckCircle, AlertTriangle,
-  ShieldCheck, Loader2, Navigation, CreditCard
+  MapPin, Clock, DollarSign, Phone, FileText, CheckCircle, ShieldCheck, Loader2, Navigation, CreditCard
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import {

@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Calendar, Clock, CheckCircle, Bookmark, AlertCircle, ArrowRight,
-  MapPin, DollarSign, Star, Briefcase, ChevronRight, User, ShieldCheck
+  Calendar,
+  Clock,
+  CheckCircle,
+  Bookmark,
+  MapPin,
+  DollarSign,
+  Briefcase,
+  ChevronRight,
+  ShieldCheck,
 } from 'lucide-react';
-import { clsx } from 'clsx';
+
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getShifts, getApplications, getSavedJobs, getJobs } from '@/services';
-import { JobCard } from '@/components/JobCard.jsx';
+
 import { Badge } from '@/components/Badge.jsx';
 
 export default function StudentDashboard() {
@@ -16,7 +23,7 @@ export default function StudentDashboard() {
   const [applications, setApplications] = useState([]);
   const [savedJobs, setSavedJobs] = useState([]);
   const [recommendedJobs, setRecommendedJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {

@@ -4,12 +4,9 @@ import {
   KeyRound,
   Eye,
   EyeOff,
-  CheckCircle2,
   AlertCircle,
   ShieldCheck,
-  User,
   ArrowLeft,
-  Lock,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { changePassword, getMe } from '@/services';
@@ -40,7 +37,7 @@ export default function ChangePasswordPage() {
             isGoogleUser: me.isGoogleUser,
           });
         }
-      } catch (err) {
+      } catch {
         // silent fallback
       }
     }

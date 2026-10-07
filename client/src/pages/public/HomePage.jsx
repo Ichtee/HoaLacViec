@@ -1,16 +1,15 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  Search, MapPin, Clock, Shield, Zap, ChevronRight, Star,
-  Coffee, ShoppingBag, Dumbbell, BookOpen, Music, Leaf, ArrowRight
+  Search, Clock, Shield, Zap, ChevronRight, Coffee, ShoppingBag, Dumbbell, BookOpen, Leaf, ArrowRight
 } from 'lucide-react';
-import { JOB_TYPES, JOB_TYPE_LABELS } from '@/constants';
+
 import { useAsync } from '@/hooks';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { getJobs } from '@/services';
 import { JobCard } from '@/components/JobCard.jsx';
 import { LoadingPage } from '@/components/Feedback.jsx';
-import { formatVND } from '@/utils';
+
 
 const CATEGORIES = [
   { icon: Coffee, label: 'Café & Trà sữa', to: '/jobs?search=Cafe', color: 'bg-amber-100 text-amber-700' },

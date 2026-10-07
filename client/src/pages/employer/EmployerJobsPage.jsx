@@ -8,7 +8,7 @@ import {
   PauseCircle, PlayCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useAuth } from '@/hooks/useAuth.jsx';
+
 import {
   getEmployerMyJobs,
   submitJobForReview,
@@ -22,7 +22,6 @@ import { formatVND, getGoogleMapsDirectionsUrl } from '@/utils';
 
 export default function EmployerJobsPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);

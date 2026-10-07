@@ -1,9 +1,19 @@
-import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
+import { Outlet, NavLink, Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  Leaf, LayoutDashboard, Search, Bookmark, FileText,
-  Calendar, ShoppingBag, Star, User, Zap, MessageCircle, BellRing, Repeat,
-  Menu, X, LogOut, ChevronLeft, Bell
+  LayoutDashboard,
+  Search,
+  Bookmark,
+  FileText,
+  Calendar,
+  ShoppingBag,
+  Star,
+  Zap,
+  MessageCircle,
+  BellRing,
+  Repeat,
+  Menu,
+  X,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
