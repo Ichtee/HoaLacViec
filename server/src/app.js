@@ -94,7 +94,7 @@ app.use(cors({
 // Rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX) || 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Quá nhiều yêu cầu đăng nhập/đăng ký. Vui lòng thử lại sau 15 phút.', code: 'RATE_LIMIT_EXCEEDED' },

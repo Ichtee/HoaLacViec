@@ -18,6 +18,7 @@ export async function startTestServer({ port = 0 } = {}) {
   process.env.NODE_ENV = 'test';
   process.env.JWT_SECRET ||= 'e2e-secret-not-for-production';
   process.env.DISABLE_MAINTENANCE_JOBS = 'true';
+  process.env.AUTH_RATE_LIMIT_MAX = '100000'; // suite đăng nhập rất nhiều lần từ một IP
   process.env.DISABLE_ACCOUNT_VERIFICATION = 'false'; // dotenv không ghi đè biến đã đặt, nên .env cục bộ không làm lệch kịch bản
 
   const replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
