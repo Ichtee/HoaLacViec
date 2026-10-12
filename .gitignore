@@ -54,3 +54,4 @@ scratch/
 */scratch/
 server/src/scratch/
 
+.claude/settings.local.json

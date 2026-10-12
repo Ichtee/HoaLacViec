@@ -841,20 +841,22 @@ export default function EmployerJobFormPage() {
 
           {/* Location Picker Component */}
           <LocationPicker
-            key={`loc-${formData.lat}-${formData.lng}-${selectedWardCode || 'none'}`}
-            initialAddress={fullAddressPreview}
-            addressQuery={fullAddressPreview}
-            initialLat={formData.lat}
-            initialLng={formData.lng}
-            initialStatus={formData.locationStatus}
-            onLocationChange={locData => {
+            key={`loc-${selectedWardCode || 'none'}`}
+            addressHint={fullAddressPreview}
+            value={{
+              lat: formData.lat,
+              lng: formData.lng,
+              locationStatus: formData.locationStatus,
+              locationSource: formData.locationSource,
+            }}
+            onChange={locData => {
               setFormData(prev => ({
                 ...prev,
                 lat: locData.lat,
                 lng: locData.lng,
                 locationStatus: locData.locationStatus,
                 locationSource: locData.locationSource,
-                locationConfirmedAt: locData.locationConfirmedAt,
+                locationConfirmedAt: locData.locationStatus === 'confirmed' ? new Date().toISOString() : null,
               }));
             }}
           />

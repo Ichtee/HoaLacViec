@@ -205,10 +205,10 @@ export default function StoreProfilePage() {
               locationSource: profile.locationSource,
             }}
             addressHint={profile.address}
-            onChange={({ lat, lng, locationStatus, locationSource, address: resolvedAddress }) => {
+            onChange={({ lat, lng, locationStatus, locationSource, formattedAddress }) => {
               setProfile(prev => ({
                 ...prev,
-                address: resolvedAddress || prev.address,
+                address: formattedAddress || prev.address,
                 location: { lat, lng },
                 locationStatus,
                 locationSource,
