@@ -5,10 +5,12 @@ import { DEFAULT_LOCATION_OPTIONS, isSecureContextEnvironment } from '@/context/
 /**
  * LocationPermissionBootstrap (mounted once at the App root, renders nothing)
  *
- * Never triggers the browser's permission dialog and shows no banner.
- * - permission already "granted": reads the position silently so distances work.
- * - "prompt" / "denied" / Permissions API unavailable: does nothing; location is only
- *   requested when the user clicks a GPS button (job list, location picker).
+ * Like Google Maps: asks for the position as soon as the site opens, using the browser's own
+ * permission dialog. Shows no banner of its own.
+ * - "prompt": requests the position, which opens the native dialog (the browser asks again on a
+ *   later visit if the user closed it without choosing).
+ * - "granted": reads the position silently so distances work.
+ * - "denied": does nothing (the browser blocks the dialog anyway); GPS buttons still explain how to unblock.
  * - permission revoked later: clears the stored coordinates.
  */
 export function LocationPermissionBootstrap() {
@@ -20,7 +22,10 @@ export function LocationPermissionBootstrap() {
     didRunRef.current = true;
 
     if (!isSecureContextEnvironment() || !navigator.geolocation) return undefined;
-    if (typeof navigator.permissions?.query !== 'function') return undefined;
+    if (typeof navigator.permissions?.query !== 'function') {
+      requestLocation(DEFAULT_LOCATION_OPTIONS); // no Permissions API: ask directly
+      return undefined;
+    }
 
     let perm = null;
     navigator.permissions
@@ -28,7 +33,7 @@ export function LocationPermissionBootstrap() {
       .then((p) => {
         perm = p;
         setPermissionState(p.state);
-        if (p.state === 'granted') requestLocation(DEFAULT_LOCATION_OPTIONS);
+        if (p.state !== 'denied') requestLocation(DEFAULT_LOCATION_OPTIONS);
         p.onchange = () => {
           setPermissionState(p.state);
           if (p.state === 'granted') requestLocation(DEFAULT_LOCATION_OPTIONS);
