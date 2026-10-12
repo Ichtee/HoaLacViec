@@ -4,6 +4,8 @@ import {
   LayoutDashboard, Briefcase, Users, Calendar,
   X, UserCheck, Zap, MessageCircle, Repeat, Coins,
 } from 'lucide-react';
+import { useCredits } from '@/hooks/useCredits.js';
+import { CreditBadge } from '@/components/CreditBadge.jsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { useNavBadges } from '@/hooks/useNavBadges.js';
 import { NotificationDropdown } from '@/components/NotificationDropdown.jsx';
@@ -18,7 +20,6 @@ const EMPLOYER_NAV_GROUPS = [
       { to: '/employer/jobs', label: 'Tin tuyển dụng', icon: Briefcase },
       { to: '/employer/applications', label: 'Ứng viên', icon: Users },
       { to: '/employer/quick-shifts', label: 'Tuyển nhanh', icon: Zap },
-      { to: '/employer/credits', label: 'Credit', icon: Coins },
     ],
   },
   {
@@ -46,6 +47,7 @@ export default function EmployerLayout() {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const badges = useNavBadges(Boolean(user));
+  const balance = useCredits();
 
   const sidebar = (
     <aside className="flex flex-col h-full">
@@ -57,6 +59,16 @@ export default function EmployerLayout() {
       <div className="px-4 py-3 bg-green-50 mx-3 my-3 rounded-2xl border border-green-100/50">
         <p className="text-[11px] font-semibold text-green-dark">Nhà tuyển dụng</p>
         <p className="font-bold text-text-main text-sm truncate mt-0.5">{user?.name}</p>
+        {balance !== null && (
+          <Link
+            to="/employer/credits"
+            onClick={() => setSidebarOpen(false)}
+            className="mt-2 flex items-center justify-between gap-2 min-h-[44px] -mb-1 px-3 rounded-xl bg-white border border-green-100 hover:border-green-main text-sm"
+          >
+            <span className="inline-flex items-center gap-1.5 font-bold text-green-dark"><Coins className="w-4 h-4" aria-hidden="true" /> {balance} credit</span>
+            <span className="text-xs font-semibold text-green-main">Nạp thêm</span>
+          </Link>
+        )}
       </div>
       <SidebarNav groups={EMPLOYER_NAV_GROUPS} badges={badges} onNavigate={() => setSidebarOpen(false)} />
     </aside>
@@ -83,6 +95,7 @@ export default function EmployerLayout() {
           </Link>
 
           <div className="flex items-center gap-3 ml-auto">
+            <CreditBadge />
             <NotificationDropdown />
             <UserDropdown showWelcome={true} />
           </div>

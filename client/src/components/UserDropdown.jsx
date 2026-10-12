@@ -11,15 +11,18 @@ import {
   Briefcase,
   Clock,
   Sparkles,
+  Coins,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/hooks/useAuth.jsx';
+import { useCredits } from '@/hooks/useCredits.js';
 
 export function UserDropdown({ showWelcome = true, className = '' }) {
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const balance = useCredits();
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -174,6 +177,21 @@ export function UserDropdown({ showWelcome = true, className = '' }) {
               </div>
             </div>
           </div>
+
+          {/* Employer credit balance */}
+          {balance !== null && (
+            <Link
+              to="/employer/credits"
+              onClick={() => setIsOpen(false)}
+              className="mb-1.5 flex items-center justify-between gap-2 min-h-[48px] px-3.5 rounded-2xl bg-white border border-green-200 hover:border-green-main transition-colors"
+            >
+              <span className="flex items-center gap-2 text-sm font-bold text-green-dark">
+                <span className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center"><Coins className="w-4 h-4" aria-hidden="true" /></span>
+                {balance} credit
+              </span>
+              <span className="text-xs font-semibold text-white bg-green-main px-3 py-1.5 rounded-full">Nạp thêm</span>
+            </Link>
+          )}
 
           {/* Menu Items */}
           <div className="space-y-0.5 text-xs font-medium text-text-main">

@@ -88,6 +88,8 @@ async function request(endpoint, options = {}) {
     if (!res.ok) {
       throw Object.assign(new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`), { code: data?.code, data });
     }
+    // Anything that can spend, refund or grant credits tells the header chip to refresh.
+    if (/^\/(credits\/(?!me\b|pricing\b)|jobs\b|quick-shifts\b)/.test(endpoint)) window.dispatchEvent(new CustomEvent('credits:changed'));
     return data;
   } catch (err) {
     if (err.name === 'TypeError' && (err.message.includes('fetch') || err.message.includes('NetworkError'))) {
