@@ -7,10 +7,10 @@ import { StudentProfile } from '../models/StudentProfile.js';
 import { Application } from '../models/Application.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
-import { notifyJobAlerts } from '../services/jobAlertService.js';
+import { notifyJobAlerts, notifyFeaturedJob } from '../services/jobAlertService.js';
 import { getPlatformMetrics } from '../services/metricsService.js';
 import { grantCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
-import { applyApprovalWindow } from '../services/listingService.js';
+import { applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
 import { WELCOME_CREDITS } from '../config/credits.js';
 
 const router = express.Router();
@@ -205,7 +205,8 @@ router.post('/jobs/:id/approve', async (req, res, next) => {
       }
     }
 
-    void notifyJobAlerts(job);
+    // A featured job reaches alert matches and nearby students in one pass (no double notice).
+    void (isJobFeatured(job) ? notifyFeaturedJob(job) : notifyJobAlerts(job));
 
     res.json({ message: 'Đã phê duyệt tin tuyển dụng', job });
   } catch (err) {

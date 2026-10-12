@@ -1,4 +1,5 @@
-export const FREE_ACTIVE_LISTINGS = 2;
+export const FREE_ACTIVE_LISTINGS = 1;
+export const SLOT_COOLDOWN_DAYS = 7; // an expired/closed free job keeps its slot this long, so reposting is not free
 export const LISTING_DAYS = 14;
 export const WELCOME_CREDITS = 30;
 export const MAX_PINNED_FEATURED = 3;

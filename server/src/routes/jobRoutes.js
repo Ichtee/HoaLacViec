@@ -13,7 +13,7 @@ import { vietmapAutocomplete } from '../services/vietmapService.js';
 import { authenticate, authorize, optionalAuthenticate, requireActiveUser } from '../middlewares/auth.js';
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
-import { notifyJobAlerts } from '../services/jobAlertService.js';
+import { notifyJobAlerts, notifyFeaturedJob } from '../services/jobAlertService.js';
 import { countFreeActiveListings, applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
 import { spendCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
 import { httpError } from '../utils/httpError.js';
@@ -37,20 +37,21 @@ const QUOTA_REACHED = (activeListings) => ({
 });
 
 // Free slots left -> flag ignored; quota full -> paid slot only when requested.
-async function quotaDecision(employerUserId, wantsExtraSlot) {
-  const activeListings = await countFreeActiveListings(employerUserId);
+async function quotaDecision(employerUserId, wantsExtraSlot, excludeJobId = null) {
+  const activeListings = await countFreeActiveListings(employerUserId, new Date(), excludeJobId);
   if (activeListings < FREE_ACTIVE_LISTINGS) return { paid: false };
   return wantsExtraSlot === true ? { paid: true } : { blocked: QUOTA_REACHED(activeListings) };
 }
 
 // Draft/rejected/closed -> pending. The status claim runs before the charge, so a repeated request cannot pay twice.
 async function moveToPending(req, job, from, note, needsSlot) {
-  const quota = req.user.role === 'admin' || !needsSlot || job.paidSlot ? { paid: false } : await quotaDecision(req.user._id, req.body?.useExtraSlot);
+  const quota = req.user.role === 'admin' || !needsSlot || job.paidSlot ? { paid: false } : await quotaDecision(req.user._id, req.body?.useExtraSlot, job._id);
   if (quota.blocked) return { blocked: quota.blocked };
   const updated = await withCreditTransaction(async (session) => {
     const claimed = await Job.findOneAndUpdate(
       { _id: job._id, status: { $in: from } },
-      { status: 'pending', moderationNote: note, ...(quota.paid ? { paidSlot: true } : {}) },
+      // A reopened closed job starts a fresh window on approval (its old closesAt marks the closing).
+      { status: 'pending', moderationNote: note, ...(job.status === 'closed' ? { closesAt: null } : {}), ...(quota.paid ? { paidSlot: true } : {}) },
       { new: true, session },
     );
     if (!claimed) throw httpError(409, 'INVALID_STATE', 'Trạng thái tin đã thay đổi. Vui lòng tải lại trang.');
@@ -207,11 +208,17 @@ router.get('/employer/my-jobs', authenticate, authorize('employer', 'admin'), as
     }
 
     const total = await Job.countDocuments(filter);
-    const jobs = await Job.find(filter)
+    let jobs = await Job.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
       .lean();
+    const appCounts = await Application.aggregate([
+      { $match: { jobId: { $in: jobs.map((j) => j._id) } } },
+      { $group: { _id: '$jobId', n: { $sum: 1 } } },
+    ]);
+    const appMap = new Map(appCounts.map((a) => [String(a._id), a.n]));
+    jobs = jobs.map((j) => ({ ...j, viewCount: j.viewCount || 0, featuredViewCount: j.featuredViewCount || 0, applicationCount: appMap.get(String(j._id)) || 0 }));
 
     res.json({
       items: jobs,
@@ -479,6 +486,13 @@ router.get('/:id', optionalAuthenticate, async (req, res, next) => {
       }
     }
 
+    // ponytail: counts every non-owner open (no per-user dedupe); add a daily unique set if counts get gamed.
+    const isOwnerOrAdmin = req.user && (req.user.role === 'admin' || String(job.employerUserId) === String(req.user._id));
+    if (job.status === 'approved' && !isOwnerOrAdmin && req.get('user-agent')) {
+      const inc = isJobFeatured(job) ? { viewCount: 1, featuredViewCount: 1 } : { viewCount: 1 };
+      Job.updateOne({ _id: job._id }, { $inc: inc }).catch(() => {});
+    }
+
     // Attach real employer profile
     let employer = null;
     if (job.employerProfileId || job.employerId) {
@@ -690,6 +704,7 @@ router.post('/:id/close', authenticate, async (req, res, next) => {
     }
 
     job.status = 'closed';
+    if (!job.closesAt || job.closesAt > new Date()) job.closesAt = new Date(); // starts the slot cooldown
     await job.save();
 
     res.json({ message: 'Đã đóng tuyển dụng cho vị trí này.', job });
@@ -758,7 +773,8 @@ router.post('/:id/approve', authenticate, authorize('admin'), async (req, res, n
       }
     }
 
-    void notifyJobAlerts(job);
+    // A featured job reaches alert matches and nearby students in one pass (no double notice).
+    void (isJobFeatured(job) ? notifyFeaturedJob(job) : notifyJobAlerts(job));
 
     res.json({ message: 'Đã phê duyệt tin tuyển dụng thành công.', job });
   } catch (err) {

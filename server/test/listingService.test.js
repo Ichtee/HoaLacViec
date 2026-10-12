@@ -23,8 +23,10 @@ test('isJobFeatured respects featuredUntil and the legacy flag', () => {
   assert.equal(isJobFeatured({ featuredUntil: new Date('2026-10-12T00:00:00Z') }, now), false);
   assert.equal(isJobFeatured({ featured: true }, now), true);
 });
-test('activeListingFilter ignores drafts, closed, paid-slot and expired jobs', () => {
+test('activeListingFilter: live jobs, or expired/closed within the 7-day cooldown; never paid-slot', () => {
   const f = activeListingFilter('507f1f77bcf86cd799439011', new Date('2026-10-13T00:00:00Z'));
-  assert.deepEqual(f.status, { $in: ['pending', 'approved', 'paused'] });
+  assert.deepEqual(f.$or[0].status, { $in: ['pending', 'approved', 'paused'] });
+  assert.deepEqual(f.$or[1].status.$in, ['pending', 'approved', 'paused', 'expired', 'closed']);
+  assert.equal(f.$or[1].closesAt.$gt.toISOString(), '2026-10-06T00:00:00.000Z');
   assert.deepEqual(f.paidSlot, { $ne: true });
 });

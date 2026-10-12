@@ -336,12 +336,12 @@ const fundedEmployerWithTwoJobs = async (credits = 0) => {
   return e;
 };
 
-test('third active listing -> 402 LISTING_QUOTA_REACHED, nothing charged', async () => {
+test('second active listing -> 402 LISTING_QUOTA_REACHED, nothing charged', async () => {
   const e = await fundedEmployerWithTwoJobs(30);
   const r = await postJob(await login(e));
   assert.equal(r.status, 402);
   assert.equal(r.body.code, 'LISTING_QUOTA_REACHED');
-  assert.equal(r.body.freeActiveListings, 2);
+  assert.equal(r.body.freeActiveListings, 1);
   assert.equal(r.body.activeListings, 2);
   assert.equal(await bal(e), 30);
 });
@@ -365,14 +365,21 @@ test('useExtraSlot with no credits -> 402 INSUFFICIENT_CREDITS and no job create
   assert.equal(await t.models.Job.countDocuments({ employerUserId: e._id }), 2);
 });
 
-test('expired job and draft do not count; paused job counts', async () => {
+test('free slot: draft/rejected never count; expired/closed hold it for 7 days; paused counts', async () => {
   const e = await newEmployer();
-  await seedJob(e, { closesAt: new Date(Date.now() - DAY) });
+  await seedJob(e, { status: 'expired', closesAt: new Date(Date.now() - 8 * DAY) }); // cooldown over
+  await seedJob(e, { status: 'closed', closesAt: null }); // legacy closed job without a window
   await seedJob(e, { status: 'draft' });
+  await seedJob(e, { status: 'rejected' });
   const token = await login(e);
   assert.equal((await postJob(token)).status, 201);
-  assert.equal((await postJob(token)).status, 201);
   assert.equal((await postJob(token)).status, 402);
+  const g = await newEmployer();
+  await seedJob(g, { status: 'expired', closesAt: new Date(Date.now() - 3 * DAY) });
+  assert.equal((await postJob(await login(g))).status, 402);
+  const h = await newEmployer();
+  await seedJob(h, { status: 'closed', closesAt: new Date(Date.now() - 2 * DAY) });
+  assert.equal((await postJob(await login(h))).status, 402);
   assert.equal((await postJob(token, { status: 'draft' })).status, 201); // drafts never blocked
   const f = await newEmployer();
   await seedJob(f); await seedJob(f, { status: 'paused' });
@@ -560,7 +567,7 @@ test('backfillJobExpiry: dry-run leaves docs, apply sets closesAt', async () => 
 // ---- Fix round 1 ----
 test('useExtraSlot with free slots left is ignored: no charge, paidSlot false', async () => {
   const e = await newEmployer();
-  await seedJob(e);
+  // no active job: the one free slot is still open
   await grantCredits({ employerUserId: e._id, amount: 30, type: 'welcome', reason: 'welcome' });
   const r = await postJob(await login(e), { useExtraSlot: true });
   assert.equal(r.status, 201);
@@ -737,4 +744,71 @@ test('polling grants a paid pending top-up once, skips unpaid and older than 24h
   assert.equal((await reload(stale._id)).status, 'pending');
   await reconcilePendingTopUps();
   assert.equal(await bal(e), 110);
+});
+
+test('closing starts the cooldown; reopen/renew of the same job do not need an extra slot', async () => {
+  const e = await newEmployer();
+  const token = await login(e);
+  await grantCredits({ employerUserId: e._id, amount: 20, type: 'welcome', reason: 'welcome' });
+  const job = await seedJob(e, { closesAt: new Date(Date.now() + 10 * DAY) });
+  assert.equal((await call(`/jobs/${job._id}/close`, { method: 'POST', token })).status, 200);
+  const closed = await t.models.Job.findById(job._id);
+  assert.ok(Math.abs(closed.closesAt.getTime() - Date.now()) < 60000);
+  assert.equal((await postJob(token)).status, 402); // closed job still holds the slot
+  const r = await call(`/jobs/${job._id}/reopen`, { method: 'POST', token });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const reopened = await t.models.Job.findById(job._id);
+  assert.deepEqual([reopened.status, reopened.paidSlot, reopened.closesAt], ['pending', false, null]);
+  const x = await seedJob(await newEmployer(), {});
+  const f = await t.models.User.findById(x.employerUserId);
+  await grantCredits({ employerUserId: f._id, amount: 20, type: 'welcome', reason: 'welcome' });
+  await t.models.Job.updateOne({ _id: x._id }, { status: 'expired', closesAt: new Date(Date.now() - DAY) });
+  assert.equal((await call(`/credits/jobs/${x._id}/renew`, { method: 'POST', token: await login(f) })).status, 200);
+  assert.deepEqual([(await t.models.Job.findById(x._id)).paidSlot, await bal(f)], [false, 0]);
+});
+
+test('/credits/pricing exposes the free tier and cooldown', async () => {
+  const r = await call('/credits/pricing');
+  assert.deepEqual([r.body.freeActiveListings, r.body.slotCooldownDays], [1, 7]);
+});
+
+test('job stats: non-owner views count (featured views too), owner views do not; my-jobs returns counts', async () => {
+  const e = await newEmployer();
+  const etoken = await login(e);
+  const job = await seedJob(e, { featuredUntil: new Date(Date.now() + DAY) });
+  const stoken = await login(await createUser(t.models, { role: 'student' }));
+  await call(`/jobs/${job._id}`, { token: stoken });
+  await call(`/jobs/${job._id}`);
+  await call(`/jobs/${job._id}`, { token: etoken });
+  await new Promise((r) => setTimeout(r, 100)); // the $inc is fire-and-forget
+  const after = await t.models.Job.findById(job._id);
+  assert.deepEqual([after.viewCount, after.featuredViewCount], [2, 2]);
+  const { Application } = await import('../../src/models/Application.js');
+  await Application.collection.insertOne({ jobId: job._id, studentId: (await createUser(t.models, { role: 'student' }))._id, studentName: 'SV', status: 'pending', createdAt: new Date() });
+  const mine = (await call('/jobs/employer/my-jobs', { token: etoken })).body.jobs.find((j) => j._id === String(job._id));
+  assert.deepEqual([mine.viewCount, mine.featuredViewCount, mine.applicationCount], [2, 2, 1]);
+});
+
+test('featuring an approved job notifies alert matches and nearby students once per 24h, not far students or the owner', async () => {
+  const { StudentProfile } = await import('../../src/models/StudentProfile.js');
+  const { JobAlert } = await import('../../src/models/JobAlert.js');
+  const { Notification } = await import('../../src/models/Notification.js');
+  const e = await newEmployer();
+  await grantCredits({ employerUserId: e._id, amount: 60, type: 'welcome', reason: 'welcome' });
+  const job = await seedJob(e); // at 21.0135, 105.5252
+  const [near, far, alertUser] = await Promise.all([1, 2, 3].map(() => createUser(t.models, { role: 'student' })));
+  const place = (u, coordinates) => StudentProfile.collection.updateOne({ userId: u._id }, { $set: { geoPoint: { type: 'Point', coordinates } } }, { upsert: true });
+  await place(near, [105.5300, 21.0150]); // ~0.5 km
+  await place(far, [105.8000, 21.0300]); // ~28 km
+  await JobAlert.collection.insertOne({ userId: alertUser._id, active: true, createdAt: new Date() });
+  await JobAlert.collection.insertOne({ userId: e._id, active: true, createdAt: new Date() }); // owner never notified
+  const token = await login(e);
+  assert.equal((await call(`/credits/jobs/${job._id}/feature`, { method: 'POST', token, body: { days: 3 } })).status, 200);
+  const notified = async () => {
+    await new Promise((r) => setTimeout(r, 200)); // fire-and-forget
+    return (await Notification.find({ link: `/jobs/${job._id}`, title: /nổi bật/ }).lean()).map((n) => String(n.userId)).sort();
+  };
+  assert.deepEqual(await notified(), [String(near._id), String(alertUser._id)].sort());
+  assert.equal((await call(`/credits/jobs/${job._id}/feature`, { method: 'POST', token, body: { days: 3 } })).status, 200);
+  assert.equal((await notified()).length, 2); // second boost within 24h sends nothing
 });

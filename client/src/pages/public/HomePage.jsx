@@ -214,7 +214,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="eyebrow mb-1">Mới cập nhật</p>
-            <h2 className="section-title">Việc nổi bật</h2>
+            <h2 className="section-title">{featured.some((j) => j.featured) ? 'Việc nổi bật' : 'Việc mới'}</h2>
           </div>
           <Link to="/jobs" className="flex items-center gap-1 px-4 py-2 rounded-full bg-green-light text-green-dark text-sm font-semibold hover:bg-green-100 transition-colors">
             Xem tất cả <ChevronRight className="w-4 h-4" />

@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Briefcase, Plus, Edit, Trash2, MapPin,
   DollarSign, Users, ExternalLink,
-  PauseCircle, PlayCircle, AlertTriangle, Sparkles, RefreshCw, Clock
+  PauseCircle, PlayCircle, AlertTriangle, Sparkles, RefreshCw, Clock, Eye, FileText
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -310,6 +310,13 @@ export default function EmployerJobsPage() {
                       <Users className="w-3.5 h-3.5 text-green-dark shrink-0" />
                       <span>Còn tuyển: {job.slots ?? 0} bạn</span>
                     </div>
+                    {job.status !== 'draft' && (
+                      <div className="flex items-center gap-3 text-gray-700">
+                        <span className="inline-flex items-center gap-1"><Eye className="w-3.5 h-3.5 text-green-dark shrink-0" /> {job.viewCount || 0} lượt xem</span>
+                        <span className="inline-flex items-center gap-1"><FileText className="w-3.5 h-3.5 text-green-dark shrink-0" /> {job.applicationCount || 0} ứng tuyển</span>
+                        {job.featuredViewCount > 0 && <span className="text-amber-700 font-semibold">({job.featuredViewCount} khi nổi bật)</span>}
+                      </div>
+                    )}
                     {job.closesAt && (
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />
