@@ -577,7 +577,7 @@ export default function EmployerJobFormPage() {
           <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card space-y-2 text-xs">
             {credits && takesSlot && (
               <p className="font-bold text-gray-800">
-                Tin miễn phí đang hiển thị: {credits.activeListings}/{credits.freeActiveListings}
+                Tin miễn phí đang dùng: {credits.activeListings}/{credits.freeActiveListings} (tin đã đóng/hết hạn giữ chỗ thêm 7 ngày)
               </p>
             )}
             {creditsFailed && !credits && (

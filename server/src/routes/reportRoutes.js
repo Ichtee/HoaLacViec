@@ -238,7 +238,7 @@ router.post('/:id/resolve', authenticate, authorize('admin'), async (req, res, n
           await syncAggregateRating(hiddenReview.targetId, hiddenReview.transactionType);
         }
       } else if (report.targetType === 'job') {
-        await Job.findByIdAndUpdate(report.targetId, { status: 'closed' });
+        await Job.findByIdAndUpdate(report.targetId, { status: 'closed', closesAt: new Date() });
       }
     }
 

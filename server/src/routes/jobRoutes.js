@@ -37,20 +37,21 @@ const QUOTA_REACHED = (activeListings) => ({
 });
 
 // Free slots left -> flag ignored; quota full -> paid slot only when requested.
-async function quotaDecision(employerUserId, wantsExtraSlot) {
-  const activeListings = await countFreeActiveListings(employerUserId);
+async function quotaDecision(employerUserId, wantsExtraSlot, excludeJobId = null) {
+  const activeListings = await countFreeActiveListings(employerUserId, new Date(), excludeJobId);
   if (activeListings < FREE_ACTIVE_LISTINGS) return { paid: false };
   return wantsExtraSlot === true ? { paid: true } : { blocked: QUOTA_REACHED(activeListings) };
 }
 
 // Draft/rejected/closed -> pending. The status claim runs before the charge, so a repeated request cannot pay twice.
 async function moveToPending(req, job, from, note, needsSlot) {
-  const quota = req.user.role === 'admin' || !needsSlot || job.paidSlot ? { paid: false } : await quotaDecision(req.user._id, req.body?.useExtraSlot);
+  const quota = req.user.role === 'admin' || !needsSlot || job.paidSlot ? { paid: false } : await quotaDecision(req.user._id, req.body?.useExtraSlot, job._id);
   if (quota.blocked) return { blocked: quota.blocked };
   const updated = await withCreditTransaction(async (session) => {
     const claimed = await Job.findOneAndUpdate(
       { _id: job._id, status: { $in: from } },
-      { status: 'pending', moderationNote: note, ...(quota.paid ? { paidSlot: true } : {}) },
+      // A reopened closed job starts a fresh window on approval (its old closesAt marks the closing).
+      { status: 'pending', moderationNote: note, ...(job.status === 'closed' ? { closesAt: null } : {}), ...(quota.paid ? { paidSlot: true } : {}) },
       { new: true, session },
     );
     if (!claimed) throw httpError(409, 'INVALID_STATE', 'Trạng thái tin đã thay đổi. Vui lòng tải lại trang.');
@@ -690,6 +691,7 @@ router.post('/:id/close', authenticate, async (req, res, next) => {
     }
 
     job.status = 'closed';
+    if (!job.closesAt || job.closesAt > new Date()) job.closesAt = new Date(); // starts the slot cooldown
     await job.save();
 
     res.json({ message: 'Đã đóng tuyển dụng cho vị trí này.', job });

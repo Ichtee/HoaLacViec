@@ -187,7 +187,7 @@ export default function EmployerCreditsPage() {
               ))}
             </ul>
             <p className="text-xs text-text-muted">
-              Mỗi cửa hàng được đăng {pricing.freeActiveListings} tin miễn phí cùng lúc (hiện dùng {me?.activeListings ?? 0}/{pricing.freeActiveListings}), mỗi tin hiển thị {pricing.listingDays} ngày.
+              Mỗi cửa hàng được đăng {pricing.freeActiveListings} tin miễn phí cùng lúc (hiện dùng {me?.activeListings ?? 0}/{pricing.freeActiveListings}), mỗi tin hiển thị {pricing.listingDays} ngày.{pricing.slotCooldownDays ? ` Tin đã đóng hoặc hết hạn vẫn giữ chỗ thêm ${pricing.slotCooldownDays} ngày.` : ''}
             </p>
           </section>
 

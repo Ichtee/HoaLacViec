@@ -9,7 +9,7 @@ import { Notification } from '../models/Notification.js';
 import { Job } from '../models/Job.js';
 import { authenticate, authorize, requireActiveUser } from '../middlewares/auth.js';
 import { httpError } from '../utils/httpError.js';
-import { CREDIT_PACKS, CREDIT_PRICES, FREE_ACTIVE_LISTINGS, LISTING_DAYS, WELCOME_CREDITS } from '../config/credits.js';
+import { CREDIT_PACKS, CREDIT_PRICES, FREE_ACTIVE_LISTINGS, LISTING_DAYS, SLOT_COOLDOWN_DAYS, WELCOME_CREDITS } from '../config/credits.js';
 import { SEPAY_NOTIFICATION } from '../config/sepay.js';
 import { getSepayClient } from '../services/sepayClient.js';
 import { applySepayOrderPaid } from '../services/topUpService.js';
@@ -59,7 +59,7 @@ async function reconcile(topUp) {
 }
 
 router.get('/pricing', (req, res) => {
-  res.json({ packs: CREDIT_PACKS, prices: CREDIT_PRICES, freeActiveListings: FREE_ACTIVE_LISTINGS, listingDays: LISTING_DAYS, welcomeCredits: WELCOME_CREDITS });
+  res.json({ packs: CREDIT_PACKS, prices: CREDIT_PRICES, freeActiveListings: FREE_ACTIVE_LISTINGS, listingDays: LISTING_DAYS, slotCooldownDays: SLOT_COOLDOWN_DAYS, welcomeCredits: WELCOME_CREDITS });
 });
 
 router.get('/me', ...employerOnly, async (req, res, next) => {
@@ -144,7 +144,7 @@ router.post('/jobs/:id/renew', ...employerOnly, requireActiveUser, async (req, r
       const reasons = ['renew_14d'];
       if (job.status === 'expired') {
         // An expired job no longer holds a free slot; if none is left, it comes back as a paid slot.
-        if (!job.paidSlot && (await countFreeActiveListings(req.user._id)) >= FREE_ACTIVE_LISTINGS) { reasons.push('extra_slot'); job.paidSlot = true; }
+        if (!job.paidSlot && (await countFreeActiveListings(req.user._id, now, job._id)) >= FREE_ACTIVE_LISTINGS) { reasons.push('extra_slot'); job.paidSlot = true; }
         job.status = 'approved';
       }
       job.closesAt = new Date(laterOf(job.closesAt, now).getTime() + LISTING_DAYS * DAY_MS);
