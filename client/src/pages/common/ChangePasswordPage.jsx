@@ -154,7 +154,7 @@ export default function ChangePasswordPage() {
       )}
 
       {/* Password Form */}
-      <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-3xl border border-green-100 shadow-sm space-y-5">
+      <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/60 shadow-card space-y-5">
         {/* Old password if existing */}
         {hasExistingPassword && (
           <div>

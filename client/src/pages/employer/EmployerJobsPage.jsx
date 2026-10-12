@@ -118,7 +118,7 @@ export default function EmployerJobsPage() {
           </button>
         </div>
       ) : jobs.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-green-50 shadow-card space-y-4">
+        <div className="bg-white rounded-3xl p-12 text-center ring-1 ring-green-100/60 shadow-card space-y-4">
           <Briefcase className="w-12 h-12 text-text-muted mx-auto opacity-40" />
           <h3 className="font-bold text-base text-text-main">Chưa có bài đăng tuyển dụng nào</h3>
           <p className="text-xs text-text-muted max-w-md mx-auto">

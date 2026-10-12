@@ -131,9 +131,9 @@ export default function StudentProfilePage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-green-50 shadow-card">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-green-main to-green-dark text-white font-bold text-2xl flex items-center justify-center shadow-md">
+          <div className="w-16 h-16 rounded-2xl bg-brand-gradient text-white font-bold text-2xl flex items-center justify-center shadow-brand">
             {profile.name ? profile.name.charAt(0) : 'S'}
           </div>
           <div>
@@ -170,7 +170,7 @@ export default function StudentProfilePage() {
         {/* Left Col: Personal Info & Skills */}
         <div className="space-y-6">
           {/* General Info */}
-          <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card space-y-4">
+          <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card space-y-4">
             <h2 className="text-base font-bold text-text-main flex items-center gap-2 border-b border-green-50 pb-3">
               <User className="w-4.5 h-4.5 text-green-main" /> Thông tin cá nhân
             </h2>
@@ -244,7 +244,7 @@ export default function StudentProfilePage() {
           </div>
 
           {/* Skills */}
-          <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card space-y-4">
+          <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card space-y-4">
             <h2 className="text-base font-bold text-text-main flex items-center gap-2 border-b border-green-50 pb-3">
               <Award className="w-4.5 h-4.5 text-green-main" /> Kỹ năng làm việc
             </h2>
@@ -283,7 +283,7 @@ export default function StudentProfilePage() {
         {/* Right Col 2/3: Availability Schedule Grid (Rảnh Ca) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Availability Matrix */}
-          <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card">
+          <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card">
             <div className="flex items-center justify-between border-b border-green-50 pb-4 mb-4">
               <div>
                 <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
@@ -349,7 +349,7 @@ export default function StudentProfilePage() {
           </div>
 
           {/* Work Experience */}
-          <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card">
+          <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card">
             <h2 className="text-base font-bold text-text-main flex items-center gap-2 border-b border-green-50 pb-3 mb-4">
               <Briefcase className="w-4.5 h-4.5 text-green-main" /> Kinh nghiệm làm việc đã tích lũy
             </h2>

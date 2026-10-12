@@ -148,7 +148,7 @@ export default function AccountInfoPage() {
       )}
 
       {/* Main Form */}
-      <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-3xl border border-green-100 shadow-sm space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/60 shadow-card space-y-6">
         {/* Avatar Section */}
         <div className="border-b border-gray-100 pb-6">
           <label className="block text-xs font-bold text-text-main mb-3">Ảnh đại diện tài khoản</label>

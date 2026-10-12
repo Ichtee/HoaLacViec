@@ -33,7 +33,7 @@ export function WorkHistoryCard({ userId }) {
   const pct = (value) => (value == null ? '—' : `${value}%`);
 
   return (
-    <section className="bg-white p-6 rounded-3xl border border-green-50 shadow-card space-y-4">
+    <section className="bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card space-y-4">
       <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
         <Award className="w-5 h-5 text-green-dark" /> Hồ sơ làm việc
       </h2>

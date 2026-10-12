@@ -10,7 +10,7 @@ const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ/giờ`
 
 function ShiftCard({ shift, action }) {
   return (
-    <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card space-y-3">
+    <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-bold text-text-main">{shift.title}</p>

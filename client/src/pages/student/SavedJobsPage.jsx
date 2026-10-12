@@ -82,7 +82,7 @@ export default function SavedJobsPage() {
       {loading ? (
         <div className="text-center py-12 text-text-muted">Đang tải công việc đã lưu...</div>
       ) : displayedJobs.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-green-50 shadow-card space-y-3">
+        <div className="bg-white rounded-3xl p-12 text-center ring-1 ring-green-100/60 shadow-card space-y-3">
           <Bookmark className="w-12 h-12 text-pink-300 mx-auto opacity-60" />
           <h3 className="text-base font-bold text-text-main">Chưa có công việc lưu nào</h3>
           <p className="text-xs text-text-muted max-w-md mx-auto">

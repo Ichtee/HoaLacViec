@@ -16,6 +16,7 @@ import {
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
 import LocationPicker from '@/components/LocationPicker';
+import { PageHeader } from '@/components/PageHeader.jsx';
 import { isValidCoordinate, getGoogleMapsDirectionsUrl } from '@/utils';
 import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
 import { JobFormStepper } from './JobFormStepper.jsx';
@@ -478,44 +479,41 @@ export default function EmployerJobFormPage() {
       )}
 
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-green-100 shadow-xs">
-        <div>
-          <Link
-            to="/employer/jobs"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-green-dark mb-2 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" /> Quay lại danh sách tin tuyển dụng
-          </Link>
-          <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2.5">
-            <Briefcase className="w-6 h-6 text-green-dark" />
-            {isEditing ? 'Chỉnh sửa tin tuyển dụng' : 'Đăng bài tuyển dụng & Ghim bản đồ'}
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            {isEditing
-              ? 'Cập nhật lại vị trí tuyển dụng, ca làm việc hoặc địa chỉ điểm danh của quán.'
-              : 'Điền đầy đủ thông tin để tiếp cận ngay hàng ngàn sinh viên ĐH FPT & ĐHQG tại Hòa Lạc.'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={() => navigate('/employer/jobs')}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 font-bold text-xs transition-all"
-          >
-            Hủy bỏ
-          </button>
-          <button
-            type="submit"
-            form="job-form"
-            disabled={submitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-brand-gradient shadow-brand hover:brightness-110 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            {submitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Đăng tin tuyển dụng')}
-          </button>
-        </div>
-      </div>
+      <Link
+        to="/employer/jobs"
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-green-dark transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" /> Quay lại danh sách tin tuyển dụng
+      </Link>
+      <PageHeader
+        icon={Briefcase}
+        title={isEditing ? 'Chỉnh sửa tin tuyển dụng' : 'Đăng bài tuyển dụng & Ghim bản đồ'}
+        description={
+          isEditing
+            ? 'Cập nhật lại vị trí tuyển dụng, ca làm việc hoặc địa chỉ điểm danh của quán.'
+            : 'Điền đầy đủ thông tin để tiếp cận ngay hàng ngàn sinh viên ĐH FPT & ĐHQG tại Hòa Lạc.'
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => navigate('/employer/jobs')}
+              className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 font-bold text-xs transition-all"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="submit"
+              form="job-form"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-brand-gradient shadow-brand hover:brightness-110 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              {submitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Đăng tin tuyển dụng')}
+            </button>
+          </>
+        }
+      />
 
       <JobFormStepper
         formData={formData}
@@ -608,7 +606,7 @@ export default function EmployerJobFormPage() {
         </div>
 
         {/* CARD 2: VỊ TRÍ TUYỂN DỤNG & SỐ LƯỢNG */}
-        <div id="job-step-2" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-green-100 shadow-xs space-y-4">
+        <div id="job-step-2" className="scroll-mt-44 bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-green-50 pb-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-green-100 text-green-dark flex items-center justify-center font-bold text-sm">

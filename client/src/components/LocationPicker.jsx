@@ -608,7 +608,7 @@ export default function LocationPicker({
       )}
 
       {/* Vietmap GL Map Canvas Container */}
-      <div style={{ minHeight: '320px' }} className="relative rounded-2xl overflow-hidden border border-green-100 shadow-sm bg-gray-50">
+      <div style={{ minHeight: '320px' }} className="relative rounded-2xl overflow-hidden ring-1 ring-green-100/60 shadow-card bg-gray-50">
         <div
           ref={mapContainerRef}
           style={{ width: '100%', height: '320px', minHeight: '320px' }}
@@ -640,7 +640,7 @@ export default function LocationPicker({
       </div>
 
       {/* Bottom Confirmation & Address Panel */}
-      <div className="p-3 bg-white rounded-2xl border border-green-100 shadow-sm space-y-2.5">
+      <div className="p-3 bg-white rounded-2xl ring-1 ring-green-100/60 shadow-card space-y-2.5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-text-main">Trạng thái vị trí:</span>

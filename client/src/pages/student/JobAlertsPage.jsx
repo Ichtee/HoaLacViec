@@ -67,7 +67,7 @@ export default function JobAlertsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <PageHeader icon={BellRing} title="Thông báo việc mới" description="Lưu tối đa 5 bộ lọc. Khi có tin phù hợp được duyệt, bạn nhận thông báo ngay trong ứng dụng." />
 
-      <form onSubmit={handleCreate} className="bg-white p-5 rounded-3xl border border-green-50 shadow-card grid gap-3 sm:grid-cols-3 items-end">
+      <form onSubmit={handleCreate} className="bg-white p-5 rounded-3xl ring-1 ring-green-100/60 shadow-card grid gap-3 sm:grid-cols-3 items-end">
         <label className="text-xs font-bold text-text-main sm:col-span-3">Từ khóa
           <input value={form.keyword} maxLength={60} onChange={(e) => setForm({ ...form, keyword: e.target.value })}
             placeholder="Ví dụ: pha chế, phục vụ, gia sư" className={input} />

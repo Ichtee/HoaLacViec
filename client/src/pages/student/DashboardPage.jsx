@@ -102,7 +102,7 @@ export default function StudentDashboard() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Ca sắp tới</span>
             <div className="w-9 h-9 rounded-xl bg-green-50 text-green-main flex items-center justify-center">
@@ -117,7 +117,7 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Đơn đã nộp</span>
             <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -132,7 +132,7 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Việc đã lưu</span>
             <div className="w-9 h-9 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center">
@@ -147,7 +147,7 @@ export default function StudentDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Ước tính thu nhập</span>
             <div className="w-9 h-9 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center">
@@ -166,7 +166,7 @@ export default function StudentDashboard() {
         {/* Left 2 Cols: Next Shifts & Active Applications */}
         <div className="lg:col-span-2 space-y-6">
           {/* Next Shift Box */}
-          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+          <div className="bg-white rounded-3xl p-6 ring-1 ring-green-100/60 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
                 <Clock className="w-5 h-5 text-green-main" /> Ca làm sắp diễn ra
@@ -220,7 +220,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Recent Applications Status */}
-          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+          <div className="bg-white rounded-3xl p-6 ring-1 ring-green-100/60 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-green-main" /> Tiến độ ứng tuyển gần đây
@@ -251,7 +251,7 @@ export default function StudentDashboard() {
         {/* Right Col: Quick Match Profile & Recommended Jobs */}
         <div className="space-y-6">
           {/* Profile Match Status */}
-          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+          <div className="bg-white rounded-3xl p-6 ring-1 ring-green-100/60 shadow-card">
             <h3 className="text-base font-bold text-text-main mb-2">Độ hoàn thiện hồ sơ</h3>
             <div className="w-full bg-green-50 h-3 rounded-full overflow-hidden mb-3">
               <div className="bg-green-main h-full rounded-full transition-all duration-500" style={{ width: '85%' }} />
@@ -272,7 +272,7 @@ export default function StudentDashboard() {
           </div>
 
           {/* Quick Recommended Jobs */}
-          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+          <div className="bg-white rounded-3xl p-6 ring-1 ring-green-100/60 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-text-main">Gợi ý cho bạn</h3>
               <Link to="/student/jobs" className="text-xs text-green-main hover:underline">Tất cả</Link>

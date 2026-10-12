@@ -110,7 +110,7 @@ export default function EmployerDashboardPage() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Tin đang tuyển</span>
             <div className="w-9 h-9 rounded-xl bg-green-50 text-green-dark flex items-center justify-center">
@@ -123,7 +123,7 @@ export default function EmployerDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Ứng viên chờ duyệt</span>
             <div className="w-9 h-9 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center">
@@ -138,7 +138,7 @@ export default function EmployerDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Ca làm trong ngày</span>
             <div className="w-9 h-9 rounded-xl bg-green-50 text-green-main flex items-center justify-center">
@@ -151,7 +151,7 @@ export default function EmployerDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 border border-green-50 shadow-card">
+        <div className="bg-white rounded-2xl p-5 ring-1 ring-green-100/60 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-text-muted">Quản lý nhân viên ca</span>
             <div className="w-9 h-9 rounded-xl bg-green-50 text-green-dark flex items-center justify-center">
@@ -171,7 +171,7 @@ export default function EmployerDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Pending Apps Table */}
-          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+          <div className="bg-white rounded-3xl p-6 ring-1 ring-green-100/60 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
                 <Users className="w-5 h-5 text-green-dark" /> Ứng viên mới nộp đơn
@@ -214,7 +214,7 @@ export default function EmployerDashboardPage() {
 
         {/* Right Col: Active Jobs Summary */}
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-card">
+          <div className="bg-white rounded-3xl p-6 ring-1 ring-green-100/60 shadow-card">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-text-main">Tin đăng gần đây</h3>
               <Link to="/employer/jobs" className="text-xs text-green-dark font-semibold hover:underline">Quản lý tin</Link>

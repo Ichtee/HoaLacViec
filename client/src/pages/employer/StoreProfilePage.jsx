@@ -95,9 +95,9 @@ export default function StoreProfilePage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header Banner */}
-      <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/60 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-green-main to-green-dark text-white font-bold text-2xl flex items-center justify-center shadow-md">
+          <div className="w-16 h-16 rounded-2xl bg-brand-gradient text-white font-bold text-2xl flex items-center justify-center shadow-brand">
             <Building2 className="w-8 h-8" />
           </div>
           <div>
@@ -120,14 +120,14 @@ export default function StoreProfilePage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-green-main text-white font-semibold text-xs hover:bg-green-dark transition-all shadow-sm disabled:opacity-50"
+          className="btn-primary btn btn-md"
         >
           <Save className="w-4 h-4" /> {saving ? 'Đang lưu...' : 'Lưu thông tin'}
         </button>
       </div>
 
       {/* Form Details */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-green-50 shadow-card space-y-6">
+      <div className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/60 shadow-card space-y-6">
         <h2 className="text-lg font-bold text-text-main border-b border-green-50 pb-3 flex items-center gap-2">
           <Building2 className="w-5 h-5 text-green-dark" /> Hồ sơ gian hàng & Xác minh pháp lý
         </h2>
