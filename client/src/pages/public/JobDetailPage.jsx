@@ -250,7 +250,8 @@ export default function JobDetailPage() {
         {/* Main */}
         <div className="lg:col-span-2 space-y-5">
           {/* Job header card */}
-          <div className="card">
+          <div className="card relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-1.5 bg-brand-gradient" aria-hidden="true" />
             <div className="flex items-start gap-4">
               <div className={clsx('w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-2xl flex-shrink-0', avatarColorClass(emp?.storeName))}>
                 {avatarInitial(emp?.storeName)}
@@ -261,12 +262,12 @@ export default function JobDetailPage() {
                   {emp?.verified && <VerifiedBadge />}
                   {job.featured && <Badge variant="pink">Nổi bật</Badge>}
                 </div>
-                <h1 className="text-2xl font-bold text-text-main leading-tight mb-1">{job.title}</h1>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-text-main leading-tight mb-1">{job.title}</h1>
                 <p className="text-text-muted">{emp?.storeName}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-green-50">
+            <div className="grid grid-cols-2 gap-3 mt-5">
               <Info icon={DollarSign} label="Mức lương" value={`${formatVND(job.salaryAmount)}${unitLabel}`} />
               <Info
                 icon={MapPin}
@@ -668,11 +669,13 @@ export default function JobDetailPage() {
 
 function Info({ icon: Icon, label, value }) {
   return (
-    <div className="flex items-start gap-2">
-      <Icon className="w-4 h-4 text-green-main mt-0.5 flex-shrink-0" />
-      <div>
+    <div className="flex items-center gap-3 rounded-2xl bg-green-50/70 ring-1 ring-green-100 p-3">
+      <span className="w-9 h-9 rounded-xl bg-white text-green-main shadow-sm ring-1 ring-green-100 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-4 h-4" />
+      </span>
+      <div className="min-w-0">
         <p className="text-xs text-text-muted">{label}</p>
-        <p className="text-sm font-semibold text-text-main">{value}</p>
+        <p className="text-sm font-bold text-text-main truncate">{value}</p>
       </div>
     </div>
   );
