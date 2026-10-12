@@ -50,7 +50,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {/* Header */}
-      <div className="bg-green-dark text-white p-6 sm:p-8 rounded-3xl shadow-card">
+      <div className="relative overflow-hidden bg-brand-gradient text-white p-6 sm:p-8 rounded-3xl shadow-modal ring-1 ring-white/10"><div className="absolute bottom-0 left-1/3 w-56 h-56 rounded-full bg-pink-300/20 blur-3xl pointer-events-none" aria-hidden="true" />
         <h1 className="text-2xl sm:text-3xl font-bold">Tổng quan Quản trị Hoa Lạc Việc</h1>
         <p className="text-xs sm:text-sm text-green-200 mt-1">
           Hệ thống giám sát chất lượng tin tuyển dụng, xác thực doanh nghiệp địa phương và xử lý tranh chấp.

@@ -107,7 +107,7 @@ export default function AdminReportsPage() {
       {/* Header */}
       <div className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/70 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2.5">
             <Flag className="w-6 h-6 text-red-700" /> Quản lý Báo cáo vi phạm & Giải quyết tranh chấp
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
@@ -128,7 +128,7 @@ export default function AdminReportsPage() {
               onClick={() => setStatusFilter(f.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 statusFilter === f.id
-                  ? 'bg-red-500 text-white shadow-sm'
+                  ? 'bg-green-main text-white shadow-sm'
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
               }`}
             >
