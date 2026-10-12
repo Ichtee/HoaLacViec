@@ -84,6 +84,8 @@ export default function AdminTopUpsPage() {
 
       <Tabs variant="pill" ariaLabel="Lọc theo trạng thái" value={tab} onChange={setTab} items={TABS} />
 
+      {rows.length === 100 && <p className="text-xs text-text-muted">Chỉ hiển thị 100 giao dịch gần nhất</p>}
+
       {loading ? (
         <LoadingPage />
       ) : (
@@ -115,6 +117,9 @@ export default function AdminTopUpsPage() {
                 return (
                   <div className="space-y-1">
                     <Badge variant={b.variant} size="sm">{b.label}</Badge>
+                    {r.status === 'failed' && r.failureReason && (
+                      <p className="text-xs font-semibold text-red-700">{r.failureReason === 'amount_mismatch' ? 'Số tiền không khớp với SePay' : r.failureReason}</p>
+                    )}
                     {r.status === 'voided' && (
                       <p className="text-xs font-semibold text-red-700">Giao dịch bị hủy bên SePay - cần xử lý thủ công</p>
                     )}
@@ -137,7 +142,7 @@ export default function AdminTopUpsPage() {
               key: 'actions',
               label: 'Thao tác',
               className: 'text-right',
-              render: (r) => (r.status === 'pending' || r.status === 'failed') && (
+              render: (r) => r.status === 'pending' && (
                 <button
                   type="button"
                   disabled={busyId === r._id}

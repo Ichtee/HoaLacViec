@@ -86,7 +86,7 @@ async function request(endpoint, options = {}) {
       throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
     if (!res.ok) {
-      throw Object.assign(new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`), { code: data?.code });
+      throw Object.assign(new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`), { code: data?.code, data });
     }
     return data;
   } catch (err) {

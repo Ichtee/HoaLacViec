@@ -9,15 +9,18 @@ const OPTIONS = [3, 7];
 export default function FeatureJobModal({ job, prices, balance, onClose, onDone }) {
   const [busyDays, setBusyDays] = useState(0);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const anyShort = OPTIONS.some((d) => balance < prices[`featured_${d}d`]);
 
   async function buy(days) {
     setBusyDays(days);
     setError('');
+    setErrorCode('');
     try {
       onDone(await apiFeatureJob(job._id || job.id, days));
     } catch (err) {
       setError(err.message || 'Không thể mua tin nổi bật.');
+      setErrorCode(err.code || '');
     } finally {
       setBusyDays(0);
     }
@@ -50,7 +53,7 @@ export default function FeatureJobModal({ job, prices, balance, onClose, onDone 
             </div>
           );
         })}
-        {anyShort && (
+        {(anyShort || errorCode === 'INSUFFICIENT_CREDITS') && (
           <Link to="/employer/credits" className="inline-block font-bold text-green-dark hover:underline">Nạp thêm credit</Link>
         )}
         {error && <p role="alert" className="p-2 rounded-xl bg-red-50 border border-red-200 text-red-700">{error}</p>}

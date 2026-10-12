@@ -40,6 +40,7 @@ function submitCheckout({ url, fields }) {
   });
   document.body.appendChild(form);
   form.submit();
+  form.remove();
 }
 
 export default function EmployerCreditsPage() {
@@ -85,6 +86,11 @@ export default function EmployerCreditsPage() {
           loadMe();
           return;
         }
+        if (topUp.status === 'failed' || topUp.status === 'cancelled') {
+          clearInterval(timer);
+          setReturnState(topUp.status === 'failed' ? 'error' : 'cancel');
+          return;
+        }
       } catch {
         // keep polling until the window ends
       }
@@ -116,6 +122,7 @@ export default function EmployerCreditsPage() {
     try {
       const { checkout } = await apiCreateTopUp(packId);
       submitCheckout(checkout);
+      setBuying(''); // page may be restored from bfcache
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Không thể tạo yêu cầu nạp credit.' });
       setBuying('');

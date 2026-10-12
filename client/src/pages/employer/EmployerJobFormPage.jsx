@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Briefcase, ArrowLeft, MapPin, DollarSign,
@@ -55,11 +55,16 @@ export default function EmployerJobFormPage() {
   const [useExtraSlot, setUseExtraSlot] = useState(false);
   const [creditError, setCreditError] = useState('');
 
-  useEffect(() => {
-    Promise.all([apiGetMyCredits(), apiGetCreditPricing()])
+  const [creditsFailed, setCreditsFailed] = useState(false);
+
+  const loadCredits = useCallback(() => {
+    setCreditsFailed(false);
+    return Promise.all([apiGetMyCredits(), apiGetCreditPricing()])
       .then(([me, pricing]) => { setCredits(me); setPrices(pricing.prices); })
-      .catch(() => {}); // banner is optional; the server still enforces the quota
+      .catch(() => setCreditsFailed(true)); // the server still enforces the quota
   }, []);
+
+  useEffect(() => { loadCredits(); }, [loadCredits]);
 
   // Dynamic Provinces, Districts, Wards from open-api.vn
   const [provinces, setProvinces] = useState([]);
@@ -472,6 +477,16 @@ export default function EmployerJobFormPage() {
       }, 1200);
     } catch (err) {
       if (err.code === 'LISTING_QUOTA_REACHED' || err.code === 'INSUFFICIENT_CREDITS') {
+        if (err.code === 'LISTING_QUOTA_REACHED') {
+          // Our counts were stale or never loaded: trust the 402 body so the checkbox appears
+          setCredits(prev => ({
+            balance: 0,
+            ...prev,
+            activeListings: err.data?.activeListings ?? prev?.freeActiveListings ?? 1,
+            freeActiveListings: err.data?.freeActiveListings ?? prev?.freeActiveListings ?? 1,
+          }));
+          if (!prices) loadCredits();
+        }
         setCreditError(err.code === 'LISTING_QUOTA_REACHED'
           ? 'Bạn đã dùng hết số tin miễn phí. Hãy chọn dùng credit để đăng thêm tin này.'
           : 'Số dư credit không đủ để đăng thêm tin này.');
@@ -558,11 +573,19 @@ export default function EmployerJobFormPage() {
       />
 
       <form id="job-form" onSubmit={handleSubmit} className="space-y-6">
-        {credits && takesSlot && (
+        {((credits && takesSlot) || creditError || creditsFailed) && (
           <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card space-y-2 text-xs">
-            <p className="font-bold text-gray-800">
-              Tin miễn phí đang hiển thị: {credits.activeListings}/{credits.freeActiveListings}
-            </p>
+            {credits && takesSlot && (
+              <p className="font-bold text-gray-800">
+                Tin miễn phí đang hiển thị: {credits.activeListings}/{credits.freeActiveListings}
+              </p>
+            )}
+            {creditsFailed && !credits && (
+              <p className="text-gray-600">
+                Không tải được số dư credit.{' '}
+                <button type="button" onClick={loadCredits} className="font-bold text-green-dark underline">Thử lại</button>
+              </p>
+            )}
             {needsExtraSlot && (
               <label className="flex items-start gap-2 font-semibold text-gray-800 cursor-pointer">
                 <input

@@ -1,7 +1,7 @@
 
 
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Briefcase, Plus, Edit, Trash2, MapPin,
   DollarSign, Users, ExternalLink,
@@ -36,8 +36,10 @@ export default function EmployerJobsPage() {
   const [toast, setToast] = useState(null);
   const [fetchError, setFetchError] = useState(null);
   const [balance, setBalance] = useState(0);
+  const [listingDays, setListingDays] = useState(null);
   const [prices, setPrices] = useState(null);
   const [featureJob, setFeatureJob] = useState(null);
+  const [notice, setNotice] = useState(null); // { message, to, label } shown when a credit action is refused
   const [searchParams, setSearchParams] = useSearchParams();
   const upsellId = searchParams.get('upsell');
 
@@ -59,7 +61,7 @@ export default function EmployerJobsPage() {
   useEffect(() => {
     loadJobs();
     Promise.all([apiGetMyCredits(), apiGetCreditPricing()])
-      .then(([me, pricing]) => { setBalance(me.balance); setPrices(pricing.prices); })
+      .then(([me, pricing]) => { setBalance(me.balance); setPrices(pricing.prices); setListingDays(pricing.listingDays); })
       .catch(() => {});
   }, []);
 
@@ -83,13 +85,17 @@ export default function EmployerJobsPage() {
   }
 
   async function handleRenew(job) {
-    if (!confirm(`Gia hạn tin thêm 14 ngày với ${prices.renew_14d} credit?`)) return;
+    if (!confirm(`Gia hạn tin thêm ${listingDays ? `${listingDays} ngày` : ''} với ${prices.renew_14d} credit?`)) return;
     try {
       const res = await apiRenewJob(jobId(job));
       replaceJob(res.job);
       setBalance(res.balance);
-      setToast({ type: 'success', message: 'Đã gia hạn tin thêm 14 ngày.' });
+      setToast({ type: 'success', message: 'Đã gia hạn tin.' });
     } catch (err) {
+      if (err.code === 'INSUFFICIENT_CREDITS') {
+        setNotice({ message: err.message, to: '/employer/credits', label: 'Nạp thêm credit' });
+        return;
+      }
       setToast({ type: 'error', message: err.message || 'Không thể gia hạn tin.' });
     }
   }
@@ -106,7 +112,13 @@ export default function EmployerJobsPage() {
       setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? updated : j));
       setToast({ type: 'success', message: result.message });
     } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Không thể đổi trạng thái tin.' });
+      if (err.code === 'LISTING_QUOTA_REACHED') {
+        setNotice({ message: err.message, to: `/employer/jobs/${targetId}/edit`, label: 'Mở tin để dùng credit đăng thêm' });
+      } else if (err.code === 'INSUFFICIENT_CREDITS') {
+        setNotice({ message: err.message, to: '/employer/credits', label: 'Nạp thêm credit' });
+      } else {
+        setToast({ type: 'error', message: err.message || 'Không thể đổi trạng thái tin.' });
+      }
     }
   }
 
@@ -149,6 +161,14 @@ export default function EmployerJobsPage() {
           </>
         }
       />
+
+      {notice && (
+        <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs">
+          <span>{notice.message}</span>
+          <Link to={notice.to} className="font-bold underline">{notice.label}</Link>
+          <button type="button" onClick={() => setNotice(null)} className="ml-auto font-semibold">Đóng</button>
+        </div>
+      )}
 
       {/* List */}
       {loading ? (
@@ -338,7 +358,7 @@ export default function EmployerJobsPage() {
                         onClick={() => handleRenew(job)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-green-200 bg-white text-text-main hover:bg-green-50 font-semibold text-xs"
                       >
-                        <RefreshCw className="w-3.5 h-3.5" /> Gia hạn 14 ngày ({prices.renew_14d} credit)
+                        <RefreshCw className="w-3.5 h-3.5" /> Gia hạn{listingDays ? ` ${listingDays} ngày` : ''} ({prices.renew_14d} credit)
                       </button>
                     )}
                   </div>
