@@ -556,3 +556,81 @@ test('backfillJobExpiry: dry-run leaves docs, apply sets closesAt', async () => 
   assert.ok(done.updated >= 2);
   for (const j of [job, paused]) assert.ok(near((await t.models.Job.findById(j._id)).closesAt, Date.now() + 14 * DAY));
 });
+
+// ---- Fix round 1 ----
+test('useExtraSlot with free slots left is ignored: no charge, paidSlot false', async () => {
+  const e = await newEmployer();
+  await seedJob(e);
+  await grantCredits({ employerUserId: e._id, amount: 30, type: 'welcome', reason: 'welcome' });
+  const r = await postJob(await login(e), { useExtraSlot: true });
+  assert.equal(r.status, 201);
+  assert.equal(r.body.paidSlot, false);
+  assert.equal(await bal(e), 30);
+});
+
+test('admin approve is one write: closesAt and featuredUntil applied together', async () => {
+  const e = await newEmployer();
+  const job = await seedJob(e, { status: 'pending', featuredDaysPending: 3 });
+  const at = await login(await createUser(t.models, { role: 'admin' }));
+  const r = await call(`/admin/jobs/${job._id}/approve`, { method: 'POST', token: at });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.job.status, 'approved');
+  assert.ok(Math.abs(new Date(r.body.job.closesAt).getTime() - (Date.now() + 14 * DAY)) < 60000);
+  assert.ok(Math.abs(new Date(r.body.job.featuredUntil).getTime() - (Date.now() + 3 * DAY)) < 60000);
+  assert.equal(r.body.job.featuredDaysPending, 0);
+  assert.equal((await call(`/admin/jobs/${job._id}/approve`, { method: 'POST', token: at })).status, 409);
+});
+
+test('submit: full quota -> 402; extra slot charges atomically; free slots -> no charge', async () => {
+  const e = await fundedEmployerWithTwoJobs(30);
+  const token = await login(e);
+  const d1 = await seedJob(e, { status: 'draft' });
+  let r = await call(`/jobs/${d1._id}/submit`, { method: 'POST', token });
+  assert.equal(r.status, 402);
+  assert.equal(r.body.code, 'LISTING_QUOTA_REACHED');
+  assert.equal((await t.models.Job.findById(d1._id)).status, 'draft');
+  r = await call(`/jobs/${d1._id}/submit`, { method: 'POST', token, body: { useExtraSlot: true } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const after = await t.models.Job.findById(d1._id);
+  assert.equal(after.status, 'pending');
+  assert.equal(after.paidSlot, true);
+  assert.equal(await bal(e), 0);
+  const d2 = await seedJob(e, { status: 'draft' });
+  assert.equal((await call(`/jobs/${d2._id}/submit`, { method: 'POST', token, body: { useExtraSlot: true } })).body.code, 'INSUFFICIENT_CREDITS');
+  assert.equal((await t.models.Job.findById(d2._id)).status, 'draft');
+
+  const f = await newEmployer();
+  await grantCredits({ employerUserId: f._id, amount: 30, type: 'welcome', reason: 'welcome' });
+  const d3 = await seedJob(f, { status: 'draft' });
+  r = await call(`/jobs/${d3._id}/submit`, { method: 'POST', token: await login(f), body: { useExtraSlot: true } });
+  assert.equal(r.status, 200);
+  assert.equal((await t.models.Job.findById(d3._id)).paidSlot, false);
+  assert.equal(await bal(f), 30);
+});
+
+test('renew accepts a really expired job and puts it back to approved and listed', async () => {
+  const e = await newEmployer();
+  await grantCredits({ employerUserId: e._id, amount: 30, type: 'welcome', reason: 'welcome' });
+  const job = await seedJob(e, { status: 'expired', closesAt: new Date(Date.now() - 2 * DAY) });
+  const token = await login(e);
+  const r = await call(`/credits/jobs/${job._id}/renew`, { method: 'POST', token });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const after = await t.models.Job.findById(job._id);
+  assert.equal(after.status, 'approved');
+  assert.ok(Math.abs(after.closesAt.getTime() - (Date.now() + 14 * DAY)) < 60000);
+  assert.ok((await call('/jobs?limit=500')).body.jobs.some((j) => j._id === String(job._id)));
+  const closed = await seedJob(e, { status: 'closed' });
+  assert.equal((await call(`/credits/jobs/${closed._id}/renew`, { method: 'POST', token })).status, 409);
+});
+
+test('sort=featured: lapsed boost does not outrank a newer never-featured job; active first', async () => {
+  const e = await newEmployer();
+  const lapsed = await seedJob(e, { title: 'Lapsed', featuredUntil: new Date(Date.now() - DAY) });
+  const plain = await seedJob(e, { title: 'Plain' });
+  const active = await seedJob(e, { title: 'Active', featuredUntil: new Date(Date.now() + DAY) });
+  await t.models.Job.collection.updateOne({ _id: active._id }, { $set: { createdAt: new Date(Date.now() - 5 * DAY) } });
+  await t.models.Job.collection.updateOne({ _id: lapsed._id }, { $set: { createdAt: new Date(Date.now() - 3 * DAY) } });
+  const ids = (await call('/jobs?sort=featured&limit=500')).body.jobs.map((j) => j._id);
+  const [a, p, l] = [active, plain, lapsed].map((j) => ids.indexOf(String(j._id)));
+  assert.ok(a < p && p < l, `order ${a} ${p} ${l}`);
+});

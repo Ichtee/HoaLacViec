@@ -28,6 +28,20 @@ const hasConfirmedLocation = (loc) => loc?.locationStatus === LOCATION_STATUSES.
 
 const router = express.Router();
 
+const QUOTA_REACHED = (activeListings) => ({
+  error: 'Bạn đã dùng hết số tin miễn phí. Hãy dùng credit để mở thêm một slot.',
+  code: 'LISTING_QUOTA_REACHED',
+  freeActiveListings: FREE_ACTIVE_LISTINGS,
+  activeListings,
+});
+
+// Free slots left -> flag ignored; quota full -> paid slot only when requested.
+async function quotaDecision(employerUserId, wantsExtraSlot) {
+  const activeListings = await countFreeActiveListings(employerUserId);
+  if (activeListings < FREE_ACTIVE_LISTINGS) return { paid: false };
+  return wantsExtraSlot === true ? { paid: true } : { blocked: QUOTA_REACHED(activeListings) };
+}
+
 const EDITABLE_JOB_FIELDS = [
   'storeName', 'title', 'category', 'type', 'salaryAmount', 'salaryUnit',
   'area', 'address', 'location', 'locationStatus', 'locationSource',
@@ -331,6 +345,13 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       .limit(limitNum)
       .lean();
 
+    if (cleanSort === 'featured') {
+      const now = new Date();
+      const until = (j) => (j.featuredUntil ? new Date(j.featuredUntil).getTime() : 0);
+      const rank = (j) => (isJobFeatured(j, now) ? (until(j) > now.getTime() ? 0 : 1) : 2);
+      jobs.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? until(b) - until(a) : 0) || new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
     // Attach real employer profile info — NO FAKE FALLBACKS!
     try {
       const employerProfileIds = jobs.map(j => j.employerProfileId || j.employerId).filter(Boolean);
@@ -559,21 +580,15 @@ router.post('/', authenticate, async (req, res, next) => {
 
     let newJob;
     if (req.user.role !== 'admin' && data.status === 'pending') {
-      const activeListings = await countFreeActiveListings(req.user._id);
-      if (req.body.useExtraSlot === true) {
+      const quota = await quotaDecision(req.user._id, req.body.useExtraSlot);
+      if (quota.blocked) return res.status(402).json(quota.blocked);
+      if (quota.paid) {
         newJob = await withCreditTransaction(async (session) => {
           const { transaction } = await spendCredits({ employerUserId: req.user._id, reason: 'extra_slot', refType: 'Job', session });
           const [created] = await Job.create([{ ...data, paidSlot: true }], { session });
           transaction.refId = created._id;
           await transaction.save({ session });
           return created;
-        });
-      } else if (activeListings >= FREE_ACTIVE_LISTINGS) {
-        return res.status(402).json({
-          error: 'Bạn đã dùng hết số tin miễn phí. Hãy dùng credit để mở thêm một slot.',
-          code: 'LISTING_QUOTA_REACHED',
-          freeActiveListings: FREE_ACTIVE_LISTINGS,
-          activeListings,
         });
       }
     }
@@ -611,7 +626,18 @@ router.post('/:id/submit', authenticate, async (req, res, next) => {
 
     job.status = 'pending';
     job.moderationNote = 'Chờ xét duyệt từ Ban Quản Trị';
-    await job.save();
+    const quota = req.user.role === 'admin' ? { paid: false } : await quotaDecision(req.user._id, req.body?.useExtraSlot);
+    if (quota.blocked) return res.status(402).json(quota.blocked);
+    if (quota.paid) {
+      await withCreditTransaction(async (session) => {
+        const { transaction } = await spendCredits({ employerUserId: req.user._id, reason: 'extra_slot', refType: 'Job', refId: job._id, session });
+        job.paidSlot = true;
+        await job.save({ session });
+        return transaction;
+      });
+    } else {
+      await job.save();
+    }
 
     res.json({ message: 'Tin tuyển dụng đã được gửi duyệt thành công.', job });
   } catch (err) {

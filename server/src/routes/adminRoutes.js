@@ -168,19 +168,23 @@ router.get('/jobs', async (req, res, next) => {
 // POST /api/admin/jobs/:id/approve (Admin duyệt việc làm)
 router.post('/jobs/:id/approve', async (req, res, next) => {
   try {
-    const job = await Job.findOneAndUpdate(
+    // Status and approval window go in one conditional write so a crash cannot leave an approved job without closesAt.
+    const pending = await Job.findOne({ _id: req.params.id, status: 'pending' });
+    if (pending) applyApprovalWindow(pending);
+    const job = pending && await Job.findOneAndUpdate(
       { _id: req.params.id, status: 'pending' },
       {
         status: 'approved',
         moderatedBy: req.user._id,
         moderatedAt: new Date(),
         rejectionReason: '',
+        closesAt: pending.closesAt,
+        featuredUntil: pending.featuredUntil,
+        featuredDaysPending: pending.featuredDaysPending,
       },
       { new: true }
     );
     if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được phê duyệt.', code: 'INVALID_STATE' });
-    applyApprovalWindow(job);
-    await job.save();
 
     let employerUserId = job.employerUserId;
     if (!employerUserId && (job.employerProfileId || job.employerId)) {

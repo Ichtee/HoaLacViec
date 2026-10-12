@@ -138,7 +138,8 @@ router.post('/jobs/:id/feature', ...employerOnly, requireActiveUser, async (req,
 router.post('/jobs/:id/renew', ...employerOnly, requireActiveUser, async (req, res, next) => {
   try {
     res.json(await buyForJob(req, (job, now) => {
-      if (job.status !== 'approved' && job.status !== 'paused') throw httpError(409, 'INVALID_STATE', 'Chỉ tin đã duyệt hoặc đang tạm dừng mới gia hạn được.');
+      if (!['approved', 'paused', 'expired'].includes(job.status)) throw httpError(409, 'INVALID_STATE', 'Chỉ tin đã duyệt, đang tạm dừng hoặc đã hết hạn mới gia hạn được.');
+      if (job.status === 'expired') job.status = 'approved';
       job.closesAt = new Date(laterOf(job.closesAt, now).getTime() + LISTING_DAYS * DAY_MS);
       job.expiryReminderSentAt = null;
       return 'renew_14d';
