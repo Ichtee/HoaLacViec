@@ -44,3 +44,14 @@ export async function getBalance(employerUserId) {
   if (!p) throw noProfile();
   return p.creditBalance;
 }
+
+// Refunds what an employer paid for a job that admin rejects; call inside withCreditTransaction and save with the same session.
+export async function refundJobPurchases(job, adminUserId, session) {
+  const refunds = [];
+  if (job.paidSlot) { refunds.push('extra_slot'); job.paidSlot = false; }
+  if (job.featuredDaysPending === 3 || job.featuredDaysPending === 7) { refunds.push(`featured_${job.featuredDaysPending}d`); job.featuredDaysPending = 0; }
+  for (const reason of refunds) {
+    await refundCredits({ employerUserId: job.employerUserId, reason, refType: 'Job', refId: job._id, createdBy: adminUserId, session });
+  }
+  if (refunds.length) await job.save({ session });
+}

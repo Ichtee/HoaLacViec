@@ -316,3 +316,119 @@ test('verification approval grants 30 welcome credits once, even after reject an
   assert.equal(me.body.balance, 30);
   assert.equal(await t.models.CreditTransaction.countDocuments({ employerUserId: e._id, type: 'welcome' }), 1);
 });
+
+// ---- Hạn mức tin miễn phí, slot trả phí, cửa sổ 14 ngày, hoàn credit khi từ chối ----
+const DAY = 86400000;
+const jobBody = (extra = {}) => ({
+  title: 'Phục vụ', storeName: 'Quán', salaryAmount: 30000, slots: 2, address: 'Thôn 3, Thạch Hòa',
+  location: { lat: 21.0201, lng: 105.5312 }, locationStatus: 'confirmed', ...extra,
+});
+const postJob = (token, extra) => call('/jobs', { method: 'POST', token, body: jobBody(extra) });
+const seedJob = (e, extra = {}) => t.models.Job.create({
+  employerUserId: e._id, title: 'Tin', storeName: 'Quán', category: 'cafe', salaryAmount: 30000, salaryUnit: 'hour',
+  address: 'Hòa Lạc', location: { lat: 21.0135, lng: 105.5252 }, locationStatus: 'confirmed', slots: 1,
+  headcountTarget: 1, remainingOpenings: 1, status: 'approved', ...extra,
+});
+const fundedEmployerWithTwoJobs = async (credits = 0) => {
+  const e = await newEmployer();
+  await seedJob(e); await seedJob(e);
+  if (credits) await grantCredits({ employerUserId: e._id, amount: credits, type: 'welcome', reason: 'welcome' });
+  return e;
+};
+
+test('third active listing -> 402 LISTING_QUOTA_REACHED, nothing charged', async () => {
+  const e = await fundedEmployerWithTwoJobs(30);
+  const r = await postJob(await login(e));
+  assert.equal(r.status, 402);
+  assert.equal(r.body.code, 'LISTING_QUOTA_REACHED');
+  assert.equal(r.body.freeActiveListings, 2);
+  assert.equal(r.body.activeListings, 2);
+  assert.equal(await bal(e), 30);
+});
+
+test('useExtraSlot with 30 credits -> 201 paidSlot, balance 0, ledger refId = job id', async () => {
+  const e = await fundedEmployerWithTwoJobs(30);
+  const r = await postJob(await login(e), { useExtraSlot: true });
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(r.body.paidSlot, true);
+  assert.equal(await bal(e), 0);
+  const row = await t.models.CreditTransaction.findOne({ employerUserId: e._id, reason: 'extra_slot' });
+  assert.equal(String(row.refId), r.body._id);
+  assert.equal(row.refType, 'Job');
+});
+
+test('useExtraSlot with no credits -> 402 INSUFFICIENT_CREDITS and no job created', async () => {
+  const e = await fundedEmployerWithTwoJobs();
+  const r = await postJob(await login(e), { useExtraSlot: true });
+  assert.equal(r.status, 402);
+  assert.equal(r.body.code, 'INSUFFICIENT_CREDITS');
+  assert.equal(await t.models.Job.countDocuments({ employerUserId: e._id }), 2);
+});
+
+test('expired job and draft do not count; paused job counts', async () => {
+  const e = await newEmployer();
+  await seedJob(e, { closesAt: new Date(Date.now() - DAY) });
+  await seedJob(e, { status: 'draft' });
+  const token = await login(e);
+  assert.equal((await postJob(token)).status, 201);
+  assert.equal((await postJob(token)).status, 201);
+  assert.equal((await postJob(token)).status, 402);
+  assert.equal((await postJob(token, { status: 'draft' })).status, 201); // drafts never blocked
+  const f = await newEmployer();
+  await seedJob(f); await seedJob(f, { status: 'paused' });
+  assert.equal((await postJob(await login(f))).status, 402);
+});
+
+test('both approve endpoints set closesAt ~14 days ahead', async () => {
+  const e = await newEmployer();
+  const at = await login(await createUser(t.models, { role: 'admin' }));
+  for (const mk of [(id) => `/jobs/${id}/approve`, (id) => `/admin/jobs/${id}/approve`]) {
+    const job = await seedJob(e, { status: 'pending' });
+    assert.equal((await call(mk(job._id), { method: 'POST', token: at })).status, 200);
+    const after = await t.models.Job.findById(job._id);
+    assert.ok(Math.abs(after.closesAt.getTime() - (Date.now() + 14 * DAY)) < 60000);
+  }
+});
+
+test('re-approval after a core edit keeps the original closesAt', async () => {
+  const e = await newEmployer();
+  const closesAt = new Date(Date.now() + 5 * DAY);
+  const job = await seedJob(e, { closesAt });
+  const token = await login(e);
+  const put = await call(`/jobs/${job._id}`, { method: 'PUT', token, body: { title: 'Tên mới' } });
+  assert.equal(put.body.status, 'pending');
+  const at = await login(await createUser(t.models, { role: 'admin' }));
+  await call(`/jobs/${job._id}/approve`, { method: 'POST', token: at });
+  assert.equal((await t.models.Job.findById(job._id)).closesAt.getTime(), closesAt.getTime());
+});
+
+for (const [name, rejectPath] of [['jobs', (id) => `/jobs/${id}/reject`], ['admin', (id) => `/admin/jobs/${id}/reject`]]) {
+  test(`reject via ${name} refunds the paid slot and featured purchase`, async () => {
+    const e = await fundedEmployerWithTwoJobs(30);
+    const r = await postJob(await login(e), { useExtraSlot: true });
+    await t.models.Job.updateOne({ _id: r.body._id }, { featuredDaysPending: 3 });
+    await grantCredits({ employerUserId: e._id, amount: 30, type: 'topup', reason: 'p50' }); // covers the featured price paid earlier
+    assert.equal(await bal(e), 30);
+    const at = await login(await createUser(t.models, { role: 'admin' }));
+    assert.equal((await call(rejectPath(r.body._id), { method: 'POST', token: at, body: { reason: 'x' } })).status, 200);
+    assert.equal(await bal(e), 90);
+    const refunds = await t.models.CreditTransaction.find({ employerUserId: e._id, type: 'refund' });
+    assert.deepEqual(refunds.map((x) => x.reason).sort(), ['extra_slot', 'featured_3d']);
+    assert.ok(refunds.every((x) => String(x.refId) === r.body._id));
+    const after = await t.models.Job.findById(r.body._id);
+    assert.equal(after.paidSlot, false);
+    assert.equal(after.featuredDaysPending, 0);
+  });
+}
+
+test('GET /jobs marks featured by featuredUntil', async () => {
+  const e = await newEmployer();
+  const future = await seedJob(e, { title: 'FeatTomorrow', featuredUntil: new Date(Date.now() + DAY) });
+  const past = await seedJob(e, { title: 'FeatYesterday', featuredUntil: new Date(Date.now() - DAY) });
+  const list = (await call('/jobs?limit=500')).body.jobs;
+  assert.equal(list.find((j) => j._id === String(future._id)).featured, true);
+  assert.equal(list.find((j) => j._id === String(past._id)).featured, false);
+  const only = (await call('/jobs?featured=true&limit=500')).body.jobs;
+  assert.ok(only.some((j) => j._id === String(future._id)));
+  assert.ok(!only.some((j) => j._id === String(past._id)));
+});

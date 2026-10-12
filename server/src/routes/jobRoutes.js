@@ -14,6 +14,9 @@ import { authenticate, authorize, optionalAuthenticate, requireActiveUser } from
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
 import { notifyJobAlerts } from '../services/jobAlertService.js';
+import { countFreeActiveListings, applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
+import { spendCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
+import { FREE_ACTIVE_LISTINGS } from '../config/credits.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
 
 // Không có vị trí đã xác nhận thì sinh viên không thấy khoảng cách, không chỉ đường và không chấm công GPS được.
@@ -262,7 +265,7 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
 
     // Featured filter
     if (featured === 'true') {
-      andConditions.push({ featured: true });
+      andConditions.push({ $or: [{ featuredUntil: { $gt: new Date() } }, { featured: true }] });
     }
 
     // Minimum salary filter
@@ -319,7 +322,7 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
     } else if (cleanSort === 'salary_asc') {
       sortObj = { salaryAmount: 1, createdAt: -1 };
     } else if (cleanSort === 'featured' || featured === 'true') {
-      sortObj = { featured: -1, createdAt: -1 };
+      sortObj = { featuredUntil: -1, createdAt: -1 };
     }
 
     let jobs = await Job.find(finalFilter)
@@ -354,6 +357,7 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
 
         return {
           ...job,
+          featured: isJobFeatured(job),
           employer: emp
             ? {
                 storeName: emp.storeName,
@@ -553,7 +557,27 @@ router.post('/', authenticate, async (req, res, next) => {
     }
     Object.assign(data, normalizedLoc);
 
-    const newJob = await Job.create(data);
+    let newJob;
+    if (req.user.role !== 'admin' && data.status === 'pending') {
+      const activeListings = await countFreeActiveListings(req.user._id);
+      if (req.body.useExtraSlot === true) {
+        newJob = await withCreditTransaction(async (session) => {
+          const { transaction } = await spendCredits({ employerUserId: req.user._id, reason: 'extra_slot', refType: 'Job', session });
+          const [created] = await Job.create([{ ...data, paidSlot: true }], { session });
+          transaction.refId = created._id;
+          await transaction.save({ session });
+          return created;
+        });
+      } else if (activeListings >= FREE_ACTIVE_LISTINGS) {
+        return res.status(402).json({
+          error: 'Bạn đã dùng hết số tin miễn phí. Hãy dùng credit để mở thêm một slot.',
+          code: 'LISTING_QUOTA_REACHED',
+          freeActiveListings: FREE_ACTIVE_LISTINGS,
+          activeListings,
+        });
+      }
+    }
+    newJob ||= await Job.create(data);
     res.status(201).json(newJob);
   } catch (err) {
     next(err);
@@ -678,6 +702,7 @@ router.post('/:id/approve', authenticate, authorize('admin'), async (req, res, n
     job.moderatedAt = new Date();
     job.moderationNote = 'Đã được duyệt bởi Quản trị viên.';
     job.rejectionReason = '';
+    applyApprovalWindow(job);
     await job.save();
 
     // Notify employer
@@ -720,7 +745,10 @@ router.post('/:id/reject', authenticate, authorize('admin'), async (req, res, ne
     job.moderatedBy = req.user._id;
     job.moderatedAt = new Date();
     job.rejectionReason = reason || 'Thông tin tin tuyển dụng chưa đáp ứng quy chuẩn.';
-    await job.save();
+    await withCreditTransaction(async (session) => {
+      await job.save({ session });
+      await refundJobPurchases(job, req.user._id, session);
+    });
 
     // Notify employer
     let employerUserId = job.employerUserId;

@@ -41,6 +41,7 @@ test('API authorization regression: roles, ownership and private application fie
     employerProfileFindOne: EmployerProfile.findOne,
     jobFindById: Job.findById,
     jobCreate: Job.create,
+    jobCountDocuments: Job.countDocuments,
     shiftFind: Shift.find,
     shiftFindById: Shift.findById,
     shiftFindByIdAndDelete: Shift.findByIdAndDelete,
@@ -64,6 +65,7 @@ test('API authorization regression: roles, ownership and private application fie
     EmployerProfile.findOne = originals.employerProfileFindOne;
     Job.findById = originals.jobFindById;
     Job.create = originals.jobCreate;
+    Job.countDocuments = originals.jobCountDocuments;
     Shift.find = originals.shiftFind;
     Shift.findById = originals.shiftFindById;
     Shift.findByIdAndDelete = originals.shiftFindByIdAndDelete;
@@ -197,6 +199,7 @@ test('API authorization regression: roles, ownership and private application fie
   await t.test('employer cannot self-approve or set protected job fields', async () => {
     actor = { _id: employerId, role: 'employer', status: 'active', tokenVersion: 0 };
     EmployerProfile.findOne = async () => ({ _id: otherEmployerId, verified: true, storeName: 'Quán thử nghiệm' });
+    Job.countDocuments = async () => 0; // quota check
     let created;
     Job.create = async data => {
       created = data;

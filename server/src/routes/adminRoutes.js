@@ -9,7 +9,8 @@ import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 import { notifyJobAlerts } from '../services/jobAlertService.js';
 import { getPlatformMetrics } from '../services/metricsService.js';
-import { grantCredits } from '../services/creditService.js';
+import { grantCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
+import { applyApprovalWindow } from '../services/listingService.js';
 import { WELCOME_CREDITS } from '../config/credits.js';
 
 const router = express.Router();
@@ -178,6 +179,8 @@ router.post('/jobs/:id/approve', async (req, res, next) => {
       { new: true }
     );
     if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được phê duyệt.', code: 'INVALID_STATE' });
+    applyApprovalWindow(job);
+    await job.save();
 
     let employerUserId = job.employerUserId;
     if (!employerUserId && (job.employerProfileId || job.employerId)) {
@@ -211,16 +214,20 @@ router.post('/jobs/:id/reject', async (req, res, next) => {
   try {
     const { reason } = req.body;
     const defaultReason = reason || 'Nội dung tin tuyển dụng chưa đáp ứng tiêu chuẩn cộng đồng.';
-    const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, status: 'pending' },
-      {
-        status: 'rejected',
-        moderatedBy: req.user._id,
-        moderatedAt: new Date(),
-        rejectionReason: defaultReason,
-      },
-      { new: true }
-    );
+    const job = await withCreditTransaction(async (session) => {
+      const rejected = await Job.findOneAndUpdate(
+        { _id: req.params.id, status: 'pending' },
+        {
+          status: 'rejected',
+          moderatedBy: req.user._id,
+          moderatedAt: new Date(),
+          rejectionReason: defaultReason,
+        },
+        { new: true, session }
+      );
+      if (rejected) await refundJobPurchases(rejected, req.user._id, session);
+      return rejected;
+    });
     if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được từ chối.', code: 'INVALID_STATE' });
 
     let employerUserId = job.employerUserId;
