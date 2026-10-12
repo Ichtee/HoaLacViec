@@ -45,7 +45,7 @@ test('maintenance expires offers/jobs and sends each shift reminder once', async
 
   const result = await runMaintenance(now);
 
-  assert.deepEqual(result, { offersExpired: 1, jobsExpired: 1, remindersSent: 1, quickShiftsExpired: 2 });
+  assert.deepEqual(result, { offersExpired: 1, jobsExpired: 1, remindersSent: 1, quickShiftsExpired: 2, expiryReminders: 1 });
   assert.equal(filters.quick.status, 'open');
   assert.deepEqual(filters.quick.startAt.$lte, now);
   assert.equal(filters.app.status, 'offer_sent');
@@ -57,7 +57,7 @@ test('maintenance expires offers/jobs and sends each shift reminder once', async
   assert.equal(appUpdate[2].$set.isActive, false);
   assert.equal(updates.find(([k]) => k === 'job')[2].$set.status, 'expired');
   assert.equal(updates.filter(([k]) => k === 'shift').length, 1);
-  assert.deepEqual(notes.map((n) => n.userId).sort(), ['e1', 'e1', 's1', 's1']);
+  assert.deepEqual(notes.map((n) => n.userId).sort(), ['e1', 'e1', 'e1', 's1', 's1']);
 });
 
 test('a lost atomic claim skips notifications (idempotent re-runs)', async (t) => {
@@ -77,6 +77,6 @@ test('a lost atomic claim skips notifications (idempotent re-runs)', async (t) =
   QuickShift.updateMany = async () => ({ modifiedCount: 0 });
   let notified = 0;
   Notification.create = async () => { notified++; };
-  assert.deepEqual(await runMaintenance(new Date()), { offersExpired: 0, jobsExpired: 0, remindersSent: 0, quickShiftsExpired: 0 });
+  assert.deepEqual(await runMaintenance(new Date()), { offersExpired: 0, jobsExpired: 0, remindersSent: 0, quickShiftsExpired: 0, expiryReminders: 0 });
   assert.equal(notified, 0);
 });

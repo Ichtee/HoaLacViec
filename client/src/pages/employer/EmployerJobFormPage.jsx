@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   Briefcase, ArrowLeft, MapPin, DollarSign,
@@ -13,6 +13,8 @@ import {
   updateJob,
   getEmployerProfile,
   updateUserProfile,
+  apiGetMyCredits,
+  apiGetCreditPricing,
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
 import LocationPicker from '@/components/LocationPicker';
@@ -48,6 +50,21 @@ export default function EmployerJobFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [employerPhone, setEmployerPhone] = useState(user?.phone || '');
+  const [credits, setCredits] = useState(null);
+  const [prices, setPrices] = useState(null);
+  const [useExtraSlot, setUseExtraSlot] = useState(false);
+  const [creditError, setCreditError] = useState('');
+
+  const [creditsFailed, setCreditsFailed] = useState(false);
+
+  const loadCredits = useCallback(() => {
+    setCreditsFailed(false);
+    return Promise.all([apiGetMyCredits(), apiGetCreditPricing()])
+      .then(([me, pricing]) => { setCredits(me); setPrices(pricing.prices); })
+      .catch(() => setCreditsFailed(true)); // the server still enforces the quota
+  }, []);
+
+  useEffect(() => { loadCredits(); }, [loadCredits]);
 
   // Dynamic Provinces, Districts, Wards from open-api.vn
   const [provinces, setProvinces] = useState([]);
@@ -341,9 +358,14 @@ export default function EmployerJobFormPage() {
   }
 
   const totalSlots = (formData.positions || []).reduce((sum, p) => sum + (Number(p.quantity) || 1), 0);
+  // New jobs and drafts/rejected jobs about to be submitted take a free slot
+  const takesSlot = !isEditing || ['draft', 'rejected'].includes(formData.status);
+  const needsExtraSlot = Boolean(credits && prices) && takesSlot && credits.activeListings >= credits.freeActiveListings;
+  const extraSlotFlag = needsExtraSlot && useExtraSlot ? { useExtraSlot: true } : {};
 
   async function handleSubmit(e) {
     e.preventDefault();
+    setCreditError('');
     try {
       setSubmitting(true);
 
@@ -389,6 +411,7 @@ export default function EmployerJobFormPage() {
 
       const computedTotalSlots = finalPositions.reduce((sum, p) => sum + p.quantity, 0);
 
+      let createdJob = null;
       const payload = {
         title: formData.title,
         type: formData.jobType === 'Theo ca' ? 'shift' : 'part_time',
@@ -428,11 +451,11 @@ export default function EmployerJobFormPage() {
       if (isEditing) {
         await updateJob(jobId, payload);
         if (['draft', 'rejected'].includes(formData.status)) {
-          await submitJobForReview(jobId);
+          await submitJobForReview(jobId, extraSlotFlag);
         }
         setToast({ type: 'success', message: 'Đã lưu thay đổi. Nếu tin đang hoạt động, nội dung mới sẽ chờ quản trị viên duyệt lại.' });
       } else {
-        await createJob(payload);
+        createdJob = await createJob({ ...payload, ...extraSlotFlag });
         setToast({
           type: 'success',
           message: isConfirmed
@@ -448,10 +471,28 @@ export default function EmployerJobFormPage() {
         } catch {}
       }
 
+      const createdId = createdJob?._id || createdJob?.id;
       setTimeout(() => {
-        navigate('/employer/jobs');
+        navigate(createdId ? `/employer/jobs?upsell=${createdId}` : '/employer/jobs');
       }, 1200);
     } catch (err) {
+      if (err.code === 'LISTING_QUOTA_REACHED' || err.code === 'INSUFFICIENT_CREDITS') {
+        if (err.code === 'LISTING_QUOTA_REACHED') {
+          // Our counts were stale or never loaded: trust the 402 body so the checkbox appears
+          setCredits(prev => ({
+            balance: 0,
+            ...prev,
+            activeListings: err.data?.activeListings ?? prev?.freeActiveListings ?? 1,
+            freeActiveListings: err.data?.freeActiveListings ?? prev?.freeActiveListings ?? 1,
+          }));
+          if (!prices) loadCredits();
+        }
+        setCreditError(err.code === 'LISTING_QUOTA_REACHED'
+          ? 'Bạn đã dùng hết số tin miễn phí. Hãy chọn dùng credit để đăng thêm tin này.'
+          : 'Số dư credit không đủ để đăng thêm tin này.');
+        setSubmitting(false);
+        return;
+      }
       setToast({ type: 'error', message: err.message || 'Lỗi khi lưu tin tuyển dụng.' });
     } finally {
       setSubmitting(false);
@@ -532,6 +573,40 @@ export default function EmployerJobFormPage() {
       />
 
       <form id="job-form" onSubmit={handleSubmit} className="space-y-6">
+        {((credits && takesSlot) || creditError || creditsFailed) && (
+          <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card space-y-2 text-xs">
+            {credits && takesSlot && (
+              <p className="font-bold text-gray-800">
+                Tin miễn phí đang hiển thị: {credits.activeListings}/{credits.freeActiveListings}
+              </p>
+            )}
+            {creditsFailed && !credits && (
+              <p className="text-gray-600">
+                Không tải được số dư credit.{' '}
+                <button type="button" onClick={loadCredits} className="font-bold text-green-dark underline">Thử lại</button>
+              </p>
+            )}
+            {needsExtraSlot && (
+              <label className="flex items-start gap-2 font-semibold text-gray-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  required
+                  checked={useExtraSlot}
+                  onChange={e => setUseExtraSlot(e.target.checked)}
+                  className="mt-0.5 shrink-0"
+                />
+                <span>Dùng {prices.extra_slot} credit để đăng thêm tin này (số dư: {credits.balance})</span>
+              </label>
+            )}
+            {creditError && (
+              <p role="alert" className="p-2 rounded-xl bg-red-50 border border-red-200 text-red-700">
+                {creditError}{' '}
+                <Link to="/employer/credits" className="font-bold underline">Nạp thêm credit</Link>
+              </p>
+            )}
+          </div>
+        )}
+
         {/* CARD 1: THÔNG TIN CƠ BẢN */}
         <div id="job-step-1" className="scroll-mt-44 bg-white p-6 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-5">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">

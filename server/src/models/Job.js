@@ -110,6 +110,10 @@ const jobSchema = new mongoose.Schema({
   contactPhone: { type: String, default: '' },
   postedAt: { type: Date, default: Date.now },
   closesAt: { type: Date },
+  featuredUntil: { type: Date, default: null },
+  featuredDaysPending: { type: Number, default: 0, min: 0 },
+  paidSlot: { type: Boolean, default: false },
+  expiryReminderSentAt: { type: Date, default: null },
   archivedAt: { type: Date, default: null },
 }, { timestamps: true });
 

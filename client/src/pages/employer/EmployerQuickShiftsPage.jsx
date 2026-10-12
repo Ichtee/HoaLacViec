@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Zap, Plus, X } from 'lucide-react';
 import { clsx } from 'clsx';
-import { getMyQuickShifts, createQuickShift, cancelQuickShift } from '@/services';
+import { getMyQuickShifts, createQuickShift, cancelQuickShift, apiGetCreditPricing } from '@/services';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { LoadingPage, EmptyState } from '@/components/Feedback.jsx';
@@ -30,6 +31,8 @@ export default function EmployerQuickShiftsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
+  const [price, setPrice] = useState(null);
+  const [creditError, setCreditError] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -43,10 +46,12 @@ export default function EmployerQuickShiftsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { apiGetCreditPricing().then((p) => setPrice(p.prices?.quick_shift)).catch(() => {}); }, []);
 
   async function handleCreate(event) {
     event.preventDefault();
     setSubmitting(true);
+    setCreditError('');
     try {
       await createQuickShift({ ...form, headcount: Number(form.headcount), wageRate: Number(form.wageRate) });
       setModalOpen(false);
@@ -54,7 +59,8 @@ export default function EmployerQuickShiftsPage() {
       setToast({ type: 'success', message: 'Đã đăng ca lẻ. Người tìm việc sẽ thấy ngay.' });
       load();
     } catch (err) {
-      setToast({ type: 'error', message: err.message || 'Không thể đăng ca lẻ.' });
+      if (err.code === 'INSUFFICIENT_CREDITS') setCreditError('Số dư credit không đủ để đăng ca lẻ.');
+      else setToast({ type: 'error', message: err.message || 'Không thể đăng ca lẻ.' });
     } finally {
       setSubmitting(false);
     }
@@ -158,12 +164,17 @@ export default function EmployerQuickShiftsPage() {
               <textarea rows={2} maxLength={1000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder="Yêu cầu, trang phục, người liên hệ..." className={clsx(field, 'resize-none')} />
             </label>
+            {creditError && (
+              <p role="alert" className="p-2 rounded-xl bg-red-50 border border-red-200 text-red-700">
+                {creditError} <Link to="/employer/credits" className="font-bold underline">Nạp thêm credit</Link>
+              </p>
+            )}
             <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
               <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2.5 rounded-xl bg-gray-100 text-text-muted font-semibold inline-flex items-center gap-1">
                 <X className="w-3.5 h-3.5" /> Hủy
               </button>
               <button type="submit" disabled={submitting} className="px-5 py-2.5 rounded-xl bg-green-main text-white font-bold hover:bg-green-dark disabled:opacity-50">
-                {submitting ? 'Đang đăng...' : 'Đăng ca'}
+                {submitting ? 'Đang đăng...' : `Đăng ca${price ? ` (${price} credit)` : ''}`}
               </button>
             </div>
           </form>

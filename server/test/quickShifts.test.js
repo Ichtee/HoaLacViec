@@ -6,6 +6,8 @@ import { EmployerProfile } from '../src/models/EmployerProfile.js';
 import { QuickShift } from '../src/models/QuickShift.js';
 import { Shift } from '../src/models/Shift.js';
 import { Notification } from '../src/models/Notification.js';
+import { CreditTransaction } from '../src/models/CreditTransaction.js';
+import mongoose from 'mongoose';
 
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET ||= 'test-secret-quick-shifts';
@@ -36,6 +38,7 @@ test('quick shifts: post, claim atomically, conflicts, withdraw and cancel', asy
     qUpdateOne: QuickShift.updateOne,
     shiftFindOne: Shift.findOne, shiftCreate: Shift.create, shiftUpdateOne: Shift.updateOne, shiftUpdateMany: Shift.updateMany,
     notify: Notification.create,
+    transaction: mongoose.connection.transaction, profileUpdate: EmployerProfile.findOneAndUpdate, ledgerCreate: CreditTransaction.create,
   };
   const server = await new Promise((resolve) => {
     const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
@@ -48,6 +51,8 @@ test('quick shifts: post, claim atomically, conflicts, withdraw and cancel', asy
     Shift.findOne = originals.shiftFindOne; Shift.create = originals.shiftCreate;
     Shift.updateOne = originals.shiftUpdateOne; Shift.updateMany = originals.shiftUpdateMany;
     Notification.create = originals.notify;
+    mongoose.connection.transaction = originals.transaction;
+    EmployerProfile.findOneAndUpdate = originals.profileUpdate; CreditTransaction.create = originals.ledgerCreate;
     await new Promise((resolve) => server.close(resolve));
   });
 
@@ -55,6 +60,10 @@ test('quick shifts: post, claim atomically, conflicts, withdraw and cancel', asy
     [employerId]: { _id: employerId, name: 'Quán A', role: 'employer', status: 'active', tokenVersion: 0 },
     [studentId]: { _id: studentId, name: 'Sinh viên', phone: '0900000000', role: 'student', status: 'active', tokenVersion: 0 },
   };
+  // Không có DB: giả lập giao dịch và việc trừ credit (phí ca lẻ) để chỉ kiểm tra logic route.
+  mongoose.connection.transaction = async (fn) => fn({});
+  EmployerProfile.findOneAndUpdate = async () => ({ creditBalance: 0 });
+  CreditTransaction.create = async (docs) => docs;
   User.findById = async (id) => users[String(id)] || null;
   const notes = [];
   Notification.create = async (n) => { notes.push(n); return n; };
@@ -73,7 +82,7 @@ test('quick shifts: post, claim atomically, conflicts, withdraw and cancel', asy
     const slot = vnSlot(2);
     const valid = { title: 'Phục vụ bàn', date: slot.date, startTime: slot.startTime, endTime: slot.endTime, headcount: 2, wageRate: 30000 };
     let created = null;
-    QuickShift.create = async (data) => { created = data; return { ...data, _id: quickId, claims: [], toObject() { return { ...data, _id: quickId, claims: [] }; } }; };
+    QuickShift.create = async ([data]) => { created = data; return [{ ...data, _id: quickId, claims: [], toObject() { return { ...data, _id: quickId, claims: [] }; } }]; };
 
     EmployerProfile.findOne = async () => ({ verified: false, storeName: 'Quán A' });
     assert.equal((await call('/', employerId, 'POST', valid)).body.code, 'EMPLOYER_NOT_VERIFIED');

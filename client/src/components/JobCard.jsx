@@ -55,6 +55,9 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 whitespace-nowrap">
                   {typeLabel}
                 </span>
+                {job.featured && (
+                  <Badge variant="pink" className="whitespace-nowrap"><Star className="w-3 h-3" /> Nổi bật</Badge>
+                )}
                 {employer?.verified && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 whitespace-nowrap">
                     <CheckCircle className="w-3.5 h-3.5 text-green-600" />
@@ -146,11 +149,7 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
               );
             })()}
           </div>
-          {job.featured ? (
-            <Badge variant="pink"><Star className="w-3 h-3" /> Nổi bật</Badge>
-          ) : (
-            <div className="h-5" />
-          )}
+          <div className="h-5" />
         </div>
       </div>
     </Link>

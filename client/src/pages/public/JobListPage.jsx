@@ -12,7 +12,7 @@ import { getJobs, toggleSaveJob, getSavedJobs, apiVietmapMatrix, geocodeAddress 
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { JOB_TYPE_LABELS, AREAS } from '@/constants';
 import { useMediaQuery } from '@/hooks/useMediaQuery.js';
-import { getJobDistanceTarget, isCoarseLocation } from '@/utils/jobLocation.js';
+import { getJobDistanceTarget, isCoarseLocation, pinFeatured } from '@/utils/jobLocation.js';
 import { haversineDistance, isValidCoordinate } from '@/utils';
 
 const PAGE_SIZE = 12;
@@ -273,7 +273,7 @@ export default function JobListPage() {
   });
 
   // Sort
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = pinFeatured([...filtered].sort((a, b) => {
     if (sort === 'nearest') {
       if (a.distanceMeters !== null && b.distanceMeters !== null) {
         return a.distanceMeters - b.distanceMeters;
@@ -302,7 +302,7 @@ export default function JobListPage() {
     const dateB = new Date(b.createdAt || b.postedAt || 0).getTime();
     const dateA = new Date(a.createdAt || a.postedAt || 0).getTime();
     return dateB - dateA;
-  });
+  }));
 
   const jobsForMap = useMemo(() => sorted.map((job) => {
     const id = String(job._id || job.id);

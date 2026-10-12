@@ -40,6 +40,8 @@ export async function startTestServer({ port = 0 } = {}) {
     Job: (await import('../../src/models/Job.js')).Job,
     Employment: (await import('../../src/models/Employment.js')).Employment,
     Shift: (await import('../../src/models/Shift.js')).Shift,
+    CreditTransaction: (await import('../../src/models/CreditTransaction.js')).CreditTransaction,
+    TopUpRequest: (await import('../../src/models/TopUpRequest.js')).TopUpRequest,
   };
 
   async function stop() {

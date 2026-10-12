@@ -9,6 +9,9 @@ import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 import { notifyJobAlerts } from '../services/jobAlertService.js';
 import { getPlatformMetrics } from '../services/metricsService.js';
+import { grantCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
+import { applyApprovalWindow } from '../services/listingService.js';
+import { WELCOME_CREDITS } from '../config/credits.js';
 
 const router = express.Router();
 
@@ -165,13 +168,19 @@ router.get('/jobs', async (req, res, next) => {
 // POST /api/admin/jobs/:id/approve (Admin duyệt việc làm)
 router.post('/jobs/:id/approve', async (req, res, next) => {
   try {
-    const job = await Job.findOneAndUpdate(
+    // Status and approval window go in one conditional write so a crash cannot leave an approved job without closesAt.
+    const pending = await Job.findOne({ _id: req.params.id, status: 'pending' });
+    if (pending) applyApprovalWindow(pending);
+    const job = pending && await Job.findOneAndUpdate(
       { _id: req.params.id, status: 'pending' },
       {
         status: 'approved',
         moderatedBy: req.user._id,
         moderatedAt: new Date(),
         rejectionReason: '',
+        closesAt: pending.closesAt,
+        featuredUntil: pending.featuredUntil,
+        featuredDaysPending: pending.featuredDaysPending,
       },
       { new: true }
     );
@@ -209,16 +218,20 @@ router.post('/jobs/:id/reject', async (req, res, next) => {
   try {
     const { reason } = req.body;
     const defaultReason = reason || 'Nội dung tin tuyển dụng chưa đáp ứng tiêu chuẩn cộng đồng.';
-    const job = await Job.findOneAndUpdate(
-      { _id: req.params.id, status: 'pending' },
-      {
-        status: 'rejected',
-        moderatedBy: req.user._id,
-        moderatedAt: new Date(),
-        rejectionReason: defaultReason,
-      },
-      { new: true }
-    );
+    const job = await withCreditTransaction(async (session) => {
+      const rejected = await Job.findOneAndUpdate(
+        { _id: req.params.id, status: 'pending' },
+        {
+          status: 'rejected',
+          moderatedBy: req.user._id,
+          moderatedAt: new Date(),
+          rejectionReason: defaultReason,
+        },
+        { new: true, session }
+      );
+      if (rejected) await refundJobPurchases(rejected, req.user._id, session);
+      return rejected;
+    });
     if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được từ chối.', code: 'INVALID_STATE' });
 
     let employerUserId = job.employerUserId;
@@ -481,6 +494,13 @@ router.post('/verifications/:id/approve', async (req, res, next) => {
         },
         { upsert: true }
       );
+
+      // Tặng credit chào mừng một lần (index unique chặn lặp); không bao giờ làm hỏng việc duyệt.
+      try {
+        await grantCredits({ employerUserId: verification.employerUserId, amount: WELCOME_CREDITS, type: 'welcome', reason: 'welcome', createdBy: req.user._id });
+      } catch (creditErr) {
+        if (creditErr?.code !== 11000) console.warn('Failed to grant welcome credits:', creditErr.message);
+      }
 
       // Activate user account
       await User.findByIdAndUpdate(verification.employerUserId, {

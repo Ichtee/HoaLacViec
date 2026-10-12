@@ -49,6 +49,7 @@ const EmployerApplicationsPage = lazy(() => import('@/pages/employer/EmployerApp
 const EmployerEmployeesPage = lazy(() => import('@/pages/employer/EmployerEmployeesPage.jsx'));
 const EmployerShiftsPage = lazy(() => import('@/pages/employer/EmployerShiftsPage.jsx'));
 const EmployerQuickShiftsPage = lazy(() => import('@/pages/employer/EmployerQuickShiftsPage.jsx'));
+const EmployerCreditsPage = lazy(() => import('@/pages/employer/EmployerCreditsPage.jsx'));
 
 // Admin Pages
 const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage.jsx'));
@@ -57,6 +58,7 @@ const AdminJobsPage = lazy(() => import('@/pages/admin/AdminJobsPage.jsx'));
 const AdminBlogsPage = lazy(() => import('@/pages/admin/AdminBlogsPage.jsx'));
 const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage.jsx'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage.jsx'));
+const AdminTopUpsPage = lazy(() => import('@/pages/admin/AdminTopUpsPage.jsx'));
 
 // Common Account Pages
 const AccountInfoPage = lazy(() => import('@/pages/common/AccountInfoPage.jsx'));
@@ -181,6 +183,7 @@ export default function App() {
           <Route path="employees" element={<EmployerEmployeesPage />} />
           <Route path="shifts" element={<EmployerShiftsPage />} />
           <Route path="quick-shifts" element={<EmployerQuickShiftsPage />} />
+          <Route path="credits" element={<EmployerCreditsPage />} />
           <Route path="messages" element={<MessagesPage />} />
           <Route path="swaps" element={<ShiftSwapsPage />} />
         </Route>
@@ -202,6 +205,7 @@ export default function App() {
           <Route path="blogs" element={<AdminBlogsPage />} />
           <Route path="reports" element={<AdminReportsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="topups" element={<AdminTopUpsPage />} />
         </Route>
 
         {/* Fallback 404 */}

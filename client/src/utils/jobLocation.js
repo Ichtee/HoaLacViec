@@ -35,3 +35,13 @@ export function formatDistanceLabel(meters, approximate = false) {
 export function isCoarseLocation(userLocation) {
   return Number(userLocation?.accuracy) > COARSE_ACCURACY_METERS;
 }
+
+// Mirrors MAX_PINNED_FEATURED in server/src/config/credits.js (the pricing endpoint does not carry it).
+const MAX_PINNED_FEATURED = 3;
+
+/** Đưa tối đa `max` tin nổi bật đầu tiên lên đầu danh sách; các tin còn lại giữ nguyên vị trí tương đối. */
+export function pinFeatured(jobs, max = MAX_PINNED_FEATURED) {
+  const pinned = jobs.filter((j) => j.featured).slice(0, max);
+  const set = new Set(pinned);
+  return [...pinned, ...jobs.filter((j) => !set.has(j))];
+}

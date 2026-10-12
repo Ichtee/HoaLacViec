@@ -86,7 +86,7 @@ async function request(endpoint, options = {}) {
       throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
     if (!res.ok) {
-      throw new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`);
+      throw Object.assign(new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`), { code: data?.code, data });
     }
     return data;
   } catch (err) {
@@ -219,8 +219,10 @@ export async function apiGetEmployerMyJobs(params = {}) {
   return request(`/jobs/employer/my-jobs${buildQueryString(params)}`);
 }
 
-export async function apiSubmitJobForReview(id) {
-  return request(`/jobs/${id}/submit`, { method: 'POST' });
+export async function apiSubmitJobForReview(id, body) {
+  return request(`/jobs/${id}/submit`, body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { method: 'POST' });
 }
 
 export async function apiPauseJob(id) {
@@ -1030,3 +1032,43 @@ export async function apiVietmapMatrix({ origin, destinations, vehicle = 'motorc
   });
 }
 
+// ─── CREDITS ──────────────────────────────────────────────────────
+export async function apiGetCreditPricing() {
+  return request('/credits/pricing');
+}
+
+export async function apiGetMyCredits() {
+  return request('/credits/me');
+}
+
+export async function apiCreateTopUp(packId) {
+  return request('/credits/topups', { method: 'POST', body: JSON.stringify({ packId }) });
+}
+
+export async function apiGetMyTopUps() {
+  return request('/credits/topups/mine');
+}
+
+export async function apiGetTopUp(id) {
+  return request(`/credits/topups/${id}`);
+}
+
+export async function apiReconcileTopUp(id) {
+  return request(`/credits/topups/${id}/reconcile`, { method: 'POST' });
+}
+
+export async function apiFeatureJob(jobId, days) {
+  return request(`/credits/jobs/${jobId}/feature`, { method: 'POST', body: JSON.stringify({ days }) });
+}
+
+export async function apiRenewJob(jobId) {
+  return request(`/credits/jobs/${jobId}/renew`, { method: 'POST' });
+}
+
+export async function apiAdminListTopUps(status) {
+  return request(`/credits/admin/topups${buildQueryString(status ? { status } : {})}`);
+}
+
+export async function apiAdminReconcileTopUp(id) {
+  return request(`/credits/admin/topups/${id}/reconcile`, { method: 'POST' });
+}
