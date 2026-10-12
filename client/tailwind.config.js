@@ -51,9 +51,18 @@ export default {
         '4xl': '32px',
       },
       boxShadow: {
-        card: '0 4px 20px rgba(36, 60, 44, 0.08)',
-        'card-hover': '0 8px 32px rgba(36, 60, 44, 0.14)',
-        modal: '0 20px 60px rgba(36, 60, 44, 0.18)',
+        // Layered, green-tinted shadows: a tight contact shadow + a soft ambient one.
+        card: '0 1px 2px rgba(36, 60, 44, 0.05), 0 8px 24px -6px rgba(36, 60, 44, 0.10)',
+        'card-hover': '0 2px 4px rgba(36, 60, 44, 0.06), 0 16px 40px -8px rgba(36, 60, 44, 0.20)',
+        modal: '0 24px 70px -12px rgba(36, 60, 44, 0.30)',
+        brand: '0 6px 18px -4px rgba(62, 122, 80, 0.45)',
+        pink: '0 6px 18px -4px rgba(213, 80, 130, 0.40)',
+      },
+      backgroundImage: {
+        'brand-gradient': 'linear-gradient(135deg, #4A8C5D 0%, #3E7A50 55%, #306140 100%)',
+        'pink-gradient': 'linear-gradient(135deg, #F7AFCB 0%, #EF8FB0 100%)',
+        'hero-gradient':
+          'radial-gradient(60% 80% at 85% 0%, rgba(243,175,195,0.35) 0%, transparent 60%), radial-gradient(70% 90% at 0% 10%, rgba(170,217,163,0.45) 0%, transparent 60%), linear-gradient(180deg, #F4FAF2 0%, #FFFDF6 100%)',
       },
     },
   },

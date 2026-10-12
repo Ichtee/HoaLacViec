@@ -5,6 +5,7 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { Button } from '@/components/Button.jsx';
+import { AuthLayout } from '@/components/AuthLayout.jsx';
 
 export default function LoginPage() {
   const { login, googleLogin } = useAuth();
@@ -114,11 +115,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-cream to-pink-50 flex items-center justify-center p-4 sm:p-6">
+    <AuthLayout>
       <div className="w-full max-w-md space-y-6 animate-fade-in">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <Link to="/" className="inline-block group">
+          <Link to="/" className="lg:hidden inline-block group">
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
@@ -260,6 +261,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

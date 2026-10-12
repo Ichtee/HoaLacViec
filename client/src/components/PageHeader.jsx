@@ -9,7 +9,7 @@ export function PageHeader({ icon: Icon, title, description, badge, actions, cla
     <div className={clsx('flex flex-col sm:flex-row sm:items-start justify-between gap-4', className)}>
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
-          <div className="w-11 h-11 rounded-2xl bg-green-50 text-green-dark flex items-center justify-center shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 text-green-dark ring-1 ring-green-100 shadow-sm flex items-center justify-center shrink-0">
             <Icon className="w-5 h-5" />
           </div>
         )}

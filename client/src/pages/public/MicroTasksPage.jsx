@@ -311,7 +311,7 @@ export default function MicroTasksPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-green-main to-green-dark rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-brand-gradient rounded-3xl p-6 sm:p-8 text-white shadow-modal ring-1 ring-white/10 relative overflow-hidden"><div className="absolute bottom-0 left-1/3 w-56 h-56 rounded-full bg-pink-300/20 blur-3xl pointer-events-none" aria-hidden="true" />
         <div className="max-w-2xl relative z-10 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white">
             <ShoppingBag className="w-4 h-4" /> Chợ Việc Vặt Sinh Viên Hòa Lạc

@@ -99,7 +99,7 @@ export default function EmployerJobsPage() {
 
         <button
           onClick={() => navigate('/employer/jobs/create')}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white font-bold text-xs shadow-md hover:shadow-lg transition-all self-start sm:self-center shrink-0"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-brand-gradient shadow-brand hover:brightness-110 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all self-start sm:self-center shrink-0"
         >
           <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin tuyển mới
         </button>
@@ -127,7 +127,7 @@ export default function EmployerJobsPage() {
           </p>
           <button
             onClick={() => navigate('/employer/jobs/create')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white text-xs font-bold shadow-md transition-all"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-gradient shadow-brand hover:brightness-110 text-white text-xs font-bold shadow-md transition-all"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin đầu tiên
           </button>

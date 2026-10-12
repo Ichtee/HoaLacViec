@@ -44,7 +44,7 @@ export default function BlogListPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10 animate-fade-in">
       {/* Header Banner */}
-      <div className="bg-gradient-to-br from-green-dark via-green-800 to-emerald-900 rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-brand-gradient rounded-3xl p-6 sm:p-8 text-white shadow-modal ring-1 ring-white/10 relative overflow-hidden"><div className="absolute bottom-0 left-1/3 w-56 h-56 rounded-full bg-pink-300/20 blur-3xl pointer-events-none" aria-hidden="true" />
         <div className="max-w-2xl relative z-10 space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold text-green-100">
             <BookOpen className="w-4 h-4 text-green-300" />

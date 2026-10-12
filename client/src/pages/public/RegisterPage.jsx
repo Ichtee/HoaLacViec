@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { Input } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
+import { AuthLayout } from '@/components/AuthLayout.jsx';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -81,10 +82,10 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-cream to-pink-50 flex items-center justify-center p-4">
+    <AuthLayout>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <Link to="/" className="inline-block group mb-2">
+          <Link to="/" className="lg:hidden inline-block group mb-2">
             <img
               src="/logo.png"
               alt="Hoa Lạc Việc"
@@ -188,6 +189,6 @@ export default function RegisterPage() {
           </p>
         </div>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

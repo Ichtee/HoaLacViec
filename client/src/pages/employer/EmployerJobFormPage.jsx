@@ -509,7 +509,7 @@ export default function EmployerJobFormPage() {
             type="submit"
             form="job-form"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white font-bold text-xs shadow-md transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-brand-gradient shadow-brand hover:brightness-110 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             {submitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Đăng tin tuyển dụng')}
@@ -909,7 +909,7 @@ export default function EmployerJobFormPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-green-main to-green-main hover:from-green-main hover:to-green-dark text-white font-bold text-xs shadow-lg transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-8 py-3 rounded-2xl bg-brand-gradient shadow-brand hover:brightness-110 text-white font-bold text-xs shadow-lg transition-all disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             {submitting ? 'Đang lưu...' : (isEditing ? 'Lưu thay đổi' : 'Đăng tin tuyển dụng ngay')}

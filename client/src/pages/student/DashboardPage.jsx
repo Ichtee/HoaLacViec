@@ -71,7 +71,7 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-green-main to-green-dark rounded-3xl p-6 sm:p-8 text-white shadow-soft relative overflow-hidden">
+      <div className="bg-brand-gradient rounded-3xl p-6 sm:p-8 text-white shadow-modal ring-1 ring-white/10 relative overflow-hidden"><div className="absolute bottom-0 left-1/3 w-56 h-56 rounded-full bg-pink-300/20 blur-3xl pointer-events-none" aria-hidden="true" />
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/10 blur-2xl pointer-events-none" />
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-3">

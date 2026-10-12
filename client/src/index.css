@@ -14,8 +14,23 @@
   body {
     font-family: 'Be Vietnam Pro', sans-serif;
     background-color: #FFFDF6;
+    background-image: radial-gradient(900px 420px at 100% -80px, rgba(243,175,195,0.18), transparent 70%),
+      radial-gradient(900px 480px at -10% -120px, rgba(170,217,163,0.28), transparent 70%);
+    background-repeat: no-repeat;
     color: #243C2C;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.015em;
+  }
+  ::selection {
+    background: #D5ECD1;
+    color: #1A3D26;
+  }
+  :focus-visible {
+    outline: 2px solid #3E7A50;
+    outline-offset: 2px;
   }
 }
 
@@ -34,10 +49,10 @@
     @apply px-8 py-3 text-base;
   }
   .btn-primary {
-    @apply btn bg-green-main text-white hover:bg-green-dark focus-visible:ring-green-main active:scale-95;
+    @apply btn bg-brand-gradient text-white shadow-brand hover:brightness-110 hover:-translate-y-px focus-visible:ring-green-main active:scale-95 active:translate-y-0;
   }
   .btn-secondary {
-    @apply btn bg-green-light text-green-dark hover:bg-green-100 focus-visible:ring-green-main active:scale-95;
+    @apply btn bg-green-light text-green-dark ring-1 ring-inset ring-green-100 hover:bg-green-100 focus-visible:ring-green-main active:scale-95;
   }
   .btn-outline {
     @apply btn border-2 border-green-main text-green-dark hover:bg-green-light focus-visible:ring-green-main active:scale-95;
@@ -49,23 +64,23 @@
     @apply btn text-green-dark hover:bg-green-light focus-visible:ring-green-main active:scale-95;
   }
   .btn-pink {
-    @apply btn bg-pink-main text-text-main hover:bg-pink-400 focus-visible:ring-pink-main active:scale-95;
+    @apply btn bg-pink-gradient text-text-main shadow-pink hover:brightness-105 hover:-translate-y-px focus-visible:ring-pink-main active:scale-95;
   }
 
   /* Cards */
   .card {
-    @apply bg-white rounded-3xl shadow-card p-6;
+    @apply bg-white rounded-3xl shadow-card p-6 ring-1 ring-green-100/60;
   }
   .card-sm {
-    @apply bg-white rounded-2xl shadow-card p-4;
+    @apply bg-white rounded-2xl shadow-card p-4 ring-1 ring-green-100/60;
   }
   .card-hover {
-    @apply card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 cursor-pointer;
+    @apply card transition-all duration-200 hover:shadow-card-hover hover:ring-green-200 hover:-translate-y-1 cursor-pointer;
   }
 
   /* Inputs */
   .input {
-    @apply w-full px-4 py-2.5 rounded-2xl border border-green-100 bg-white text-text-main placeholder:text-text-light focus:outline-none focus:border-green-main focus:ring-2 focus:ring-green-main/20 transition-all duration-150;
+    @apply w-full px-4 py-2.5 rounded-2xl border border-green-200/70 bg-white shadow-[inset_0_1px_2px_rgba(36,60,44,0.04)] hover:border-green-300 text-text-main placeholder:text-text-light focus:outline-none focus:border-green-main focus:ring-4 focus:ring-green-main/15 transition-all duration-150;
   }
   .input-error {
     @apply border-red-400 focus:border-red-500 focus:ring-red-200;
@@ -79,7 +94,7 @@
 
   /* Badges */
   .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset ring-black/5;
   }
   .badge-green {
     @apply badge bg-green-light text-green-dark;
@@ -105,7 +120,16 @@
     @apply text-xl font-bold text-text-main;
   }
   .page-title {
-    @apply text-2xl font-bold text-text-main;
+    @apply text-2xl sm:text-3xl font-extrabold text-text-main;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-green-main;
+  }
+  .glass {
+    @apply bg-white/75 backdrop-blur-md ring-1 ring-white/60 shadow-card;
+  }
+  .gradient-text {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
   }
 
   /* Divider */
@@ -125,7 +149,7 @@
   }
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #4D9363 transparent;
+    scrollbar-color: #7FC675 transparent;
   }
 }
 
@@ -145,6 +169,15 @@
 .animate-fade-in { animation: fadeIn 0.25s ease both; }
 .animate-slide-up { animation: slideUp 0.3s ease both; }
 .animate-scale-in { animation: scaleIn 0.2s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* Custom Vietmap GL Map Markers */
 .vietmap-job-marker,
