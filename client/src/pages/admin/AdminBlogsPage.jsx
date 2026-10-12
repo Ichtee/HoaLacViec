@@ -200,7 +200,7 @@ export default function AdminBlogsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Top Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/70 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-800">
@@ -235,7 +235,7 @@ export default function AdminBlogsPage() {
       </div>
 
       {/* Filter Tabs & Search Controls */}
-      <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm space-y-3">
+      <div className="bg-white p-4 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-3">
         {/* Category Tabs */}
         <div className="flex flex-wrap gap-2 border-b border-gray-100 pb-3">
           {BLOG_CATEGORIES.map(cat => {
@@ -296,7 +296,7 @@ export default function AdminBlogsPage() {
             return (
               <div
                 key={blog._id || blog.slug}
-                className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow flex flex-col justify-between gap-3 group relative overflow-hidden"
+                className="bg-white rounded-3xl ring-1 ring-green-100/70 shadow-card p-4 hover:shadow-md transition-shadow flex flex-col justify-between gap-3 group relative overflow-hidden"
               >
                 <div>
                   {/* Thumbnail & Badges */}

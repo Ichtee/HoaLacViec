@@ -61,7 +61,7 @@ export default function AdminDashboardPage() {
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white p-5 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Doanh nghiệp chờ duyệt</span>
             <ShieldCheck className="w-5 h-5 text-green-dark" />
@@ -72,7 +72,7 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white p-5 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Tin bài đang chạy</span>
             <Briefcase className="w-5 h-5 text-blue-600" />
@@ -83,7 +83,7 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white p-5 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Báo cáo vi phạm</span>
             <Flag className="w-5 h-5 text-red-700" />
@@ -94,7 +94,7 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white p-5 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Bài viết Blog</span>
             <BookOpen className="w-5 h-5 text-emerald-700" />
@@ -105,7 +105,7 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white p-5 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-500">Tổng tài khoản</span>
             <Users className="w-5 h-5 text-purple-600" />
@@ -120,7 +120,7 @@ export default function AdminDashboardPage() {
       {/* Pending Items Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Verification queue */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-green-dark" /> Doanh nghiệp gửi yêu cầu xác thực huy hiệu
@@ -153,7 +153,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Reports Queue */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
               <Flag className="w-4 h-4 text-red-700" /> Phản hồi & Báo cáo tranh chấp

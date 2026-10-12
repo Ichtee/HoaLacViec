@@ -482,19 +482,19 @@ export default function EmployerShiftsPage() {
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <p className="text-xs text-text-muted">Tổng ca làm</p>
           <p className="text-2xl font-bold text-text-main mt-1">{shifts.length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <p className="text-xs text-text-muted">Đang làm việc</p>
           <p className="text-2xl font-bold text-amber-600 mt-1">{inProgressCount}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <p className="text-xs text-text-muted">Chờ duyệt công</p>
           <p className="text-2xl font-bold text-green-dark mt-1">{pendingApprovalCount}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs">
+        <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card">
           <p className="text-xs text-text-muted">Đã hoàn tất</p>
           <p className="text-2xl font-bold text-emerald-700 mt-1">{completedCount}</p>
         </div>

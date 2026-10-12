@@ -12,7 +12,7 @@ function formatDuration(hours) {
 
 function Metric({ label, value, hint }) {
   return (
-    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+    <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card">
       <p className="text-xs font-semibold text-gray-500">{label}</p>
       <p className="text-2xl font-bold text-text-main mt-1">{value}</p>
       {hint && <p className="text-[11px] text-text-muted mt-1">{hint}</p>}

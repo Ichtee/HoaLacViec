@@ -105,7 +105,7 @@ export default function AdminReportsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/70 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2.5">
             <Flag className="w-6 h-6 text-red-700" /> Quản lý Báo cáo vi phạm & Giải quyết tranh chấp
@@ -117,7 +117,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-gray-500 flex items-center gap-1">
             <Filter className="w-3.5 h-3.5" /> Lọc trạng thái:
@@ -157,7 +157,7 @@ export default function AdminReportsPage() {
       {loading ? (
         <div className="text-center py-16 text-gray-500">Đang tải danh sách báo cáo khiếu nại...</div>
       ) : reports.length === 0 ? (
-        <div className="bg-white p-12 text-center rounded-3xl border border-gray-100 shadow-sm text-gray-500 space-y-2">
+        <div className="bg-white p-12 text-center rounded-3xl ring-1 ring-green-100/70 shadow-card text-gray-500 space-y-2">
           <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
           <p className="font-bold text-gray-700 text-sm">Tuyệt vời! Không có báo cáo nào tồn đọng</p>
           <p className="text-xs text-gray-500">Mọi tranh chấp hoặc vi phạm cộng đồng hiện đã được xử lý.</p>

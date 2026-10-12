@@ -535,7 +535,7 @@ export default function EmployerJobFormPage() {
 
       <form id="job-form" onSubmit={handleSubmit} className="space-y-6">
         {/* CARD 1: THÔNG TIN CƠ BẢN */}
-        <div id="job-step-1" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-5">
+        <div id="job-step-1" className="scroll-mt-44 bg-white p-6 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-5">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
             <div className="w-8 h-8 rounded-xl bg-green-50 text-green-dark flex items-center justify-center font-bold text-sm">
               1
@@ -724,7 +724,7 @@ export default function EmployerJobFormPage() {
         </div>
 
         {/* CARD 3: ĐỊA CHỈ & GHIM VỊ TRÍ BẢN ĐỒ */}
-        <div id="job-step-3" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-5">
+        <div id="job-step-3" className="scroll-mt-44 bg-white p-6 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-5">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
@@ -863,7 +863,7 @@ export default function EmployerJobFormPage() {
         </div>
 
         {/* CARD 4: MÔ TẢ & YÊU CẦU */}
-        <div id="job-step-4" className="scroll-mt-44 bg-white p-6 rounded-3xl border border-gray-100 shadow-xs space-y-4">
+        <div id="job-step-4" className="scroll-mt-44 bg-white p-6 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-4">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
             <div className="w-8 h-8 rounded-xl bg-green-50 text-green-dark flex items-center justify-center font-bold text-sm">
               4
