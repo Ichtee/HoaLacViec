@@ -13,7 +13,7 @@ import { vietmapAutocomplete } from '../services/vietmapService.js';
 import { authenticate, authorize, optionalAuthenticate, requireActiveUser } from '../middlewares/auth.js';
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
-import { notifyJobAlerts } from '../services/jobAlertService.js';
+import { notifyJobAlerts, notifyFeaturedJob } from '../services/jobAlertService.js';
 import { countFreeActiveListings, applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
 import { spendCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
 import { httpError } from '../utils/httpError.js';
@@ -773,7 +773,8 @@ router.post('/:id/approve', authenticate, authorize('admin'), async (req, res, n
       }
     }
 
-    void notifyJobAlerts(job);
+    // A featured job reaches alert matches and nearby students in one pass (no double notice).
+    void (isJobFeatured(job) ? notifyFeaturedJob(job) : notifyJobAlerts(job));
 
     res.json({ message: 'Đã phê duyệt tin tuyển dụng thành công.', job });
   } catch (err) {

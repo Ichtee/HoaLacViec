@@ -788,3 +788,27 @@ test('job stats: non-owner views count (featured views too), owner views do not;
   const mine = (await call('/jobs/employer/my-jobs', { token: etoken })).body.jobs.find((j) => j._id === String(job._id));
   assert.deepEqual([mine.viewCount, mine.featuredViewCount, mine.applicationCount], [2, 2, 1]);
 });
+
+test('featuring an approved job notifies alert matches and nearby students once per 24h, not far students or the owner', async () => {
+  const { StudentProfile } = await import('../../src/models/StudentProfile.js');
+  const { JobAlert } = await import('../../src/models/JobAlert.js');
+  const { Notification } = await import('../../src/models/Notification.js');
+  const e = await newEmployer();
+  await grantCredits({ employerUserId: e._id, amount: 60, type: 'welcome', reason: 'welcome' });
+  const job = await seedJob(e); // at 21.0135, 105.5252
+  const [near, far, alertUser] = await Promise.all([1, 2, 3].map(() => createUser(t.models, { role: 'student' })));
+  const place = (u, coordinates) => StudentProfile.collection.updateOne({ userId: u._id }, { $set: { geoPoint: { type: 'Point', coordinates } } }, { upsert: true });
+  await place(near, [105.5300, 21.0150]); // ~0.5 km
+  await place(far, [105.8000, 21.0300]); // ~28 km
+  await JobAlert.collection.insertOne({ userId: alertUser._id, active: true, createdAt: new Date() });
+  await JobAlert.collection.insertOne({ userId: e._id, active: true, createdAt: new Date() }); // owner never notified
+  const token = await login(e);
+  assert.equal((await call(`/credits/jobs/${job._id}/feature`, { method: 'POST', token, body: { days: 3 } })).status, 200);
+  const notified = async () => {
+    await new Promise((r) => setTimeout(r, 200)); // fire-and-forget
+    return (await Notification.find({ link: `/jobs/${job._id}`, title: /nổi bật/ }).lean()).map((n) => String(n.userId)).sort();
+  };
+  assert.deepEqual(await notified(), [String(near._id), String(alertUser._id)].sort());
+  assert.equal((await call(`/credits/jobs/${job._id}/feature`, { method: 'POST', token, body: { days: 3 } })).status, 200);
+  assert.equal((await notified()).length, 2); // second boost within 24h sends nothing
+});

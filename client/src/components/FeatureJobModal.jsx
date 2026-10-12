@@ -30,7 +30,7 @@ export default function FeatureJobModal({ job, prices, balance, onClose, onDone 
     <Modal isOpen onClose={() => { if (!busyDays) onClose(); }} title="Làm nổi bật tin tuyển dụng">
       <div className="space-y-3 text-xs">
         <p className="text-text-muted">
-          <strong className="text-text-main">{job.title}</strong> sẽ được ghim lên đầu danh sách việc làm.
+          <strong className="text-text-main">{job.title}</strong> sẽ được ghim lên đầu danh sách việc làm, tô nổi bật, hiện ngôi sao trên bản đồ và gửi thông báo tới sinh viên ở gần quán (3 km).
           {job.status === 'pending' && ' Thời gian nổi bật bắt đầu tính từ lúc tin được duyệt.'}
           {' '}Số dư hiện tại: <strong className="text-text-main">{balance} credit</strong>.
         </p>

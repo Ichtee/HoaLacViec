@@ -1,6 +1,10 @@
 import mongoose from 'mongoose';
 import { JobAlert } from '../models/JobAlert.js';
 import { Notification } from '../models/Notification.js';
+import { Job } from '../models/Job.js';
+import { StudentProfile } from '../models/StudentProfile.js';
+import { isJobFeatured } from './listingService.js';
+import { sendPushToUser } from './pushService.js';
 
 const normalize = (value) => String(value || '').toLowerCase().trim();
 
@@ -43,6 +47,56 @@ export async function notifyJobAlerts(job) {
     return notified.size;
   } catch (err) {
     console.warn('[job-alerts] failed:', err.message);
+    return 0;
+  }
+}
+
+const FEATURED_RADIUS_KM = 3;
+const FEATURED_MAX_RECIPIENTS = 300;
+const FEATURED_RENOTIFY_MS = 24 * 60 * 60 * 1000;
+
+function jobPoint(job) {
+  for (const p of [job.location, job.approxLocation]) {
+    if (p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng))) return [Number(p.lng), Number(p.lat)];
+  }
+  return null;
+}
+
+/**
+ * Tin vừa được làm nổi bật: báo cho người có bộ lọc khớp + sinh viên ở trong bán kính 3 km (trong app và push).
+ * Mỗi tin chỉ gửi một lần mỗi 24 giờ (claim featuredNotifiedAt), tối đa 300 người, bỏ qua chủ tin. Lỗi bị nuốt.
+ */
+export async function notifyFeaturedJob(job, now = new Date()) {
+  if (!job || !isJobFeatured(job, now) || mongoose.connection.readyState !== 1) return 0;
+  try {
+    const claimed = await Job.findOneAndUpdate(
+      { _id: job._id, $or: [{ featuredNotifiedAt: null }, { featuredNotifiedAt: { $lt: new Date(now.getTime() - FEATURED_RENOTIFY_MS) } }] },
+      { featuredNotifiedAt: now },
+    );
+    if (!claimed) return 0;
+    const owner = String(job.employerUserId);
+    const recipients = new Set();
+    const alerts = await JobAlert.find({ active: true }).limit(2000).lean();
+    for (const alert of alerts) if (alertMatchesJob(alert, job)) recipients.add(String(alert.userId));
+    const point = jobPoint(job);
+    if (point) {
+      const nearby = await StudentProfile.find({
+        geoPoint: { $geoWithin: { $centerSphere: [point, FEATURED_RADIUS_KM / 6378.1] } },
+      }).select('userId').limit(FEATURED_MAX_RECIPIENTS).lean();
+      for (const p of nearby) recipients.add(String(p.userId));
+    }
+    recipients.delete(owner);
+    const userIds = [...recipients].slice(0, FEATURED_MAX_RECIPIENTS);
+    const title = 'Việc nổi bật gần bạn ⭐';
+    const message = `${job.storeName || 'Cửa hàng'} đang tuyển "${job.title}".`;
+    const link = `/jobs/${job._id}`;
+    for (const userId of userIds) {
+      await Notification.create({ userId, title, message, type: 'job', link });
+      void sendPushToUser(userId, { title, body: message, url: link });
+    }
+    return userIds.length;
+  } catch (err) {
+    console.warn('[featured-notify] failed:', err.message);
     return 0;
   }
 }

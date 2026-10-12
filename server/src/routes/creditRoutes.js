@@ -13,6 +13,7 @@ import { CREDIT_PACKS, CREDIT_PRICES, FREE_ACTIVE_LISTINGS, LISTING_DAYS, SLOT_C
 import { SEPAY_NOTIFICATION } from '../config/sepay.js';
 import { getSepayClient } from '../services/sepayClient.js';
 import { applySepayOrderPaid } from '../services/topUpService.js';
+import { notifyFeaturedJob } from '../services/jobAlertService.js';
 import { countFreeActiveListings } from '../services/listingService.js';
 import { getBalance, spendCredits, withCreditTransaction } from '../services/creditService.js';
 
@@ -123,7 +124,7 @@ router.post('/jobs/:id/feature', ...employerOnly, requireActiveUser, async (req,
   try {
     const days = req.body?.days;
     if (days !== 3 && days !== 7) throw httpError(400, 'INVALID_DAYS', 'Số ngày nổi bật phải là 3 hoặc 7.');
-    res.json(await buyForJob(req, (job, now) => {
+    const result = await buyForJob(req, (job, now) => {
       if (job.status === 'approved') {
         job.featuredUntil = new Date(laterOf(job.featuredUntil, now).getTime() + days * DAY_MS);
       } else if (job.status === 'pending') {
@@ -133,7 +134,9 @@ router.post('/jobs/:id/feature', ...employerOnly, requireActiveUser, async (req,
         throw httpError(409, 'INVALID_STATE', 'Chỉ tin đang chờ duyệt hoặc đã duyệt mới mua được nổi bật.');
       }
       return `featured_${days}d`;
-    }));
+    });
+    if (result.job.status === 'approved') void notifyFeaturedJob(result.job);
+    res.json(result);
   } catch (err) { next(err); }
 });
 
