@@ -1,11 +1,11 @@
 
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Briefcase, Plus, Edit, Trash2, MapPin,
   DollarSign, Users, ExternalLink,
-  PauseCircle, PlayCircle, AlertTriangle
+  PauseCircle, PlayCircle, AlertTriangle, Sparkles, RefreshCw, Clock
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -16,11 +16,18 @@ import {
   closeJob,
   reopenJob,
   deleteJob,
+  apiGetMyCredits,
+  apiGetCreditPricing,
+  apiRenewJob,
 } from '@/services';
 import { Toast } from '@/components/Feedback.jsx';
 import { formatVND, getGoogleMapsDirectionsUrl } from '@/utils';
 import { ActionMenu } from '@/components/ActionMenu.jsx';
 import { PageHeader } from '@/components/PageHeader.jsx';
+import FeatureJobModal from '@/components/FeatureJobModal.jsx';
+
+const jobId = (j) => j._id || j.id;
+const ddmm = (d) => new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
 
 export default function EmployerJobsPage() {
   const navigate = useNavigate();
@@ -28,6 +35,11 @@ export default function EmployerJobsPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [fetchError, setFetchError] = useState(null);
+  const [balance, setBalance] = useState(0);
+  const [prices, setPrices] = useState(null);
+  const [featureJob, setFeatureJob] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const upsellId = searchParams.get('upsell');
 
   async function loadJobs() {
     try {
@@ -46,7 +58,41 @@ export default function EmployerJobsPage() {
 
   useEffect(() => {
     loadJobs();
+    Promise.all([apiGetMyCredits(), apiGetCreditPricing()])
+      .then(([me, pricing]) => { setBalance(me.balance); setPrices(pricing.prices); })
+      .catch(() => {});
   }, []);
+
+  // ?upsell=<id> from the posting flow: open the featured modal once, then drop the param
+  useEffect(() => {
+    if (!upsellId || loading || !prices) return;
+    const target = jobs.find(j => String(jobId(j)) === upsellId);
+    if (target) setFeatureJob(target);
+    setSearchParams({}, { replace: true });
+  }, [upsellId, loading, prices, jobs, setSearchParams]);
+
+  function replaceJob(updated) {
+    setJobs(prev => prev.map(j => (jobId(j) === jobId(updated) ? updated : j)));
+  }
+
+  function handleFeatureDone({ job, balance: newBalance }) {
+    replaceJob(job);
+    setBalance(newBalance);
+    setFeatureJob(null);
+    setToast({ type: 'success', message: 'Đã mua tin nổi bật.' });
+  }
+
+  async function handleRenew(job) {
+    if (!confirm(`Gia hạn tin thêm 14 ngày với ${prices.renew_14d} credit?`)) return;
+    try {
+      const res = await apiRenewJob(jobId(job));
+      replaceJob(res.job);
+      setBalance(res.balance);
+      setToast({ type: 'success', message: 'Đã gia hạn tin thêm 14 ngày.' });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Không thể gia hạn tin.' });
+    }
+  }
 
   async function handleToggleStatus(job) {
     const targetId = job._id || job.id;
@@ -135,6 +181,11 @@ export default function EmployerJobsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {jobs.map(job => {
             const isClosed = job.status === 'closed';
+            const isExpired = job.status === 'expired' || (job.closesAt && new Date(job.closesAt) < new Date());
+            const showExpiredBadge = job.status === 'expired' || (job.status === 'approved' && isExpired);
+            const featuredActive = job.featuredUntil && new Date(job.featuredUntil) > new Date();
+            const canFeature = ['approved', 'pending'].includes(job.status) && !isExpired;
+            const canRenew = ['approved', 'paused', 'expired'].includes(job.status);
             return (
               <div
                 key={job._id || job.id}
@@ -176,6 +227,11 @@ export default function EmployerJobsPage() {
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 shrink-0" title={job.rejectionReason || 'Chưa đạt tiêu chuẩn'}>
                         <span className="w-2 h-2 rounded-full bg-red-500"></span>
                         Bị từ chối
+                      </span>
+                    ) : showExpiredBadge ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                        Đã hết hạn
                       </span>
                     ) : isClosed ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-700 border border-gray-300 shrink-0">
@@ -234,6 +290,24 @@ export default function EmployerJobsPage() {
                       <Users className="w-3.5 h-3.5 text-green-dark shrink-0" />
                       <span>Còn tuyển: {job.slots ?? 0} bạn</span>
                     </div>
+                    {job.closesAt && (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                        <span>Hết hạn: {ddmm(job.closesAt)}</span>
+                      </div>
+                    )}
+                    {featuredActive && (
+                      <div className="flex items-center gap-1.5 text-amber-700 font-bold">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>Nổi bật đến {ddmm(job.featuredUntil)}</span>
+                      </div>
+                    )}
+                    {job.featuredDaysPending > 0 && (
+                      <div className="flex items-center gap-1.5 text-amber-700 font-bold">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>Nổi bật {job.featuredDaysPending} ngày sau khi được duyệt</span>
+                      </div>
+                    )}
                   </div>
 
                   {job.positions?.length > 0 && (
@@ -246,6 +320,29 @@ export default function EmployerJobsPage() {
                     </div>
                   )}
                 </div>
+
+                {prices && (canFeature || canRenew) && (
+                  <div className="flex flex-wrap gap-2">
+                    {canFeature && !job.featuredDaysPending && (
+                      <button
+                        type="button"
+                        onClick={() => setFeatureJob(job)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-xs"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" /> Làm nổi bật
+                      </button>
+                    )}
+                    {canRenew && (
+                      <button
+                        type="button"
+                        onClick={() => handleRenew(job)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-green-200 bg-white text-text-main hover:bg-green-50 font-semibold text-xs"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Gia hạn 14 ngày ({prices.renew_14d} credit)
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                   {['draft', 'approved', 'paused', 'closed'].includes(job.status) ? (
@@ -286,6 +383,16 @@ export default function EmployerJobsPage() {
             );
           })}
         </div>
+      )}
+
+      {featureJob && prices && (
+        <FeatureJobModal
+          job={featureJob}
+          prices={prices}
+          balance={balance}
+          onClose={() => setFeatureJob(null)}
+          onDone={handleFeatureDone}
+        />
       )}
     </div>
   );

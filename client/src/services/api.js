@@ -86,7 +86,7 @@ async function request(endpoint, options = {}) {
       throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
     if (!res.ok) {
-      throw new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`);
+      throw Object.assign(new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`), { code: data?.code });
     }
     return data;
   } catch (err) {
@@ -219,8 +219,10 @@ export async function apiGetEmployerMyJobs(params = {}) {
   return request(`/jobs/employer/my-jobs${buildQueryString(params)}`);
 }
 
-export async function apiSubmitJobForReview(id) {
-  return request(`/jobs/${id}/submit`, { method: 'POST' });
+export async function apiSubmitJobForReview(id, body) {
+  return request(`/jobs/${id}/submit`, body
+    ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { method: 'POST' });
 }
 
 export async function apiPauseJob(id) {
