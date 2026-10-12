@@ -58,6 +58,7 @@ const AdminJobsPage = lazy(() => import('@/pages/admin/AdminJobsPage.jsx'));
 const AdminBlogsPage = lazy(() => import('@/pages/admin/AdminBlogsPage.jsx'));
 const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage.jsx'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage.jsx'));
+const AdminTopUpsPage = lazy(() => import('@/pages/admin/AdminTopUpsPage.jsx'));
 
 // Common Account Pages
 const AccountInfoPage = lazy(() => import('@/pages/common/AccountInfoPage.jsx'));
@@ -204,6 +205,7 @@ export default function App() {
           <Route path="blogs" element={<AdminBlogsPage />} />
           <Route path="reports" element={<AdminReportsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
+          <Route path="topups" element={<AdminTopUpsPage />} />
         </Route>
 
         {/* Fallback 404 */}
