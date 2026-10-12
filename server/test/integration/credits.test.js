@@ -720,3 +720,21 @@ test('concurrent submits of one draft with extra slot charge once, the other get
   assert.equal(await bal(e), 30);
   assert.equal(await t.models.CreditTransaction.countDocuments({ employerUserId: e._id, type: 'spend' }), 1);
 });
+
+test('polling grants a paid pending top-up once, skips unpaid and older than 24h', async () => {
+  setEnv(); useFake();
+  const { reconcilePendingTopUps } = await import('../../src/services/maintenanceService.js');
+  const e = await newEmployer();
+  const { topUp } = await topUpFor(e);
+  const stale = (await topUpFor(await newEmployer())).topUp;
+  await t.models.TopUpRequest.collection.updateOne({ _id: (await reload(stale._id))._id }, { $set: { createdAt: new Date(Date.now() - 25 * 3600 * 1000) } });
+  order = { order_status: 'PENDING', order_amount: '100000.00' };
+  await reconcilePendingTopUps();
+  assert.equal((await reload(topUp._id)).status, 'pending');
+  order = { order_status: 'CAPTURED', order_amount: '100000.00' };
+  assert.ok((await reconcilePendingTopUps()) >= 1); // other tests leave pending rows in the shared DB
+  assert.equal((await reload(topUp._id)).status, 'paid');
+  assert.equal((await reload(stale._id)).status, 'pending');
+  await reconcilePendingTopUps();
+  assert.equal(await bal(e), 110);
+});

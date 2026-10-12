@@ -4,6 +4,8 @@ import { Shift } from '../models/Shift.js';
 import { QuickShift } from '../models/QuickShift.js';
 import { Notification } from '../models/Notification.js';
 import { EXPIRY_REMINDER_DAYS } from '../config/credits.js';
+import { TopUpRequest } from '../models/TopUpRequest.js';
+import { applySepayOrderPaid } from './topUpService.js';
 
 const SHIFT_REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_INTERVAL_MS = 10 * 60 * 1000;
@@ -167,6 +169,21 @@ export async function expireQuickShifts(now = new Date()) {
   return result?.modifiedCount || 0;
 }
 
+/** Stands in for the SePay IPN: asks SePay about top-ups still pending from the last 24h (applySepayOrderPaid is idempotent). */
+export async function reconcilePendingTopUps(now = new Date()) {
+  if (!process.env.SEPAY_MERCHANT_ID || !process.env.SEPAY_SECRET_KEY) return 0;
+  const pending = await TopUpRequest.find({ status: 'pending', createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } }).limit(50);
+  let granted = 0;
+  for (const topUp of pending) {
+    try {
+      if ((await applySepayOrderPaid(topUp.invoiceNumber, { source: 'poll' })).status === 'granted') granted += 1;
+    } catch (err) {
+      console.warn('[maintenance] topup poll', topUp.invoiceNumber, err.message);
+    }
+  }
+  return granted;
+}
+
 export async function runMaintenance(now = new Date()) {
   const result = { offersExpired: 0, jobsExpired: 0, remindersSent: 0, quickShiftsExpired: 0, expiryReminders: 0 };
   const tasks = [
@@ -187,6 +204,8 @@ export async function runMaintenance(now = new Date()) {
 }
 
 let timer = null;
+let topUpTimer = null;
+let topUpRunning = false;
 let running = false;
 
 /** Chạy định kỳ trong tiến trình server. Tắt bằng DISABLE_MAINTENANCE_JOBS=true. */
@@ -205,6 +224,20 @@ export function startMaintenanceScheduler() {
       running = false;
     }
   };
+  const topUpTick = async () => {
+    if (topUpRunning) return;
+    topUpRunning = true;
+    try {
+      const granted = await reconcilePendingTopUps();
+      if (granted) console.log('[maintenance] top-ups granted by polling:', granted);
+    } catch (err) {
+      console.error('[maintenance] topup poll lỗi:', err.message);
+    } finally {
+      topUpRunning = false;
+    }
+  };
+  topUpTimer = setInterval(topUpTick, Number(process.env.TOPUP_POLL_INTERVAL_MS) || 2 * 60 * 1000);
+  topUpTimer.unref?.();
   timer = setInterval(tick, intervalMs);
   timer.unref?.();
   setTimeout(tick, 15000).unref?.();
@@ -213,5 +246,7 @@ export function startMaintenanceScheduler() {
 
 export function stopMaintenanceScheduler() {
   if (timer) clearInterval(timer);
+  if (topUpTimer) clearInterval(topUpTimer);
   timer = null;
+  topUpTimer = null;
 }
