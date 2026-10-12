@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bookmark, Search } from 'lucide-react';
 import { getSavedJobs, getJobs, toggleSaveJob } from '@/services';
-import { JobCard } from '@/components/JobCard.jsx';
+import { JobRow } from '@/components/JobRow.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { PageHeader } from '@/components/PageHeader.jsx';
 
@@ -90,17 +90,13 @@ export default function SavedJobsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+        <ul className="space-y-3">
           {displayedJobs.map(job => (
-            <div key={job.id} className="h-full flex flex-col">
-              <JobCard
-                job={job}
-                isSaved={true}
-                onToggleSave={handleToggleSave}
-              />
-            </div>
+            <li key={job.id}>
+              <JobRow job={job} isSaved onSave={handleToggleSave} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
