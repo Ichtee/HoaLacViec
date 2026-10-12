@@ -35,6 +35,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Toast, LoadingPage, EmptyState } from '@/components/Feedback.jsx';
 import { Tabs } from '@/components/Tabs.jsx';
 import { ShiftWeekCalendar } from './ShiftWeekCalendar.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 function getTodayString() {
   const d = new Date();
@@ -446,39 +447,37 @@ export default function EmployerShiftsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-green-dark" /> Phân công & Quản lý Ca Làm
-          </h1>
-          <p className="text-xs text-text-muted mt-1">
-            Xếp lịch ca làm cho sinh viên, đối chiếu tọa độ GPS check-in thực tế và phê duyệt chốt công.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
-          <input
-            type="month"
-            value={payrollMonth}
-            onChange={(e) => setPayrollMonth(e.target.value)}
-            aria-label="Tháng xuất bảng lương"
-            className="p-2 rounded-xl border border-stone-200 text-xs bg-white"
-          />
-          <button
-            onClick={handleExportPayroll}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-stone-100 text-text-main font-bold text-xs hover:bg-stone-200 transition-all"
-          >
-            <Download className="w-4 h-4" /> Xuất bảng lương
-          </button>
-        </div>
-
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-green-main text-white font-bold text-xs hover:bg-green-dark transition-all shadow-sm shrink-0 self-start sm:self-center"
-        >
-          <Plus className="w-4 h-4" /> Phân ca mới
-        </button>
-      </div>
+      <PageHeader
+        icon={Calendar}
+        title="Phân công & Quản lý Ca Làm"
+        description="Xếp lịch ca làm cho sinh viên, đối chiếu tọa độ GPS check-in thực tế và phê duyệt chốt công."
+        actions={
+          <>
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              <input
+                type="month"
+                value={payrollMonth}
+                onChange={(e) => setPayrollMonth(e.target.value)}
+                aria-label="Tháng xuất bảng lương"
+                className="p-2 rounded-xl border border-stone-200 text-xs bg-white"
+              />
+              <button
+                onClick={handleExportPayroll}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-stone-100 text-text-main font-bold text-xs hover:bg-stone-200 transition-all"
+              >
+                <Download className="w-4 h-4" /> Xuất bảng lương
+              </button>
+            </div>
+    
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-green-main text-white font-bold text-xs hover:bg-green-dark transition-all shadow-sm shrink-0 self-start sm:self-center"
+            >
+              <Plus className="w-4 h-4" /> Phân ca mới
+            </button>
+          </>
+        }
+      />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">

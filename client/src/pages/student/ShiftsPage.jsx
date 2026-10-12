@@ -25,6 +25,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { Tabs } from '@/components/Tabs.jsx';
 import { Link } from 'react-router-dom';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 function getTodayString() {
   const d = new Date();
@@ -214,35 +215,33 @@ export default function StudentShiftsPage() {
       {toast && <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-text-main flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-green-main" />
-            Lịch làm việc
-          </h1>
-          <p className="text-sm text-text-muted mt-1">
-            Theo dõi ca làm việc, thời gian làm và thông tin giờ công do nhà tuyển dụng xếp ca và ghi nhận.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsTimeOffModalOpen(true)}
-            className="btn btn-outline btn-sm flex items-center gap-1.5"
-          >
-            <CalendarOff className="w-4 h-4 text-pink-700" />
-            Xin nghỉ phép
-          </button>
-          <button
-            onClick={loadData}
-            disabled={loading}
-            className="btn btn-outline btn-sm flex items-center gap-1.5"
-            title="Làm mới dữ liệu"
-          >
-            <RefreshCw className={clsx('w-4 h-4', loading && 'animate-spin')} />
-            Làm mới
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        icon={Calendar}
+        title="Lịch làm việc"
+        description="Theo dõi ca làm việc, thời gian làm và thông tin giờ công do nhà tuyển dụng xếp ca và ghi nhận."
+        actions={
+          <>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsTimeOffModalOpen(true)}
+                className="btn btn-outline btn-sm flex items-center gap-1.5"
+              >
+                <CalendarOff className="w-4 h-4 text-pink-700" />
+                Xin nghỉ phép
+              </button>
+              <button
+                onClick={loadData}
+                disabled={loading}
+                className="btn btn-outline btn-sm flex items-center gap-1.5"
+                title="Làm mới dữ liệu"
+              >
+                <RefreshCw className={clsx('w-4 h-4', loading && 'animate-spin')} />
+                Làm mới
+              </button>
+            </div>
+          </>
+        }
+      />
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -18,6 +18,7 @@ import { Modal } from '@/components/Modal.jsx';
 import { Input, Textarea, Select } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 const BLOG_CATEGORIES = [
   { value: 'all', label: 'Tất cả bài viết' },
@@ -200,39 +201,33 @@ export default function AdminBlogsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Top Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/70 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-800">
-              {blogs.length} bài viết hiện có
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-green-dark" /> Quản lý Blog Cẩm nang & Cảnh giác
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Đăng tải cẩm nang việc làm, cảnh báo lừa đảo và tin tức chia sẻ kinh nghiệm cho sinh viên Hòa Lạc.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadBlogs}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} /> Làm mới
-          </button>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={handleOpenCreate}
-            className="flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="w-4 h-4" /> Viết bài mới
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        icon={BookOpen}
+        title="Quản lý Blog Cẩm nang & Cảnh giác"
+        description="Đăng tải cẩm nang việc làm, cảnh báo lừa đảo và tin tức chia sẻ kinh nghiệm cho sinh viên Hòa Lạc."
+        badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-800"> {blogs.length} bài viết hiện có </span>}
+        actions={
+          <>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={loadBlogs}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} /> Làm mới
+              </button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleOpenCreate}
+                className="flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> Viết bài mới
+              </Button>
+            </div>
+          </>
+        }
+      />
 
       {/* Filter Tabs & Search Controls */}
       <div className="bg-white p-4 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-3">

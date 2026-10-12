@@ -4,6 +4,7 @@ import { getReports, resolveReport } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'Tất cả trạng thái' },
@@ -105,16 +106,11 @@ export default function AdminReportsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/70 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2.5">
-            <Flag className="w-6 h-6 text-red-700" /> Quản lý Báo cáo vi phạm & Giải quyết tranh chấp
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Xác minh khiếu nại về việc vặt, nợ lương, thái độ làm việc, check-in ảo hoặc bài đăng sai quy định.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={Flag}
+        title="Quản lý Báo cáo vi phạm & Giải quyết tranh chấp"
+        description="Xác minh khiếu nại về việc vặt, nợ lương, thái độ làm việc, check-in ảo hoặc bài đăng sai quy định."
+      />
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card flex flex-wrap items-center justify-between gap-4">

@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth.jsx';
 import { getReviews, getShifts, createReview } from '@/services';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 const WORKER_CRITERIA = [
   ['punctuality', 'Đúng giờ'],
@@ -92,12 +93,11 @@ export default function StudentReviewsPage() {
   }
 
   return <div className="space-y-6 max-w-5xl mx-auto pb-10">
-    <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card">
-      <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-        <Star className="w-6 h-6 text-yellow-500 fill-yellow-500" /> Đánh giá cửa hàng
-      </h1>
-      <p className="text-sm text-text-muted mt-2">Chia sẻ trải nghiệm làm việc sau khi ca của bạn được duyệt.</p>
-    </div>
+    <PageHeader
+      icon={Star}
+      title="Đánh giá cửa hàng"
+      description="Chia sẻ trải nghiệm làm việc sau khi ca của bạn được duyệt."
+    />
 
     {loading ? <p className="text-center text-text-muted py-10">Đang tải...</p> : error ?
       <p role="alert" className="text-red-700 bg-red-50 rounded-2xl p-4">{error}</p> : <>

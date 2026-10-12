@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { JobCard } from '@/components/JobCard.jsx';
 const JobMap = lazy(() => import('@/components/JobMap.jsx').then((m) => ({ default: m.JobMap })));
 import { EmptyState, LoadingPage, ErrorAlert } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 import { Select } from '@/components/Form.jsx';
 import { useAsync, useDebounce, useGeolocation } from '@/hooks';
 import { getJobs, toggleSaveJob, getSavedJobs, apiVietmapMatrix, geocodeAddress } from '@/services';
@@ -387,30 +388,25 @@ export default function JobListPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Page Header + View Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main tracking-tight">
-            Tìm việc làm quanh Hòa Lạc
-          </h1>
-          <p className="text-text-muted text-xs sm:text-sm mt-0.5 flex items-center gap-1.5 flex-wrap">
-            {userLocation ? (
-              <span className="text-green-dark font-medium flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-main"></span>
-                Đang định vị quanh {userLocation.label} • {sorted.length} công việc có sẵn
-              </span>
-            ) : geoStatus === 'requesting' ? (
-              <span className="text-blue-700 font-medium flex items-center gap-1.5">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Đang lấy tọa độ trình duyệt... • {sorted.length} việc làm
-              </span>
-            ) : (
-              <span>Khu vực Hòa Lạc • {sorted.length} việc làm</span>
-            )}
-          </p>
-        </div>
-
-        {/* View Mode Toggle */}
-        <div className="flex items-center gap-2 self-start sm:self-center">
+      <PageHeader
+        icon={MapPin}
+        title="Tìm việc làm quanh Hòa Lạc"
+        description={
+          userLocation ? (
+            <span className="text-green-dark font-medium inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-main"></span>
+              Đang định vị quanh {userLocation.label} • {sorted.length} công việc có sẵn
+            </span>
+          ) : geoStatus === 'requesting' ? (
+            <span className="text-blue-700 font-medium inline-flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Đang lấy tọa độ trình duyệt... • {sorted.length} việc làm
+            </span>
+          ) : (
+            <span>Khu vực Hòa Lạc • {sorted.length} việc làm</span>
+          )
+        }
+        actions={
           <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200/80">
             <button
               onClick={() => setViewMode('map')}
@@ -435,8 +431,8 @@ export default function JobListPage() {
               <List className="w-3.5 h-3.5" /> Danh sách
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Search + Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-2.5">

@@ -2,11 +2,17 @@ import { clsx } from 'clsx';
 
 /**
  * Tiêu đề trang dùng chung cho mọi khu (sinh viên, nhà tuyển dụng, quản trị).
- * Icon luôn nằm trong ô xanh nhạt, không dùng emoji; hành động nằm bên phải (xuống dưới trên điện thoại).
+ * Luôn là một thẻ trắng: ô icon gradient bên trái, tiêu đề + mô tả ở giữa, hành động bên phải
+ * (xuống dưới trên điện thoại). Không dùng emoji.
  */
 export function PageHeader({ icon: Icon, title, description, badge, actions, className }) {
   return (
-    <div className={clsx('flex flex-col sm:flex-row sm:items-start justify-between gap-4', className)}>
+    <div
+      className={clsx(
+        'bg-white rounded-3xl ring-1 ring-green-100/60 shadow-card p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4',
+        className
+      )}
+    >
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 text-green-dark ring-1 ring-green-100 shadow-sm flex items-center justify-center shrink-0">
@@ -15,7 +21,7 @@ export function PageHeader({ icon: Icon, title, description, badge, actions, cla
         )}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-text-main leading-tight">{title}</h1>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-text-main leading-tight">{title}</h1>
             {badge}
           </div>
           {description && <p className="text-sm text-text-muted mt-1 max-w-2xl">{description}</p>}

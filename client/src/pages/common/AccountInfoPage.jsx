@@ -18,6 +18,7 @@ import { updateUserProfile, getMe } from '@/services';
 import { Button } from '@/components/Button.jsx';
 import { Input } from '@/components/Form.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 export default function AccountInfoPage() {
   const { user, role, updateUser } = useAuth();
@@ -117,33 +118,26 @@ export default function AccountInfoPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header Card */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-green-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-800 flex items-center gap-1">
-              <User className="w-3.5 h-3.5" /> Thông tin cá nhân
+      <PageHeader
+        icon={User}
+        title="Cài đặt thông tin tài khoản"
+        description="Quản lý tên hiển thị, ảnh đại diện, số điện thoại và thông tin liên hệ của bạn."
+        badge={
+          isPending && (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" /> Chờ xét duyệt
             </span>
-            {isPending && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> Chờ xét duyệt
-              </span>
-            )}
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main">
-            Cài đặt thông tin tài khoản
-          </h1>
-          <p className="text-xs sm:text-sm text-text-muted mt-1">
-            Quản lý tên hiển thị, ảnh đại diện, số điện thoại và thông tin liên hệ của bạn.
-          </p>
-        </div>
-
-        <Link
-          to={passwordPath}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-xs transition-colors self-start sm:self-auto border border-amber-200/60"
-        >
-          <KeyRound className="w-4 h-4" /> Đổi mật khẩu <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
-      </div>
+          )
+        }
+        actions={
+          <Link
+            to={passwordPath}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-50 text-amber-800 hover:bg-amber-100 font-semibold text-xs transition-colors"
+          >
+            <KeyRound className="w-4 h-4" /> Đổi mật khẩu <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        }
+      />
 
       {/* Error alert */}
       {error && (

@@ -13,6 +13,7 @@ import { getVerificationRequests, reviewVerification } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { clsx } from 'clsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 export default function AdminVerificationPage() {
   const [requests, setRequests] = useState([]);
@@ -174,28 +175,23 @@ function getVerificationTargetType(req) {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl ring-1 ring-green-100/70 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
-              {counts.pending} hồ sơ đang chờ xét duyệt
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-green-dark" /> Duyệt hồ sơ Sinh viên, Lao động tự do & Cửa hàng
-          </h1>
-          <p className="text-xs text-gray-500 mt-1">
-            Đối soát danh tính sinh viên, người lao động và giấy phép đối tác trước khi kích hoạt tài khoản chính thức.
-          </p>
-        </div>
-        <button
-          onClick={loadRequests}
-          disabled={loading}
-          className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} /> Làm mới
-        </button>
-      </div>
+      <PageHeader
+        icon={ShieldCheck}
+        title="Duyệt hồ sơ Sinh viên, Lao động tự do & Cửa hàng"
+        description="Đối soát danh tính sinh viên, người lao động và giấy phép đối tác trước khi kích hoạt tài khoản chính thức."
+        badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800"> {counts.pending} hồ sơ đang chờ xét duyệt </span>}
+        actions={
+          <>
+            <button
+              onClick={loadRequests}
+              disabled={loading}
+              className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <RefreshCw className={clsx('w-3.5 h-3.5', loading && 'animate-spin')} /> Làm mới
+            </button>
+          </>
+        }
+      />
 
       {/* Filter Tabs & Search Controls */}
       <div className="bg-white p-4 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-3">

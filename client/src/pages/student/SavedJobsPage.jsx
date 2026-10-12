@@ -3,6 +3,7 @@ import { Bookmark, Search } from 'lucide-react';
 import { getSavedJobs, getJobs, toggleSaveJob } from '@/services';
 import { JobCard } from '@/components/JobCard.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 export default function SavedJobsPage() {
   const [savedJobs, setSavedJobs] = useState([]);
@@ -58,27 +59,25 @@ export default function SavedJobsPage() {
     <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-green-50 shadow-card">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Bookmark className="w-6 h-6 text-pink-700 fill-pink-main" /> Công việc đã lưu
-          </h1>
-          <p className="text-xs text-text-muted mt-1">
-            Danh sách các bài tuyển dụng tại Hòa Lạc bạn đang quan tâm.
-          </p>
-        </div>
-
-        <div className="relative w-full sm:w-72">
-          <input
-            type="text"
-            placeholder="Tìm trong công việc đã lưu..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-2xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main bg-cream/40"
-          />
-          <Search className="w-4 h-4 text-text-muted absolute left-3.5 top-2.5" />
-        </div>
-      </div>
+      <PageHeader
+        icon={Bookmark}
+        title="Công việc đã lưu"
+        description="Danh sách các bài tuyển dụng tại Hòa Lạc bạn đang quan tâm."
+        actions={
+          <>
+            <div className="relative w-full sm:w-72">
+              <input
+                type="text"
+                placeholder="Tìm trong công việc đã lưu..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-2xl border border-green-100 text-xs focus:outline-none focus:ring-2 focus:ring-green-main bg-cream/40"
+              />
+              <Search className="w-4 h-4 text-text-muted absolute left-3.5 top-2.5" />
+            </div>
+          </>
+        }
+      />
 
       {loading ? (
         <div className="text-center py-12 text-text-muted">Đang tải công việc đã lưu...</div>

@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth.jsx';
 import { getEmployments, terminateEmployment } from '@/services';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 export default function EmployerEmployeesPage() {
   const { user } = useAuth();
@@ -91,30 +92,24 @@ export default function EmployerEmployeesPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* HEADER & SUMMARY */}
-      <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-              <UserCheck className="w-6 h-6 text-green-dark" /> Danh sách Nhân viên
-            </h1>
-            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-extrabold text-xs border border-emerald-200">
-              {activeEmployees.length} nhân viên đang làm việc
-            </span>
-          </div>
-          <p className="text-xs text-text-muted mt-1.5">
-            Danh sách nhân viên chính thức từ các ứng viên đã chấp nhận Offer. Bạn có thể xếp ca, liên hệ trực tiếp hoặc cập nhật trạng thái làm việc.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
+      <PageHeader
+        icon={UserCheck}
+        title="Danh sách Nhân viên"
+        description="Danh sách nhân viên chính thức từ các ứng viên đã chấp nhận Offer. Bạn có thể xếp ca, liên hệ trực tiếp hoặc cập nhật trạng thái làm việc."
+        badge={
+          <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-extrabold text-xs border border-emerald-200">
+            {activeEmployees.length} nhân viên đang làm việc
+          </span>
+        }
+        actions={
           <Link
             to="/employer/shifts"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-green-main hover:bg-green-dark text-white font-bold text-xs shadow-xs transition-colors"
+            className="btn-primary btn btn-md"
           >
             <Calendar className="w-4 h-4" /> Đến lịch phân ca
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* SEARCH BAR */}
       <div className="bg-white p-3.5 rounded-3xl border border-gray-100 shadow-card flex items-center gap-3">

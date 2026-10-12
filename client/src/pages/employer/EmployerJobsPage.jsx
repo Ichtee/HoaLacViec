@@ -20,6 +20,7 @@ import {
 import { Toast } from '@/components/Feedback.jsx';
 import { formatVND, getGoogleMapsDirectionsUrl } from '@/utils';
 import { ActionMenu } from '@/components/ActionMenu.jsx';
+import { PageHeader } from '@/components/PageHeader.jsx';
 
 export default function EmployerJobsPage() {
   const navigate = useNavigate();
@@ -87,23 +88,21 @@ export default function EmployerJobsPage() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
-      <div className="bg-white p-6 rounded-3xl border border-green-50 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-text-main flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-green-dark" /> Quản lý tin tuyển dụng
-          </h1>
-          <p className="text-xs text-text-muted mt-1">
-            Đăng tin tuyển dụng và liên kết địa chỉ Google Maps để sinh viên tìm kiếm và đến quán dễ dàng.
-          </p>
-        </div>
-
-        <button
-          onClick={() => navigate('/employer/jobs/create')}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-brand-gradient shadow-brand hover:brightness-110 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all self-start sm:self-center shrink-0"
-        >
-          <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin tuyển mới
-        </button>
-      </div>
+      <PageHeader
+        icon={Briefcase}
+        title="Quản lý tin tuyển dụng"
+        description="Đăng tin tuyển dụng và liên kết địa chỉ Google Maps để sinh viên tìm kiếm và đến quán dễ dàng."
+        actions={
+          <>
+            <button
+              onClick={() => navigate('/employer/jobs/create')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-brand-gradient shadow-brand hover:brightness-110 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all self-start sm:self-center shrink-0"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" /> Đăng tin tuyển mới
+            </button>
+          </>
+        }
+      />
 
       {/* List */}
       {loading ? (
