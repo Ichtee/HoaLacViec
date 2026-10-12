@@ -428,7 +428,7 @@ export default function VerifyAccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-cream to-pink-50 py-10 px-4 sm:px-6 lg:px-8">
+    <div className="py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Top Header Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-green-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -451,7 +451,7 @@ export default function VerifyAccountPage() {
               logout();
               navigate('/login');
             }}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-text-muted hover:text-red-700 hover:border-red-200 text-xs font-medium transition-colors"
+            className="self-start sm:self-auto shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-gray-200 text-text-muted hover:text-red-700 hover:border-red-200 text-xs font-medium transition-colors"
           >
             <LogOut className="w-4 h-4" /> Đăng xuất
           </button>

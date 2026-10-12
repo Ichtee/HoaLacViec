@@ -198,7 +198,7 @@ export default function EmployerVerificationPanel({
 
 
                   <div>
-                    <label className="block text-xs font-bold text-text-main mb-1.5">
+                    <label className="label">
                       Giới thiệu ngắn về cửa hàng / nhu cầu tuyển dụng
                     </label>
                     <textarea
@@ -212,7 +212,7 @@ export default function EmployerVerificationPanel({
 
                   {/* Store Photo Upload */}
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold text-text-main">
+                    <label className="label">
                       Ảnh chụp Biển hiệu / Cửa hàng
                     </label>
                     {storePhoto ? (
