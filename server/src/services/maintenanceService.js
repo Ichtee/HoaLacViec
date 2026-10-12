@@ -3,6 +3,7 @@ import { Job } from '../models/Job.js';
 import { Shift } from '../models/Shift.js';
 import { QuickShift } from '../models/QuickShift.js';
 import { Notification } from '../models/Notification.js';
+import { EXPIRY_REMINDER_DAYS } from '../config/credits.js';
 
 const SHIFT_REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_INTERVAL_MS = 10 * 60 * 1000;
@@ -95,6 +96,35 @@ export async function expireOverdueJobs(now = new Date()) {
   return expired;
 }
 
+/** Nhắc nhà tuyển dụng tin sắp hết hạn (mỗi tin đúng một lần, nhận quyền gửi bằng cập nhật có điều kiện). */
+export async function notifyExpiringJobs(now = new Date()) {
+  const soon = await Job.find({
+    status: 'approved',
+    expiryReminderSentAt: null,
+    closesAt: { $gt: now, $lte: new Date(now.getTime() + EXPIRY_REMINDER_DAYS * 86400000) },
+  }).select('_id title employerUserId closesAt');
+
+  let sent = 0;
+  for (const job of soon) {
+    const claimed = await Job.findOneAndUpdate(
+      { _id: job._id, expiryReminderSentAt: null },
+      { $set: { expiryReminderSentAt: now } }
+    );
+    if (!claimed) continue;
+    sent++;
+    if (!job.employerUserId) continue;
+    const date = new Date(job.closesAt).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+    await notify({
+      userId: job.employerUserId,
+      title: 'Tin tuyển dụng sắp hết hạn',
+      message: `Tin "${job.title}" sẽ hết hạn vào ${date}. Gia hạn để tiếp tục nhận hồ sơ.`,
+      type: 'job',
+      link: '/employer/jobs',
+    });
+  }
+  return sent;
+}
+
 /** Nhắc nhân viên các ca bắt đầu trong vòng 2 giờ tới (mỗi ca nhắc đúng một lần). */
 export async function sendShiftReminders(now = new Date()) {
   const upcoming = await Shift.find({
@@ -138,12 +168,13 @@ export async function expireQuickShifts(now = new Date()) {
 }
 
 export async function runMaintenance(now = new Date()) {
-  const result = { offersExpired: 0, jobsExpired: 0, remindersSent: 0, quickShiftsExpired: 0 };
+  const result = { offersExpired: 0, jobsExpired: 0, remindersSent: 0, quickShiftsExpired: 0, expiryReminders: 0 };
   const tasks = [
     ['offersExpired', expireOverdueOffers],
     ['jobsExpired', expireOverdueJobs],
     ['remindersSent', sendShiftReminders],
     ['quickShiftsExpired', expireQuickShifts],
+    ['expiryReminders', notifyExpiringJobs],
   ];
   for (const [key, task] of tasks) {
     try {

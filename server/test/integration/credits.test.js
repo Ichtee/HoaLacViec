@@ -528,3 +528,31 @@ test('quick shift: balance 0 -> 402 and no doc; balance 15 -> 201, balance 0, le
   assert.equal(String(row.refId), String(r.body._id));
   assert.equal(row.refType, 'QuickShift');
 });
+
+test('notifyExpiringJobs: closing in 1d notified once; closing in 5d not', async () => {
+  const { notifyExpiringJobs } = await import('../../src/services/maintenanceService.js');
+  const e = await newEmployer();
+  const soon = await seedJob(e, { closesAt: new Date(Date.now() + DAY) });
+  await seedJob(e, { closesAt: new Date(Date.now() + 5 * DAY) });
+  assert.equal(await notifyExpiringJobs(), 1);
+  assert.equal(await notifyExpiringJobs(), 0);
+  const n = await (await import('../../src/models/Notification.js')).Notification.find({ userId: e._id });
+  assert.equal(n.length, 1);
+  assert.equal(n[0].title, 'Tin tuyển dụng sắp hết hạn');
+  assert.equal(n[0].link, '/employer/jobs');
+  assert.ok((await t.models.Job.findById(soon._id)).expiryReminderSentAt);
+});
+
+test('backfillJobExpiry: dry-run leaves docs, apply sets closesAt', async () => {
+  const { backfillJobExpiry } = await import('../../src/scripts/backfillJobExpiry.js');
+  const e = await newEmployer();
+  const job = await seedJob(e);
+  const paused = await seedJob(e, { status: 'paused' });
+  const dry = await backfillJobExpiry({ apply: false });
+  assert.ok(dry.matched >= 2);
+  assert.equal(dry.updated, 0);
+  assert.equal((await t.models.Job.findById(job._id)).closesAt ?? null, null);
+  const done = await backfillJobExpiry({ apply: true });
+  assert.ok(done.updated >= 2);
+  for (const j of [job, paused]) assert.ok(near((await t.models.Job.findById(j._id)).closesAt, Date.now() + 14 * DAY));
+});
