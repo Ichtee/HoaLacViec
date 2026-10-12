@@ -128,6 +128,8 @@ export default function JobListPage() {
   // approximate map position so they can still be displayed as amber markers.
   // Attendance and directions continue to require the stored confirmed location.
   useEffect(() => {
+    // /jobs/geocode is login-only (rate-limited map quota); anonymous visitors keep approx coords from the server.
+    if (!isAuthenticated) return undefined;
     let active = true;
     const unresolvedJobs = allJobs.filter((job) => {
       const id = String(job._id || job.id);
@@ -161,7 +163,7 @@ export default function JobListPage() {
 
     resolveMissingMapLocations();
     return () => { active = false; };
-  }, [allJobs]);
+  }, [allJobs, isAuthenticated]);
 
   const distanceTargets = useMemo(() => {
     const targets = {};
