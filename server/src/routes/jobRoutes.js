@@ -13,6 +13,7 @@ import { vietmapAutocomplete } from '../services/vietmapService.js';
 import { authenticate, authorize, optionalAuthenticate, requireActiveUser } from '../middlewares/auth.js';
 import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/geoHelper.js';
 import { geocodeAddress } from '../services/geocodingService.js';
+import { ensureApproxLocations } from '../services/approxLocationService.js';
 import { notifyJobAlerts, notifyFeaturedJob } from '../services/jobAlertService.js';
 import { countFreeActiveListings, applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
 import { spendCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
@@ -376,6 +377,9 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       const rank = (j) => (isJobFeatured(j, now) ? (until(j) > now.getTime() ? 0 : 1) : 2);
       jobs.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? until(b) - until(a) : 0) || new Date(b.createdAt) - new Date(a.createdAt));
     }
+
+    // Unpinned listings get an approximate map point (geocoded once, waits at most 2.5s so the list never stalls).
+    await Promise.race([ensureApproxLocations(jobs), new Promise((r) => setTimeout(r, 2500))]);
 
     // Attach real employer profile info — NO FAKE FALLBACKS!
     try {

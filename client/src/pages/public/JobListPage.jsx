@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
+import { useMediaQuery } from '@/hooks/useMediaQuery.js';
 import { Search, SlidersHorizontal, X, Map, List, Loader2, MapPin } from 'lucide-react';
 import { clsx } from 'clsx';
 import { JobRow } from '@/components/JobRow.jsx';
@@ -25,7 +26,11 @@ export default function JobListPage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [featuredOnly, setFeaturedOnly] = useState(false);
   const [sort, setSort] = useState('newest'); // Default sort: Mới nhất
-  const [viewMode, setViewMode] = useState('list');
+  // Desktop opens with the map next to the list (like a map search); phones start with the list.
+  const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches ? 'map' : 'list'));
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  // Inside the student layout the sidebar already takes width, so filters stay in the "Bộ lọc" panel.
+  const inLayout = useLocation().pathname.startsWith('/student');
   const [page, setPage] = useState(1);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -422,11 +427,11 @@ export default function JobListPage() {
   return (
     <div className="pb-10">
       {/* Dải tìm kiếm */}
-      <div className="bg-green-dark">
+      <div className={clsx('bg-green-dark', inLayout && 'rounded-2xl mb-4')}>
         <form
           role="search"
           onSubmit={(e) => { e.preventDefault(); setPage(1); }}
-          className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex gap-2"
+          className={clsx('mx-auto flex gap-2 py-3 sm:py-4', inLayout ? 'px-3 sm:px-4' : 'max-w-6xl px-4 sm:px-6')}
         >
           <div className="flex-1 relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
@@ -454,7 +459,7 @@ export default function JobListPage() {
         </form>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-5">
+      <div className={clsx(!inLayout && 'mx-auto px-4 sm:px-6 pt-5', !inLayout && (viewMode === 'map' ? 'max-w-7xl' : 'max-w-6xl'))}>
         <div className="mb-4">
           <h1 className="text-lg sm:text-xl font-bold text-text-main">
             Việc làm quanh Hòa Lạc <span className="text-green-dark">({sorted.length})</span>
@@ -481,10 +486,17 @@ export default function JobListPage() {
           </div>
         )}
 
-        <div className="lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-6 items-start">
-          <aside className="hidden lg:block sticky top-20 bg-white rounded-2xl border border-stone-200 p-4" aria-label="Bộ lọc">
-            {filterPanel}
-          </aside>
+        <div className={clsx(
+          'items-start lg:grid lg:gap-6',
+          viewMode === 'map' && isDesktop
+            ? (inLayout ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_minmax(0,1fr)]')
+            : (inLayout ? 'lg:grid-cols-1' : 'lg:grid-cols-[240px_minmax(0,1fr)]')
+        )}>
+          {!inLayout && (
+            <aside className={clsx('hidden sticky top-20 bg-white rounded-2xl border border-stone-200 p-4', viewMode === 'map' ? 'xl:block' : 'lg:block')} aria-label="Bộ lọc">
+              {filterPanel}
+            </aside>
+          )}
 
           <section className="min-w-0 space-y-3" aria-label="Kết quả tìm việc">
             <div className="flex items-center gap-2">
@@ -493,14 +505,15 @@ export default function JobListPage() {
                 onClick={() => setFiltersOpen(!filtersOpen)}
                 aria-expanded={filtersOpen}
                 className={clsx(
-                  'lg:hidden shrink-0 whitespace-nowrap h-10 px-3.5 rounded-xl border text-sm font-medium flex items-center gap-2',
+                  'shrink-0 whitespace-nowrap h-10 px-3.5 rounded-xl border text-sm font-medium flex items-center gap-2',
+                  !inLayout && (viewMode === 'map' ? 'xl:hidden' : 'lg:hidden'),
                   hasFilters ? 'bg-green-50 border-green-main text-green-dark' : 'border-stone-300 bg-white text-text-main'
                 )}
               >
                 <SlidersHorizontal className="w-4 h-4" /> Bộ lọc
               </button>
               <div className="flex items-center gap-2 ml-auto min-w-0">
-                <label htmlFor="sort-select" className="text-sm text-text-muted hidden sm:inline">Sắp xếp theo</label>
+                <label htmlFor="sort-select" className="text-sm text-text-muted hidden 2xl:inline whitespace-nowrap">Sắp xếp theo</label>
                 <Select
                   id="sort-select"
                   value={sort}
@@ -523,11 +536,11 @@ export default function JobListPage() {
                       aria-label={label}
                       onClick={() => setViewMode(mode)}
                       className={clsx(
-                        'h-9 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5',
+                        'h-9 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap',
                         viewMode === mode ? 'bg-white text-text-main shadow-xs' : 'text-text-muted hover:text-text-main'
                       )}
                     >
-                      <Icon className="w-3.5 h-3.5" /> <span className="hidden sm:inline">{label}</span>
+                      <Icon className="w-3.5 h-3.5" /> <span className="hidden 2xl:inline whitespace-nowrap">{label}</span>
                     </button>
                   ))}
                 </div>
@@ -535,10 +548,10 @@ export default function JobListPage() {
             </div>
 
             {filtersOpen && (
-              <div className="lg:hidden bg-white rounded-2xl border border-stone-200 p-4">{filterPanel}</div>
+              <div className={clsx('bg-white rounded-2xl border border-stone-200 p-4', !inLayout && (viewMode === 'map' ? 'xl:hidden' : 'lg:hidden'))}>{filterPanel}</div>
             )}
 
-            {viewMode === 'map' && renderMap('w-full h-[320px] sm:h-[420px] rounded-2xl overflow-hidden border border-stone-200')}
+            {viewMode === 'map' && !isDesktop && renderMap('w-full h-[320px] sm:h-[420px] rounded-2xl overflow-hidden border border-stone-200')}
 
             {loading && allJobs.length === 0 ? (
               <LoadingPage />
@@ -592,6 +605,12 @@ export default function JobListPage() {
               </>
             )}
           </section>
+
+          {viewMode === 'map' && isDesktop && (
+            <aside className="sticky top-20 h-[calc(100vh-6rem)] min-w-0" aria-label="Bản đồ việc làm">
+              {renderMap('w-full h-full rounded-2xl overflow-hidden border border-stone-200')}
+            </aside>
+          )}
         </div>
       </div>
     </div>
