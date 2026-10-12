@@ -2,7 +2,7 @@ import { Outlet, Link } from 'react-router-dom';
 import { useState } from 'react';
 import {
   LayoutDashboard, Briefcase, Users, Calendar,
-  X, UserCheck, Zap, MessageCircle, Repeat,
+  X, UserCheck, Zap, MessageCircle, Repeat, Coins,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { useNavBadges } from '@/hooks/useNavBadges.js';
@@ -18,6 +18,7 @@ const EMPLOYER_NAV_GROUPS = [
       { to: '/employer/jobs', label: 'Tin tuyển dụng', icon: Briefcase },
       { to: '/employer/applications', label: 'Ứng viên', icon: Users },
       { to: '/employer/quick-shifts', label: 'Tuyển nhanh', icon: Zap },
+      { to: '/employer/credits', label: 'Credit', icon: Coins },
     ],
   },
   {

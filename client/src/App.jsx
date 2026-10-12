@@ -49,6 +49,7 @@ const EmployerApplicationsPage = lazy(() => import('@/pages/employer/EmployerApp
 const EmployerEmployeesPage = lazy(() => import('@/pages/employer/EmployerEmployeesPage.jsx'));
 const EmployerShiftsPage = lazy(() => import('@/pages/employer/EmployerShiftsPage.jsx'));
 const EmployerQuickShiftsPage = lazy(() => import('@/pages/employer/EmployerQuickShiftsPage.jsx'));
+const EmployerCreditsPage = lazy(() => import('@/pages/employer/EmployerCreditsPage.jsx'));
 
 // Admin Pages
 const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage.jsx'));
@@ -181,6 +182,7 @@ export default function App() {
           <Route path="employees" element={<EmployerEmployeesPage />} />
           <Route path="shifts" element={<EmployerShiftsPage />} />
           <Route path="quick-shifts" element={<EmployerQuickShiftsPage />} />
+          <Route path="credits" element={<EmployerCreditsPage />} />
           <Route path="messages" element={<MessagesPage />} />
           <Route path="swaps" element={<ShiftSwapsPage />} />
         </Route>

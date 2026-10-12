@@ -1030,3 +1030,43 @@ export async function apiVietmapMatrix({ origin, destinations, vehicle = 'motorc
   });
 }
 
+// ─── CREDITS ──────────────────────────────────────────────────────
+export async function apiGetCreditPricing() {
+  return request('/credits/pricing');
+}
+
+export async function apiGetMyCredits() {
+  return request('/credits/me');
+}
+
+export async function apiCreateTopUp(packId) {
+  return request('/credits/topups', { method: 'POST', body: JSON.stringify({ packId }) });
+}
+
+export async function apiGetMyTopUps() {
+  return request('/credits/topups/mine');
+}
+
+export async function apiGetTopUp(id) {
+  return request(`/credits/topups/${id}`);
+}
+
+export async function apiReconcileTopUp(id) {
+  return request(`/credits/topups/${id}/reconcile`, { method: 'POST' });
+}
+
+export async function apiFeatureJob(jobId, days) {
+  return request(`/credits/jobs/${jobId}/feature`, { method: 'POST', body: JSON.stringify({ days }) });
+}
+
+export async function apiRenewJob(jobId) {
+  return request(`/credits/jobs/${jobId}/renew`, { method: 'POST' });
+}
+
+export async function apiAdminListTopUps(status) {
+  return request(`/credits/admin/topups${buildQueryString(status ? { status } : {})}`);
+}
+
+export async function apiAdminReconcileTopUp(id) {
+  return request(`/credits/admin/topups/${id}/reconcile`, { method: 'POST' });
+}
