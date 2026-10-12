@@ -46,6 +46,7 @@ const employerProfileSchema = new mongoose.Schema({
   contactName: { type: String, default: '' },
   contactPhone: { type: String, default: '' },
   description: { type: String, default: '' },
+  creditBalance: { type: Number, default: 0, min: 0 },
   verified: { type: Boolean, default: false },
   verifiedAt: { type: Date, default: null },
   checkinRadius: { type: Number, default: 150, min: 50, max: 500 },
