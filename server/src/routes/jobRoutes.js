@@ -16,6 +16,7 @@ import { geocodeAddress } from '../services/geocodingService.js';
 import { notifyJobAlerts } from '../services/jobAlertService.js';
 import { countFreeActiveListings, applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
 import { spendCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
+import { httpError } from '../utils/httpError.js';
 import { FREE_ACTIVE_LISTINGS } from '../config/credits.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
 
@@ -40,6 +41,23 @@ async function quotaDecision(employerUserId, wantsExtraSlot) {
   const activeListings = await countFreeActiveListings(employerUserId);
   if (activeListings < FREE_ACTIVE_LISTINGS) return { paid: false };
   return wantsExtraSlot === true ? { paid: true } : { blocked: QUOTA_REACHED(activeListings) };
+}
+
+// Draft/rejected/closed -> pending. The status claim runs before the charge, so a repeated request cannot pay twice.
+async function moveToPending(req, job, from, note, needsSlot) {
+  const quota = req.user.role === 'admin' || !needsSlot || job.paidSlot ? { paid: false } : await quotaDecision(req.user._id, req.body?.useExtraSlot);
+  if (quota.blocked) return { blocked: quota.blocked };
+  const updated = await withCreditTransaction(async (session) => {
+    const claimed = await Job.findOneAndUpdate(
+      { _id: job._id, status: { $in: from } },
+      { status: 'pending', moderationNote: note, ...(quota.paid ? { paidSlot: true } : {}) },
+      { new: true, session },
+    );
+    if (!claimed) throw httpError(409, 'INVALID_STATE', 'Trạng thái tin đã thay đổi. Vui lòng tải lại trang.');
+    if (quota.paid) await spendCredits({ employerUserId: req.user._id, reason: 'extra_slot', refType: 'Job', refId: job._id, session });
+    return claimed;
+  });
+  return { job: updated };
 }
 
 const EDITABLE_JOB_FIELDS = [
@@ -522,6 +540,7 @@ router.post('/', authenticate, async (req, res, next) => {
 
     const profile = await EmployerProfile.findOne({ userId: req.user._id });
     const data = pickEditableJobFields(req.body);
+    if (req.user.role !== 'admin') delete data.closesAt; // only the approval window sets it for employers
 
     data.employerUserId = req.user._id;
     if (profile) {
@@ -624,22 +643,10 @@ router.post('/:id/submit', authenticate, async (req, res, next) => {
       }
     }
 
-    job.status = 'pending';
-    job.moderationNote = 'Chờ xét duyệt từ Ban Quản Trị';
-    const quota = req.user.role === 'admin' ? { paid: false } : await quotaDecision(req.user._id, req.body?.useExtraSlot);
-    if (quota.blocked) return res.status(402).json(quota.blocked);
-    if (quota.paid) {
-      await withCreditTransaction(async (session) => {
-        const { transaction } = await spendCredits({ employerUserId: req.user._id, reason: 'extra_slot', refType: 'Job', refId: job._id, session });
-        job.paidSlot = true;
-        await job.save({ session });
-        return transaction;
-      });
-    } else {
-      await job.save();
-    }
+    const moved = await moveToPending(req, job, ['draft', 'rejected'], 'Chờ xét duyệt từ Ban Quản Trị', true);
+    if (moved.blocked) return res.status(402).json(moved.blocked);
 
-    res.json({ message: 'Tin tuyển dụng đã được gửi duyệt thành công.', job });
+    res.json({ message: 'Tin tuyển dụng đã được gửi duyệt thành công.', job: moved.job });
   } catch (err) {
     next(err);
   }
@@ -706,11 +713,11 @@ router.post('/:id/reopen', authenticate, async (req, res, next) => {
     }
 
     // Reopen MUST return to pending for admin re-approval
-    job.status = 'pending';
-    job.moderationNote = 'Tin tuyển dụng được mở lại và chờ xét duyệt.';
-    await job.save();
+    // A paused job already holds its slot; only a closed one needs a new one.
+    const moved = await moveToPending(req, job, ['paused', 'closed'], 'Tin tuyển dụng được mở lại và chờ xét duyệt.', job.status === 'closed');
+    if (moved.blocked) return res.status(402).json(moved.blocked);
 
-    res.json({ message: 'Tin tuyển dụng đã được gửi lại để Ban Quản Trị xét duyệt.', job });
+    res.json({ message: 'Tin tuyển dụng đã được gửi lại để Ban Quản Trị xét duyệt.', job: moved.job });
   } catch (err) {
     next(err);
   }
@@ -826,6 +833,7 @@ router.put('/:id', authenticate, async (req, res, next) => {
     }
 
     const edits = pickEditableJobFields(req.body);
+    if (req.user.role !== 'admin') delete edits.closesAt;
     if (req.body.status === 'pending' && job.status === 'approved') {
       edits.status = 'pending';
       edits.moderationNote = req.body.moderationNote;
@@ -926,9 +934,13 @@ router.delete('/:id', authenticate, async (req, res, next) => {
 
     if (appCount > 0 || shiftCount > 0) {
       // Soft-delete with archivedAt to preserve history and contract integrity
+      const wasPending = job.status === 'pending';
       job.archivedAt = new Date();
       job.status = 'closed';
-      await job.save();
+      await withCreditTransaction(async (session) => {
+        if (wasPending) await refundJobPurchases(job, req.user._id, session);
+        await job.save({ session });
+      });
       return res.json({
         message: 'Tin tuyển dụng đã có người ứng tuyển hoặc ca làm việc, đã được chuyển sang chế độ lưu trữ.',
         archived: true,
@@ -936,7 +948,10 @@ router.delete('/:id', authenticate, async (req, res, next) => {
       });
     }
 
-    await Job.findByIdAndDelete(req.params.id);
+    await withCreditTransaction(async (session) => {
+      if (job.status === 'pending') await refundJobPurchases(job, req.user._id, session);
+      await Job.findByIdAndDelete(req.params.id, { session });
+    });
     res.json({ message: 'Đã xóa hoàn toàn tin tuyển dụng.', archived: false });
   } catch (err) {
     next(err);

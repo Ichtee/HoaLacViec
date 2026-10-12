@@ -13,6 +13,7 @@ import { CREDIT_PACKS, CREDIT_PRICES, FREE_ACTIVE_LISTINGS, LISTING_DAYS, WELCOM
 import { SEPAY_NOTIFICATION } from '../config/sepay.js';
 import { getSepayClient } from '../services/sepayClient.js';
 import { applySepayOrderPaid } from '../services/topUpService.js';
+import { countFreeActiveListings } from '../services/listingService.js';
 import { getBalance, spendCredits, withCreditTransaction } from '../services/creditService.js';
 
 const router = express.Router();
@@ -65,7 +66,7 @@ router.get('/me', ...employerOnly, async (req, res, next) => {
   try {
     const [balance, activeListings, transactions] = await Promise.all([
       getBalance(req.user._id),
-      Job.countDocuments({ employerUserId: req.user._id, status: 'approved', recruitmentStatus: 'open' }),
+      countFreeActiveListings(req.user._id),
       CreditTransaction.find({ employerUserId: req.user._id }).sort({ createdAt: -1, _id: -1 }).limit(50).lean(),
     ]);
     res.json({ balance, freeActiveListings: FREE_ACTIVE_LISTINGS, activeListings, transactions });
@@ -110,8 +111,9 @@ async function buyForJob(req, change) {
     const job = await Job.findById(id).session(session);
     if (!job) throw notFound();
     if (String(job.employerUserId) !== String(req.user._id)) throw httpError(403, 'FORBIDDEN', 'Bạn không có quyền với tin này.');
-    const reason = change(job, new Date());
-    const { balance } = await spendCredits({ employerUserId: req.user._id, reason, refType: 'Job', refId: job._id, session });
+    const reasons = [].concat(await change(job, new Date()));
+    let balance;
+    for (const reason of reasons) ({ balance } = await spendCredits({ employerUserId: req.user._id, reason, refType: 'Job', refId: job._id, session }));
     await job.save({ session });
     return { job, balance };
   });
@@ -137,12 +139,17 @@ router.post('/jobs/:id/feature', ...employerOnly, requireActiveUser, async (req,
 
 router.post('/jobs/:id/renew', ...employerOnly, requireActiveUser, async (req, res, next) => {
   try {
-    res.json(await buyForJob(req, (job, now) => {
+    res.json(await buyForJob(req, async (job, now) => {
       if (!['approved', 'paused', 'expired'].includes(job.status)) throw httpError(409, 'INVALID_STATE', 'Chỉ tin đã duyệt, đang tạm dừng hoặc đã hết hạn mới gia hạn được.');
-      if (job.status === 'expired') job.status = 'approved';
+      const reasons = ['renew_14d'];
+      if (job.status === 'expired') {
+        // An expired job no longer holds a free slot; if none is left, it comes back as a paid slot.
+        if (!job.paidSlot && (await countFreeActiveListings(req.user._id)) >= FREE_ACTIVE_LISTINGS) { reasons.push('extra_slot'); job.paidSlot = true; }
+        job.status = 'approved';
+      }
       job.closesAt = new Date(laterOf(job.closesAt, now).getTime() + LISTING_DAYS * DAY_MS);
       job.expiryReminderSentAt = null;
-      return 'renew_14d';
+      return reasons;
     }));
   } catch (err) { next(err); }
 });

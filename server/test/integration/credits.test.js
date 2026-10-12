@@ -634,3 +634,89 @@ test('sort=featured: lapsed boost does not outrank a newer never-featured job; a
   const [a, p, l] = [active, plain, lapsed].map((j) => ids.indexOf(String(j._id)));
   assert.ok(a < p && p < l, `order ${a} ${p} ${l}`);
 });
+
+// ---- Final fix wave ----
+test('closesAt is admin-only: employer POST/PUT strip it, admin keeps it', async () => {
+  const e = await newEmployer();
+  const token = await login(e);
+  const r = await postJob(token, { closesAt: '2099-01-01' });
+  assert.equal(r.status, 201);
+  assert.equal((await t.models.Job.findById(r.body._id)).closesAt, undefined);
+  const job = await seedJob(e);
+  const put = await call(`/jobs/${job._id}`, { method: 'PUT', token, body: { closesAt: '2099-01-01', contactPhone: '0900000009' } });
+  assert.equal(put.status, 200);
+  assert.equal((await t.models.Job.findById(job._id)).closesAt, undefined);
+  const at = await login(await createUser(t.models, { role: 'admin' }));
+  const ap = await call(`/jobs/${job._id}`, { method: 'PUT', token: at, body: { closesAt: '2099-01-01' } });
+  assert.equal(new Date(ap.body.closesAt).getUTCFullYear(), 2099);
+});
+
+test('reopen: full quota -> 402; extra slot charges; free slot -> no charge; paused is not re-checked', async () => {
+  const e = await fundedEmployerWithTwoJobs(30);
+  const token = await login(e);
+  const c1 = await seedJob(e, { status: 'closed' });
+  let r = await call(`/jobs/${c1._id}/reopen`, { method: 'POST', token });
+  assert.equal(r.status, 402);
+  assert.equal(r.body.code, 'LISTING_QUOTA_REACHED');
+  r = await call(`/jobs/${c1._id}/reopen`, { method: 'POST', token, body: { useExtraSlot: true } });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const after = await t.models.Job.findById(c1._id);
+  assert.deepEqual([after.status, after.paidSlot, await bal(e)], ['pending', true, 0]);
+  const f = await newEmployer();
+  await grantCredits({ employerUserId: f._id, amount: 30, type: 'welcome', reason: 'welcome' });
+  const c2 = await seedJob(f, { status: 'closed' });
+  assert.equal((await call(`/jobs/${c2._id}/reopen`, { method: 'POST', token: await login(f), body: { useExtraSlot: true } })).status, 200);
+  assert.deepEqual([(await t.models.Job.findById(c2._id)).paidSlot, await bal(f)], [false, 30]);
+  const p = await seedJob(e, { status: 'paused' }); // already counted: no new slot needed
+  assert.equal((await call(`/jobs/${p._id}/reopen`, { method: 'POST', token })).status, 200);
+});
+
+test('renew expired: full quota charges renew+slot together; short balance charges nothing; free slot renew only', async () => {
+  const e = await fundedEmployerWithTwoJobs(40);
+  const token = await login(e);
+  const x = await seedJob(e, { status: 'expired', closesAt: new Date(Date.now() - DAY) });
+  let r = await call(`/credits/jobs/${x._id}/renew`, { method: 'POST', token });
+  assert.equal(r.status, 402);
+  assert.equal(r.body.code, 'INSUFFICIENT_CREDITS');
+  assert.equal(await bal(e), 40);
+  assert.equal((await t.models.Job.findById(x._id)).status, 'expired');
+  await grantCredits({ employerUserId: e._id, amount: 10, type: 'topup', reason: 'p50' });
+  r = await call(`/credits/jobs/${x._id}/renew`, { method: 'POST', token });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  const after = await t.models.Job.findById(x._id);
+  assert.deepEqual([after.status, after.paidSlot, await bal(e)], ['approved', true, 0]);
+  const f = await newEmployer();
+  await grantCredits({ employerUserId: f._id, amount: 30, type: 'welcome', reason: 'welcome' });
+  const y = await seedJob(f, { status: 'expired', closesAt: new Date(Date.now() - DAY) });
+  assert.equal((await call(`/credits/jobs/${y._id}/renew`, { method: 'POST', token: await login(f) })).status, 200);
+  assert.deepEqual([(await t.models.Job.findById(y._id)).paidSlot, await bal(f)], [false, 10]);
+});
+
+test('/credits/me activeListings uses the enforced count', async () => {
+  const e = await newEmployer();
+  await seedJob(e, { status: 'pending' });
+  await seedJob(e, { status: 'paused' });
+  assert.equal((await call('/credits/me', { token: await login(e) })).body.activeListings, 2);
+});
+
+test('deleting a pending paid-slot job refunds once', async () => {
+  const e = await fundedEmployerWithTwoJobs(30);
+  const token = await login(e);
+  const r = await postJob(token, { useExtraSlot: true });
+  assert.equal(await bal(e), 0);
+  assert.equal((await call(`/jobs/${r.body._id}`, { method: 'DELETE', token })).status, 200);
+  assert.equal(await bal(e), 30);
+  const rows = await t.models.CreditTransaction.find({ employerUserId: e._id, type: 'refund' });
+  assert.equal(rows.length, 1);
+  assert.equal(String(rows[0].refId), r.body._id);
+});
+
+test('concurrent submits of one draft with extra slot charge once, the other gets 409', async () => {
+  const e = await fundedEmployerWithTwoJobs(60);
+  const token = await login(e);
+  const d = await seedJob(e, { status: 'draft' });
+  const rs = await Promise.all([1, 2].map(() => call(`/jobs/${d._id}/submit`, { method: 'POST', token, body: { useExtraSlot: true } })));
+  assert.deepEqual(rs.map((x) => x.status).sort(), [200, 409]);
+  assert.equal(await bal(e), 30);
+  assert.equal(await t.models.CreditTransaction.countDocuments({ employerUserId: e._id, type: 'spend' }), 1);
+});
