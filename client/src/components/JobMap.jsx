@@ -47,18 +47,22 @@ function createJobMarkerElement(job, isSelected = false) {
   const el = document.createElement('div');
   el.className = 'vietmap-job-marker';
   el.style.cursor = 'pointer';
+  // Featured (paid) jobs: bigger gold star pin drawn above the others.
+  const featured = Boolean(job.featured);
+  const size = featured ? 38 : 28;
+  const color = isSelected ? '#db2777' : featured ? '#d97706' : isConfirmed ? '#047857' : '#b45309';
+  if (featured) {
+    el.style.zIndex = '2';
+    el.title = 'Việc nổi bật';
+  }
   el.innerHTML = `
     <div style="position: relative; transition: transform 0.2s; transform: ${
       isSelected ? 'scale(1.25)' : 'scale(1)'
     };">
-      <div style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 2px solid white; background: ${
-        isSelected ? '#db2777' : isConfirmed ? '#047857' : '#d97706'
-      }; color: white; font-size: 13px;">
-        <span>${isConfirmed ? '💼' : '📍'}</span>
+      <div style="display: flex; align-items: center; justify-content: center; width: ${size}px; height: ${size}px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: ${featured ? 3 : 2}px solid white; background: ${color}; color: white; font-size: ${featured ? 18 : 13}px;">
+        <span>${featured ? '⭐' : isConfirmed ? '💼' : '📍'}</span>
       </div>
-      <div style="width: 8px; height: 8px; transform: rotate(45deg); margin: -4px auto 0; background: ${
-        isSelected ? '#db2777' : isConfirmed ? '#047857' : '#d97706'
-      }; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+      <div style="width: 8px; height: 8px; transform: rotate(45deg); margin: -4px auto 0; background: ${color}; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
     </div>
   `;
   return el;
@@ -558,6 +562,9 @@ export function JobMap({
                 <span className="text-[10px] font-semibold text-green-dark bg-green-50 px-2 py-0.5 rounded-full border border-green-200/80 truncate max-w-[170px] inline-block">
                   {activeJob.storeName}
                 </span>
+                {activeJob.featured && (
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">⭐ Nổi bật</span>
+                )}
               </div>
               <h4 className="font-bold text-sm text-text-main line-clamp-1 leading-snug" title={activeJob.title}>
                 {activeJob.title}
