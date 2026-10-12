@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import express from 'express';
+import mongoose from 'mongoose';
 import rateLimit from 'express-rate-limit';
 import { TopUpRequest } from '../models/TopUpRequest.js';
 import { CreditTransaction } from '../models/CreditTransaction.js';
@@ -12,7 +13,7 @@ import { CREDIT_PACKS, CREDIT_PRICES, FREE_ACTIVE_LISTINGS, LISTING_DAYS, WELCOM
 import { SEPAY_NOTIFICATION } from '../config/sepay.js';
 import { getSepayClient } from '../services/sepayClient.js';
 import { applySepayOrderPaid } from '../services/topUpService.js';
-import { getBalance } from '../services/creditService.js';
+import { getBalance, spendCredits, withCreditTransaction } from '../services/creditService.js';
 
 const router = express.Router();
 const employerOnly = [authenticate, authorize('employer')];
@@ -94,6 +95,54 @@ router.post('/topups', ...employerOnly, requireActiveUser, async (req, res, next
       cancel_url: `${back}&result=cancel`,
     });
     res.status(201).json({ topUp, checkout: { url: sepay.initCheckoutUrl(), fields } });
+  } catch (err) { next(err); }
+});
+
+const DAY_MS = 86400000;
+const laterOf = (a, b) => (a && a > b ? a : b);
+
+// Charge + job change in one transaction; `change` mutates the job and returns the ledger reason.
+async function buyForJob(req, change) {
+  const { id } = req.params;
+  const notFound = () => httpError(404, 'JOB_NOT_FOUND', 'Không tìm thấy tin tuyển dụng.');
+  if (!mongoose.Types.ObjectId.isValid(id)) throw notFound();
+  return withCreditTransaction(async (session) => {
+    const job = await Job.findById(id).session(session);
+    if (!job) throw notFound();
+    if (String(job.employerUserId) !== String(req.user._id)) throw httpError(403, 'FORBIDDEN', 'Bạn không có quyền với tin này.');
+    const reason = change(job, new Date());
+    const { balance } = await spendCredits({ employerUserId: req.user._id, reason, refType: 'Job', refId: job._id, session });
+    await job.save({ session });
+    return { job, balance };
+  });
+}
+
+router.post('/jobs/:id/feature', ...employerOnly, requireActiveUser, async (req, res, next) => {
+  try {
+    const days = req.body?.days;
+    if (days !== 3 && days !== 7) throw httpError(400, 'INVALID_DAYS', 'Số ngày nổi bật phải là 3 hoặc 7.');
+    res.json(await buyForJob(req, (job, now) => {
+      if (job.status === 'approved') {
+        job.featuredUntil = new Date(laterOf(job.featuredUntil, now).getTime() + days * DAY_MS);
+      } else if (job.status === 'pending') {
+        if (job.featuredDaysPending > 0) throw httpError(409, 'FEATURE_ALREADY_PENDING', 'Tin này đã đăng ký nổi bật, đang chờ duyệt.');
+        job.featuredDaysPending = days;
+      } else {
+        throw httpError(409, 'INVALID_STATE', 'Chỉ tin đang chờ duyệt hoặc đã duyệt mới mua được nổi bật.');
+      }
+      return `featured_${days}d`;
+    }));
+  } catch (err) { next(err); }
+});
+
+router.post('/jobs/:id/renew', ...employerOnly, requireActiveUser, async (req, res, next) => {
+  try {
+    res.json(await buyForJob(req, (job, now) => {
+      if (job.status !== 'approved' && job.status !== 'paused') throw httpError(409, 'INVALID_STATE', 'Chỉ tin đã duyệt hoặc đang tạm dừng mới gia hạn được.');
+      job.closesAt = new Date(laterOf(job.closesAt, now).getTime() + LISTING_DAYS * DAY_MS);
+      job.expiryReminderSentAt = null;
+      return 'renew_14d';
+    }));
   } catch (err) { next(err); }
 });
 

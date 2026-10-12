@@ -6,6 +6,7 @@
  */
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { grantCredits } from '../../src/services/creditService.js';
 import { startTestServer, createUser, createApprovedJob, api } from '../e2e/testServer.mjs';
 
 let t;
@@ -115,6 +116,7 @@ test('re-applying: blocked while active, allowed after withdrawing (partial uniq
 
 test('quick shifts: concurrent claims never exceed headcount and every winner gets a real shift', async () => {
   const employer = await createUser(m, { role: 'employer' });
+  await grantCredits({ employerUserId: employer._id, amount: 15, type: 'topup', reason: 'p50' }); // phí ca lẻ
   const eToken = (await http.login(employer.email)).token;
   const slot = vnSlot(3);
   const posted = await http.call('/quick-shifts', {

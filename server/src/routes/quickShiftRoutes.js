@@ -6,6 +6,7 @@ import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate, authorize, requireActiveUser } from '../middlewares/auth.js';
 import { httpError } from '../utils/httpError.js';
+import { spendCredits, withCreditTransaction } from '../services/creditService.js';
 import { LABOR_ROLES } from '../utils/applicationDto.js';
 
 const router = express.Router();
@@ -115,7 +116,12 @@ router.post('/', authenticate, authorize('employer'), requireActiveUser, async (
       throw httpError(400, 'SHIFT_TOO_LONG', 'Một ca không được dài quá 12 giờ.');
     }
 
-    const created = await QuickShift.create({
+    // Không hoàn credit khi huỷ ca; refId của sổ cái là id ca lẻ được tạo trước.
+    const created = await withCreditTransaction(async (session) => {
+      const _id = new mongoose.Types.ObjectId();
+      await spendCredits({ employerUserId: req.user._id, reason: 'quick_shift', refType: 'QuickShift', refId: _id, session });
+      const [doc] = await QuickShift.create([{
+      _id,
       employerUserId: req.user._id,
       storeName: profile.storeName,
       title: title.trim(),
@@ -129,6 +135,8 @@ router.post('/', authenticate, authorize('employer'), requireActiveUser, async (
       endAt,
       headcount: people,
       wageRate: wage,
+      }], { session });
+      return doc;
     });
     res.status(201).json(toPublicDTO(created.toObject ? created.toObject() : created, req.user._id));
   } catch (err) {

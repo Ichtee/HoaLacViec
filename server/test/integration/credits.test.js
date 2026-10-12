@@ -432,3 +432,99 @@ test('GET /jobs marks featured by featuredUntil', async () => {
   assert.ok(only.some((j) => j._id === String(future._id)));
   assert.ok(!only.some((j) => j._id === String(past._id)));
 });
+
+// ---- Mua ngày nổi bật, gia hạn tin, phí ca lẻ ----
+const fund = (e, amount) => grantCredits({ employerUserId: e._id, amount, type: 'topup', reason: 'p50' });
+const feature = (token, id, days) => call(`/credits/jobs/${id}/feature`, { method: 'POST', token, body: { days } });
+const near = (date, ms) => Math.abs(new Date(date).getTime() - ms) < 60000;
+
+test('feature 7 days on approved job -> featuredUntil ~ now+7d, balance 0', async () => {
+  const e = await newEmployer(); await fund(e, 60);
+  const job = await seedJob(e);
+  const r = await feature(await login(e), job._id, 7);
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.balance, 0);
+  assert.ok(near((await t.models.Job.findById(job._id)).featuredUntil, Date.now() + 7 * DAY));
+  const row = await t.models.CreditTransaction.findOne({ employerUserId: e._id, reason: 'featured_7d' });
+  assert.equal(String(row.refId), String(job._id));
+});
+
+test('feature again extends from the previous featuredUntil', async () => {
+  const e = await newEmployer(); await fund(e, 30);
+  const until = new Date(Date.now() + 5 * DAY);
+  const job = await seedJob(e, { featuredUntil: until });
+  assert.equal((await feature(await login(e), job._id, 3)).status, 200);
+  assert.equal((await t.models.Job.findById(job._id)).featuredUntil.getTime(), until.getTime() + 3 * DAY);
+});
+
+test('feature on pending job -> featuredDaysPending, applied on approval; second purchase 409', async () => {
+  const e = await newEmployer(); await fund(e, 60);
+  const job = await seedJob(e, { status: 'pending' });
+  const token = await login(e);
+  assert.equal((await feature(token, job._id, 3)).status, 200);
+  assert.equal((await t.models.Job.findById(job._id)).featuredDaysPending, 3);
+  const again = await feature(token, job._id, 3);
+  assert.equal(again.status, 409); assert.equal(again.body.code, 'FEATURE_ALREADY_PENDING');
+  assert.equal(await bal(e), 30);
+  const at = await login(await createUser(t.models, { role: 'admin' }));
+  await call(`/jobs/${job._id}/approve`, { method: 'POST', token: at });
+  assert.ok(near((await t.models.Job.findById(job._id)).featuredUntil, Date.now() + 3 * DAY));
+});
+
+test('feature rejects bad days, wrong status, non-owner, missing job, and no credits', async () => {
+  const e = await newEmployer(); await fund(e, 30);
+  const token = await login(e);
+  const job = await seedJob(e);
+  assert.equal((await feature(token, job._id, 5)).body.code, 'INVALID_DAYS');
+  const paused = await seedJob(e, { status: 'paused' });
+  const bad = await feature(token, paused._id, 3);
+  assert.equal(bad.status, 409); assert.equal(bad.body.code, 'INVALID_STATE');
+  assert.equal((await feature(await login(await newEmployer()), job._id, 3)).status, 403);
+  assert.equal((await feature(token, '507f1f77bcf86cd799439099', 3)).status, 404);
+  assert.equal((await feature(token, job._id, 7)).status, 402);
+  assert.equal(await bal(e), 30);
+  assert.equal((await t.models.Job.findById(job._id)).featuredUntil, null);
+});
+
+test('renew an expired job -> closesAt ~ now+14d, visible in GET /jobs again, reminder reset', async () => {
+  const e = await newEmployer(); await fund(e, 20);
+  const job = await seedJob(e, { closesAt: new Date(Date.now() - DAY), expiryReminderSentAt: new Date() });
+  const list = async () => (await call('/jobs')).body;
+  const ids = (b) => (b.jobs || b).map((j) => String(j._id || j.id));
+  assert.ok(!ids(await list()).includes(String(job._id)));
+  const r = await call(`/credits/jobs/${job._id}/renew`, { method: 'POST', token: await login(e) });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.balance, 0);
+  const after = await t.models.Job.findById(job._id);
+  assert.ok(near(after.closesAt, Date.now() + 14 * DAY));
+  assert.equal(after.expiryReminderSentAt, null);
+  assert.ok(ids(await list()).includes(String(job._id)));
+});
+
+test('renew: not owner 403, pending job 409, no credits 402', async () => {
+  const e = await newEmployer();
+  const token = await login(e);
+  const renew = (tk, id) => call(`/credits/jobs/${id}/renew`, { method: 'POST', token: tk });
+  const job = await seedJob(e);
+  assert.equal((await renew(await login(await newEmployer()), job._id)).status, 403);
+  assert.equal((await renew(token, (await seedJob(e, { status: 'pending' }))._id)).status, 409);
+  assert.equal((await renew(token, job._id)).status, 402);
+});
+
+test('quick shift: balance 0 -> 402 and no doc; balance 15 -> 201, balance 0, ledger refId = shift', async () => {
+  const e = await newEmployer();
+  const token = await login(e);
+  const start = new Date(Date.now() + 3 * 3600000);
+  const vn = (d) => new Date(d.getTime() + 7 * 3600000).toISOString();
+  const body = { title: 'Phục vụ', date: vn(start).slice(0, 10), startTime: vn(start).slice(11, 16), endTime: vn(new Date(start.getTime() + 3 * 3600000)).slice(11, 16), headcount: 1, wageRate: 30000 };
+  const post = () => call('/quick-shifts', { method: 'POST', token, body });
+  assert.equal((await post()).status, 402);
+  assert.equal(await (await import('../../src/models/QuickShift.js')).QuickShift.countDocuments({ employerUserId: e._id }), 0);
+  await fund(e, 15);
+  const r = await post();
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  assert.equal(await bal(e), 0);
+  const row = await t.models.CreditTransaction.findOne({ employerUserId: e._id, reason: 'quick_shift' });
+  assert.equal(String(row.refId), String(r.body._id));
+  assert.equal(row.refType, 'QuickShift');
+});
