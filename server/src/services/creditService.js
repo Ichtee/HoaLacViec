@@ -24,7 +24,7 @@ async function applyDelta({ employerUserId, delta, type, reason, refType = null,
   return { balance: profile.creditBalance, transaction };
 }
 
-export function grantCredits({ amount, ...rest }) {
+export async function grantCredits({ amount, ...rest }) {
   if (!(amount > 0)) throw httpError(400, 'INVALID_AMOUNT', 'Số credit không hợp lệ.');
   return applyDelta({ ...rest, delta: amount });
 }
@@ -35,9 +35,9 @@ const priceOf = (reason) => {
   return cost;
 };
 
-export const spendCredits = ({ reason, ...rest }) => applyDelta({ ...rest, reason, delta: -priceOf(reason), type: 'spend' });
+export const spendCredits = async ({ reason, ...rest }) => applyDelta({ ...rest, reason, delta: -priceOf(reason), type: 'spend' });
 
-export const refundCredits = ({ reason, ...rest }) => applyDelta({ ...rest, reason, delta: priceOf(reason), type: 'refund' });
+export const refundCredits = async ({ reason, ...rest }) => applyDelta({ ...rest, reason, delta: priceOf(reason), type: 'refund' });
 
 export async function getBalance(employerUserId) {
   const p = await EmployerProfile.findOne({ userId: employerUserId }).select('creditBalance').lean();
