@@ -113,6 +113,9 @@ const jobSchema = new mongoose.Schema({
   featuredUntil: { type: Date, default: null },
   featuredDaysPending: { type: Number, default: 0, min: 0 },
   paidSlot: { type: Boolean, default: false },
+  viewCount: { type: Number, default: 0, min: 0 },
+  featuredViewCount: { type: Number, default: 0, min: 0 }, // views while the job was featured
+  featuredNotifiedAt: { type: Date, default: null },
   expiryReminderSentAt: { type: Date, default: null },
   archivedAt: { type: Date, default: null },
 }, { timestamps: true });

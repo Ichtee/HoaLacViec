@@ -208,11 +208,17 @@ router.get('/employer/my-jobs', authenticate, authorize('employer', 'admin'), as
     }
 
     const total = await Job.countDocuments(filter);
-    const jobs = await Job.find(filter)
+    let jobs = await Job.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNum)
       .lean();
+    const appCounts = await Application.aggregate([
+      { $match: { jobId: { $in: jobs.map((j) => j._id) } } },
+      { $group: { _id: '$jobId', n: { $sum: 1 } } },
+    ]);
+    const appMap = new Map(appCounts.map((a) => [String(a._id), a.n]));
+    jobs = jobs.map((j) => ({ ...j, viewCount: j.viewCount || 0, featuredViewCount: j.featuredViewCount || 0, applicationCount: appMap.get(String(j._id)) || 0 }));
 
     res.json({
       items: jobs,
@@ -478,6 +484,13 @@ router.get('/:id', optionalAuthenticate, async (req, res, next) => {
       if (!isOwner && !isAdmin) {
         return res.status(404).json({ error: 'Không tìm thấy việc làm', code: 'JOB_NOT_FOUND' });
       }
+    }
+
+    // ponytail: counts every non-owner open (no per-user dedupe); add a daily unique set if counts get gamed.
+    const isOwnerOrAdmin = req.user && (req.user.role === 'admin' || String(job.employerUserId) === String(req.user._id));
+    if (job.status === 'approved' && !isOwnerOrAdmin && req.get('user-agent')) {
+      const inc = isJobFeatured(job) ? { viewCount: 1, featuredViewCount: 1 } : { viewCount: 1 };
+      Job.updateOne({ _id: job._id }, { $inc: inc }).catch(() => {});
     }
 
     // Attach real employer profile

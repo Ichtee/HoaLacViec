@@ -771,3 +771,20 @@ test('/credits/pricing exposes the free tier and cooldown', async () => {
   const r = await call('/credits/pricing');
   assert.deepEqual([r.body.freeActiveListings, r.body.slotCooldownDays], [1, 7]);
 });
+
+test('job stats: non-owner views count (featured views too), owner views do not; my-jobs returns counts', async () => {
+  const e = await newEmployer();
+  const etoken = await login(e);
+  const job = await seedJob(e, { featuredUntil: new Date(Date.now() + DAY) });
+  const stoken = await login(await createUser(t.models, { role: 'student' }));
+  await call(`/jobs/${job._id}`, { token: stoken });
+  await call(`/jobs/${job._id}`);
+  await call(`/jobs/${job._id}`, { token: etoken });
+  await new Promise((r) => setTimeout(r, 100)); // the $inc is fire-and-forget
+  const after = await t.models.Job.findById(job._id);
+  assert.deepEqual([after.viewCount, after.featuredViewCount], [2, 2]);
+  const { Application } = await import('../../src/models/Application.js');
+  await Application.collection.insertOne({ jobId: job._id, studentId: (await createUser(t.models, { role: 'student' }))._id, studentName: 'SV', status: 'pending', createdAt: new Date() });
+  const mine = (await call('/jobs/employer/my-jobs', { token: etoken })).body.jobs.find((j) => j._id === String(job._id));
+  assert.deepEqual([mine.viewCount, mine.featuredViewCount, mine.applicationCount], [2, 2, 1]);
+});
