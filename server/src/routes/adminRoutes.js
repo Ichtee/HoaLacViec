@@ -9,6 +9,8 @@ import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 import { notifyJobAlerts } from '../services/jobAlertService.js';
 import { getPlatformMetrics } from '../services/metricsService.js';
+import { grantCredits } from '../services/creditService.js';
+import { WELCOME_CREDITS } from '../config/credits.js';
 
 const router = express.Router();
 
@@ -481,6 +483,13 @@ router.post('/verifications/:id/approve', async (req, res, next) => {
         },
         { upsert: true }
       );
+
+      // Tặng credit chào mừng một lần (index unique chặn lặp); không bao giờ làm hỏng việc duyệt.
+      try {
+        await grantCredits({ employerUserId: verification.employerUserId, amount: WELCOME_CREDITS, type: 'welcome', reason: 'welcome', createdBy: req.user._id });
+      } catch (creditErr) {
+        if (creditErr?.code !== 11000) console.warn('Failed to grant welcome credits:', creditErr.message);
+      }
 
       // Activate user account
       await User.findByIdAndUpdate(verification.employerUserId, {

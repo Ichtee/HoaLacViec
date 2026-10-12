@@ -296,3 +296,23 @@ test('grant failure after the paid flip rolls back: top-up stays pending', async
   assert.equal((await reload(topUp._id)).status, 'pending');
   assert.equal(await t.models.CreditTransaction.countDocuments({ employerUserId: e._id }), 0);
 });
+
+test('verification approval grants 30 welcome credits once, even after reject and re-approve', async () => {
+  const { EmployerVerification } = await import('../../src/models/EmployerVerification.js');
+  const e = await newEmployer();
+  const v = await EmployerVerification.create({
+    employerUserId: e._id, storeName: 'Quán A', legalName: 'Nguyễn A', businessAddress: '1 Lê Lợi', contactPhone: '0900000001', status: 'pending',
+  });
+  const at = await login(await createUser(t.models, { role: 'admin' }));
+  const approve = () => call(`/admin/verifications/${v._id}/approve`, { method: 'POST', token: at });
+  assert.equal((await approve()).status, 200);
+  const token = await login(e);
+  let me = await call('/credits/me', { token });
+  assert.equal(me.body.balance, 30);
+  assert.equal(me.body.transactions.filter((x) => x.type === 'welcome').length, 1);
+  await EmployerVerification.updateOne({ _id: v._id }, { status: 'rejected' });
+  assert.equal((await approve()).status, 200); // duplicate grant must not fail the approval
+  me = await call('/credits/me', { token });
+  assert.equal(me.body.balance, 30);
+  assert.equal(await t.models.CreditTransaction.countDocuments({ employerUserId: e._id, type: 'welcome' }), 1);
+});
