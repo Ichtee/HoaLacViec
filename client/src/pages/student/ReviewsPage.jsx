@@ -103,7 +103,7 @@ export default function StudentReviewsPage() {
       <p role="alert" className="text-red-700 bg-red-50 rounded-2xl p-4">{error}</p> : <>
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-text-main">Ca có thể đánh giá ({eligible.length})</h2>
-          {eligible.length === 0 ? <p className="bg-white rounded-2xl p-5 text-sm text-text-muted">Không có ca làm đã duyệt nào đang chờ đánh giá.</p> :
+          {eligible.length === 0 ? <p className="bg-white rounded-2xl p-5 text-sm text-text-muted ring-1 ring-green-100/70">Không có ca làm đã duyệt nào đang chờ đánh giá.</p> :
             eligible.map((shift) => <div key={shift._id || shift.id} className="bg-white rounded-2xl p-5 border border-green-50 flex items-center justify-between gap-4">
               <div><p className="font-bold text-text-main">{shift.storeName || shift.workplaceName || 'Cửa hàng'}</p>
                 <p className="text-sm text-text-muted">Ca ngày {shift.date} · {shift.startTime}–{shift.endTime}</p></div>
@@ -112,7 +112,7 @@ export default function StudentReviewsPage() {
         </section>
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-text-main">Đánh giá từ cửa hàng ({received.length})</h2>
-          {received.length === 0 ? <p className="bg-white rounded-2xl p-5 text-sm text-text-muted">Chưa có cửa hàng nào đánh giá bạn sau ca làm.</p> :
+          {received.length === 0 ? <p className="bg-white rounded-2xl p-5 text-sm text-text-muted ring-1 ring-green-100/70">Chưa có cửa hàng nào đánh giá bạn sau ca làm.</p> :
             received.map((review) => <div key={review.id || review._id} className="bg-white rounded-2xl p-5 border border-green-50 space-y-2">
               <div className="flex items-center justify-between gap-3"><p className="font-bold text-text-main">{review.storeName || review.authorName || 'Cửa hàng'}</p>
                 <span className="text-sm text-text-muted">{review.date}</span></div>
@@ -124,7 +124,7 @@ export default function StudentReviewsPage() {
         </section>
         <section className="space-y-3">
           <h2 className="text-lg font-bold text-text-main">Đánh giá đã gửi ({sent.length})</h2>
-          {sent.length === 0 ? <p className="bg-white rounded-2xl p-5 text-sm text-text-muted">Bạn chưa đánh giá cửa hàng nào.</p> :
+          {sent.length === 0 ? <p className="bg-white rounded-2xl p-5 text-sm text-text-muted ring-1 ring-green-100/70">Bạn chưa đánh giá cửa hàng nào.</p> :
             sent.map((review) => <div key={review.id || review._id} className="bg-white rounded-2xl p-5 border border-green-50 space-y-2">
               <div className="flex items-center justify-between gap-3"><p className="font-bold text-text-main">{review.storeName || 'Cửa hàng'}</p>
                 <span className="text-sm text-text-muted">{review.date}</span></div>

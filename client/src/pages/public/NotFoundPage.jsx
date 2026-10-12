@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MapPinOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 
 export default function NotFoundPage() {
@@ -12,19 +12,19 @@ export default function NotFoundPage() {
     : '/';
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-6 text-center">
-      <div className="mb-6 animate-bounce">
-        <img src="/logo.png" alt="Hoa Lạc Việc" className="h-24 w-auto mx-auto object-contain" />
+    <div className="relative min-h-screen overflow-hidden bg-hero-gradient flex flex-col items-center justify-center p-6 text-center">
+      <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-green-200/60 pointer-events-none" aria-hidden="true" />
+      <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full border border-pink-200/70 pointer-events-none" aria-hidden="true" />
+      <img src="/logo.png" alt="Hoa Lạc Việc" className="relative h-20 w-auto mx-auto object-contain mb-8" />
+      <div className="relative">
+        <h1 className="text-8xl sm:text-9xl font-extrabold tracking-tight gradient-text leading-none">404</h1>
+        <MapPinOff className="absolute -right-8 -top-3 w-9 h-9 text-pink-500" aria-hidden="true" />
       </div>
-      <h1 className="text-6xl font-extrabold text-green-dark tracking-tight">404</h1>
-      <h2 className="text-2xl font-bold text-text-main mt-2">Trang không tồn tại</h2>
-      <p className="text-text-muted text-sm max-w-md mt-2">
+      <h2 className="relative text-2xl sm:text-3xl font-extrabold text-text-main mt-4">Trang không tồn tại</h2>
+      <p className="relative text-text-muted max-w-md mt-3">
         Đường dẫn bạn truy cập không nằm trên hệ thống Hoa Lạc Việc hoặc đã bị di chuyển.
       </p>
-      <Link
-        to={homePath}
-        className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-green-main text-white font-bold text-sm hover:bg-green-dark transition-all shadow-sm"
-      >
+      <Link to={homePath} className="relative btn-primary btn btn-lg mt-8">
         <ArrowLeft className="w-4 h-4" /> Trở về Trang chủ
       </Link>
     </div>

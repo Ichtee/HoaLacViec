@@ -147,7 +147,7 @@ function VietmapAddressAutocomplete({
         />
         <MapPin className="w-4 h-4 text-green-dark absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         {loading && (
-          <Loader2 className="w-4 h-4 text-orange-400 animate-spin absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Loader2 className="w-4 h-4 text-green-main animate-spin absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         )}
       </div>
 
@@ -330,7 +330,7 @@ export default function CreateMicroTaskPage() {
       {/* Main Card */}
       <div className="bg-white rounded-3xl border border-green-100 shadow-card overflow-hidden">
         {/* Header Banner */}
-        <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 p-6 sm:p-8 text-white relative">
+        <div className="bg-brand-gradient p-6 sm:p-8 text-white relative">
           <div className="relative z-10 max-w-2xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-bold mb-3 border border-white/30">
               Chợ Việc Vặt Siêu Địa Phương Hòa Lạc
@@ -338,7 +338,7 @@ export default function CreateMicroTaskPage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Đăng việc vặt cần nhờ sinh viên
             </h1>
-            <p className="text-orange-100 text-xs sm:text-sm mt-2 leading-relaxed">
+            <p className="text-green-50 text-xs sm:text-sm mt-2 leading-relaxed">
               Mô tả chi tiết công việc bạn cần nhờ (mua cơm, ship đồ, xe ôm, chuyển phòng...) để các bạn sinh viên xung quanh nhận làm và hỗ trợ bạn nhanh nhất.
             </p>
           </div>
