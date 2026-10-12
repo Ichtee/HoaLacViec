@@ -5,6 +5,7 @@ import { Shift, parseVietnamDateTime } from '../models/Shift.js';
 import { EmployerProfile } from '../models/EmployerProfile.js';
 import { Notification } from '../models/Notification.js';
 import { authenticate, authorize, requireActiveUser } from '../middlewares/auth.js';
+import { httpError } from '../utils/httpError.js';
 import { LABOR_ROLES } from '../utils/applicationDto.js';
 
 const router = express.Router();
@@ -13,13 +14,6 @@ const MAX_DAYS_AHEAD = 7;
 const MIN_WITHDRAW_LEAD_MS = 60 * 60 * 1000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-function httpError(status, code, message) {
-  const err = new Error(message);
-  err.status = status;
-  err.code = code;
-  return err;
-}
 
 function toPublicDTO(doc, viewerId) {
   const claims = doc.claims || [];
