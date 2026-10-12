@@ -18,6 +18,7 @@ const router = express.Router();
 const employerOnly = [authenticate, authorize('employer')];
 const adminOnly = [authenticate, authorize('admin')];
 const MAX_PENDING = 3;
+const PENDING_WINDOW_MS = 24 * 60 * 60 * 1000; // abandoned checkouts stop counting after a day
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
 const newInvoiceNumber = () => `HLV${Array.from(crypto.randomBytes(8), (b) => ALPHABET[b % ALPHABET.length]).join('')}`;
@@ -74,11 +75,12 @@ router.post('/topups', ...employerOnly, requireActiveUser, async (req, res, next
   try {
     const pack = CREDIT_PACKS.find((p) => p.id === req.body?.packId);
     if (!pack) throw httpError(400, 'INVALID_PACK', 'Gói nạp không hợp lệ.');
+    if (!process.env.PUBLIC_APP_URL) throw httpError(503, 'TOPUP_UNAVAILABLE', 'Tính năng nạp credit tạm thời chưa khả dụng.');
     const sepay = getSepayClient(); // 503 before any row is created
-    const pending = await TopUpRequest.countDocuments({ employerUserId: req.user._id, status: 'pending' });
+    const pending = await TopUpRequest.countDocuments({ employerUserId: req.user._id, status: 'pending', createdAt: { $gte: new Date(Date.now() - PENDING_WINDOW_MS) } });
     if (pending >= MAX_PENDING) throw httpError(429, 'TOO_MANY_PENDING_TOPUPS', 'Bạn đang có quá nhiều yêu cầu nạp chưa hoàn tất. Vui lòng hoàn tất hoặc chờ hết hạn.');
     const topUp = await createTopUp({ employerUserId: req.user._id, packId: pack.id, amountVnd: pack.vnd, credits: pack.credits });
-    const back = `${process.env.PUBLIC_APP_URL || ''}/employer/credits?topup=${topUp._id}`;
+    const back = `${process.env.PUBLIC_APP_URL}/employer/credits?topup=${topUp._id}`;
     const fields = sepay.initOneTimePaymentFields({
       operation: 'PURCHASE',
       payment_method: 'BANK_TRANSFER',
@@ -145,7 +147,7 @@ router.post('/sepay/ipn', async (req, res, next) => {
       console.log(`[credits] ipn ORDER_PAID invoice=${invoice} -> ${outcome.status}`);
       if (outcome.status === 'granted') await notifyGranted(outcome.topUp);
     } else if (type === SEPAY_NOTIFICATION.TRANSACTION_VOID) {
-      const voided = await TopUpRequest.findOneAndUpdate({ invoiceNumber: invoice }, { status: 'voided' });
+      const voided = await TopUpRequest.findOneAndUpdate({ invoiceNumber: invoice, status: { $in: ['pending', 'paid'] } }, { status: 'voided' });
       console.warn(`[credits] ipn TRANSACTION_VOID invoice=${invoice} found=${Boolean(voided)} (credits not clawed back; admin review needed)`);
     }
     res.json({ success: true });

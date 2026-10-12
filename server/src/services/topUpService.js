@@ -8,6 +8,7 @@ export async function applySepayOrderPaid(invoiceNumber, { source }) {
   const topUp = await TopUpRequest.findOne({ invoiceNumber: String(invoiceNumber || '') });
   if (!topUp) return { status: 'unknown', topUp: null };
   if (topUp.status === 'paid') return { status: 'already_paid', topUp };
+  if (topUp.status !== 'pending') return { status: 'not_pending', topUp };
   const order = await getSepayClient().retrieveOrder(topUp.invoiceNumber);
   if (!SEPAY_PAID_ORDER_STATUSES.includes(order?.order_status)) return { status: 'not_paid', topUp };
   if (Number(order.order_amount) !== topUp.amountVnd) {

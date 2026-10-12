@@ -240,3 +240,59 @@ test('admin topups: employer 403, admin lists with employer info and reconciles'
   assert.equal(list.body.topUps.find((x) => x.invoiceNumber === topUp.invoiceNumber).employer.email, e.email);
   assert.equal((await call(`/credits/admin/topups/${topUp._id}/reconcile`, { method: 'POST', token: at })).body.result, 'granted');
 });
+
+test('pending cap only counts requests from the last 24h', async () => {
+  setEnv(); useFake();
+  const e = await newEmployer();
+  const token = await login(e);
+  for (let i = 0; i < 3; i++) await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } });
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } })).status, 429);
+  const old = new Date(Date.now() - 25 * 3600 * 1000);
+  await t.models.TopUpRequest.collection.updateMany({ employerUserId: e._id }, { $set: { createdAt: old } });
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } })).status, 201);
+});
+
+test('POST /topups -> 503 when PUBLIC_APP_URL is missing', async () => {
+  setEnv(); useFake();
+  delete process.env.PUBLIC_APP_URL;
+  const r = await call('/credits/topups', { method: 'POST', token: await login(await newEmployer()), body: { packId: 'p50' } });
+  assert.equal(r.status, 503);
+  assert.equal(r.body.code, 'TOPUP_UNAVAILABLE');
+});
+
+test('TRANSACTION_VOID after paid -> voided, no clawback; on failed stays failed', async () => {
+  setEnv(); useFake();
+  const e = await newEmployer();
+  const paid = await topUpFor(e);
+  await rawIpn(paid.topUp.invoiceNumber);
+  assert.equal(await bal(e), 110);
+  assert.equal((await rawIpn(paid.topUp.invoiceNumber, SECRET, 'TRANSACTION_VOID')).status, 200);
+  assert.equal((await reload(paid.topUp._id)).status, 'voided');
+  assert.equal(await bal(e), 110);
+  const failed = await topUpFor(e);
+  await t.models.TopUpRequest.updateOne({ _id: failed.topUp._id }, { status: 'failed' });
+  await rawIpn(failed.topUp.invoiceNumber, SECRET, 'TRANSACTION_VOID');
+  assert.equal((await reload(failed.topUp._id)).status, 'failed');
+});
+
+test('reconcile of a failed/voided top-up -> not_pending, nothing granted', async () => {
+  setEnv(); useFake();
+  const e = await newEmployer();
+  const { token, topUp } = await topUpFor(e);
+  await t.models.TopUpRequest.updateOne({ _id: topUp._id }, { status: 'failed' });
+  const r = await call(`/credits/topups/${topUp._id}/reconcile`, { method: 'POST', token });
+  assert.equal(r.body.result, 'not_pending');
+  assert.equal(await bal(e), 0);
+  assert.equal((await reload(topUp._id)).status, 'failed');
+});
+
+test('grant failure after the paid flip rolls back: top-up stays pending', async () => {
+  setEnv(); useFake();
+  const e = await newEmployer();
+  const { topUp } = await topUpFor(e);
+  await t.models.EmployerProfile.deleteOne({ userId: e._id }); // grantCredits will 404 inside the transaction
+  const r = await rawIpn(topUp.invoiceNumber);
+  assert.equal(r.status, 502);
+  assert.equal((await reload(topUp._id)).status, 'pending');
+  assert.equal(await t.models.CreditTransaction.countDocuments({ employerUserId: e._id }), 0);
+});
