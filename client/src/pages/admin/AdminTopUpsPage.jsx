@@ -106,7 +106,7 @@ export default function AdminTopUpsPage() {
                 </div>
               ),
             },
-            { key: 'pack', label: 'Gói', render: (r) => <span className="text-sm">{r.packId} ({r.credits} credit)</span> },
+            { key: 'pack', label: 'Credit', render: (r) => <span className="text-sm">{r.credits} credit{r.bonusCredits ? ` (gồm tặng ${r.bonusCredits})` : ''}</span> },
             { key: 'amount', label: 'Số tiền', sortValue: (r) => r.amountVnd, render: (r) => <span className="text-sm font-semibold">{vnd(r.amountVnd)}</span> },
             { key: 'invoice', label: 'Mã hóa đơn', render: (r) => <span className="text-xs font-mono">{r.invoiceNumber}</span> },
             {

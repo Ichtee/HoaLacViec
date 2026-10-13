@@ -5,11 +5,24 @@ export const WELCOME_CREDITS = 30;
 export const MAX_PINNED_FEATURED = 3;
 export const EXPIRY_REMINDER_DAYS = 2;
 
-export const CREDIT_PACKS = [
-  { id: 'p50', vnd: 50000, credits: 50 },
-  { id: 'p100', vnd: 100000, credits: 110 },
-  { id: 'p200', vnd: 200000, credits: 240 },
-];
+// Employers type how many credits they want; the price is credits x vndPerCredit, with bonus credits on bigger top-ups.
+export const TOPUP = {
+  vndPerCredit: 1000,
+  min: 20,
+  max: 1000,
+  step: 10,
+  quick: [50, 100, 200, 500],
+  bonusTiers: [{ minCredits: 200, pct: 20 }, { minCredits: 100, pct: 10 }], // highest first
+};
+
+/** Validates a requested amount and returns what is charged and granted; null when invalid. */
+export function quoteTopUp(credits) {
+  const n = Number(credits);
+  if (!Number.isInteger(n) || n < TOPUP.min || n > TOPUP.max || n % TOPUP.step !== 0) return null;
+  const tier = TOPUP.bonusTiers.find((t) => n >= t.minCredits);
+  const bonus = tier ? Math.floor((n * tier.pct) / 100) : 0;
+  return { credits: n, bonus, total: n + bonus, vnd: n * TOPUP.vndPerCredit };
+}
 
 export const CREDIT_PRICES = { featured_3d: 30, featured_7d: 60, renew_14d: 20, extra_slot: 30, quick_shift: 15 };
 export const FEATURED_DAYS = { featured_3d: 3, featured_7d: 7 };

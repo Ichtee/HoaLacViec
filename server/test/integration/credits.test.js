@@ -94,9 +94,9 @@ const rawIpn = async (invoice, secret = SECRET, type = 'ORDER_PAID') => {
   });
   return { status: res.status, body: await res.json().catch(() => null) };
 };
-async function topUpFor(employer, packId = 'p100') {
+async function topUpFor(employer, credits = 100) {
   const token = await login(employer);
-  const r = await call('/credits/topups', { method: 'POST', token, body: { packId } });
+  const r = await call('/credits/topups', { method: 'POST', token, body: { credits } });
   assert.equal(r.status, 201, JSON.stringify(r.body));
   return { token, topUp: r.body.topUp, res: r };
 }
@@ -106,7 +106,7 @@ const reload = (id) => t.models.TopUpRequest.findById(id);
 test('GET /pricing is public', async () => {
   const r = await call('/credits/pricing');
   assert.equal(r.status, 200);
-  assert.equal(r.body.packs.length, 3);
+  assert.deepEqual([r.body.topup.vndPerCredit, r.body.topup.min, r.body.topup.max, r.body.topup.step], [1000, 20, 1000, 10]);
   assert.equal(r.body.prices.extra_slot, 30);
 });
 
@@ -126,14 +126,14 @@ test('POST /topups: 400 bad pack, 429 on fourth pending, 403 student, 503 withou
   setEnv(); useFake();
   const e = await newEmployer();
   const token = await login(e);
-  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'zzz' } })).status, 400);
-  for (let i = 0; i < 3; i++) await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } });
-  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } })).status, 429);
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { credits: 25 } })).status, 400);
+  for (let i = 0; i < 3; i++) await call('/credits/topups', { method: 'POST', token, body: { credits: 50 } });
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { credits: 50 } })).status, 429);
   const stu = await createUser(t.models, { role: 'student' });
-  assert.equal((await call('/credits/topups', { method: 'POST', token: await login(stu), body: { packId: 'p50' } })).status, 403);
+  assert.equal((await call('/credits/topups', { method: 'POST', token: await login(stu), body: { credits: 50 } })).status, 403);
   setSepayClientForTests(null);
   for (const k of ENV_KEYS) delete process.env[k];
-  const r = await call('/credits/topups', { method: 'POST', token: await login(await newEmployer()), body: { packId: 'p50' } });
+  const r = await call('/credits/topups', { method: 'POST', token: await login(await newEmployer()), body: { credits: 50 } });
   assert.equal(r.status, 503);
   assert.equal(r.body.code, 'TOPUP_UNAVAILABLE');
 });
@@ -245,17 +245,17 @@ test('pending cap only counts requests from the last 24h', async () => {
   setEnv(); useFake();
   const e = await newEmployer();
   const token = await login(e);
-  for (let i = 0; i < 3; i++) await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } });
-  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } })).status, 429);
+  for (let i = 0; i < 3; i++) await call('/credits/topups', { method: 'POST', token, body: { credits: 50 } });
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { credits: 50 } })).status, 429);
   const old = new Date(Date.now() - 25 * 3600 * 1000);
   await t.models.TopUpRequest.collection.updateMany({ employerUserId: e._id }, { $set: { createdAt: old } });
-  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } })).status, 201);
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { credits: 50 } })).status, 201);
 });
 
 test('POST /topups -> 503 when PUBLIC_APP_URL is missing', async () => {
   setEnv(); useFake();
   delete process.env.PUBLIC_APP_URL;
-  const r = await call('/credits/topups', { method: 'POST', token: await login(await newEmployer()), body: { packId: 'p50' } });
+  const r = await call('/credits/topups', { method: 'POST', token: await login(await newEmployer()), body: { credits: 50 } });
   assert.equal(r.status, 503);
   assert.equal(r.body.code, 'TOPUP_UNAVAILABLE');
 });
@@ -811,4 +811,26 @@ test('featuring an approved job notifies alert matches and nearby students once 
   assert.deepEqual(await notified(), [String(near._id), String(alertUser._id)].sort());
   assert.equal((await call(`/credits/jobs/${job._id}/feature`, { method: 'POST', token, body: { days: 3 } })).status, 200);
   assert.equal((await notified()).length, 2); // second boost within 24h sends nothing
+});
+
+test('custom top-up: price = credits x 1000d, volume bonus, bad amounts rejected, paid grants the total', async () => {
+  const { quoteTopUp } = await import('../../src/config/credits.js');
+  assert.deepEqual(quoteTopUp(20), { credits: 20, bonus: 0, total: 20, vnd: 20000 });
+  assert.deepEqual(quoteTopUp(90), { credits: 90, bonus: 0, total: 90, vnd: 90000 });
+  assert.deepEqual(quoteTopUp(100), { credits: 100, bonus: 10, total: 110, vnd: 100000 });
+  assert.deepEqual(quoteTopUp(350), { credits: 350, bonus: 70, total: 420, vnd: 350000 });
+  for (const bad of [0, 10, 25, 1010, -50, 50.5, '1e2x', null, undefined]) assert.equal(quoteTopUp(bad), null, String(bad));
+  setEnv(); useFake();
+  const e = await newEmployer();
+  const token = await login(e);
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { credits: 25 } })).status, 400);
+  assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } })).status, 400);
+  const { topUp } = await topUpFor(e, 350);
+  assert.deepEqual([topUp.amountVnd, topUp.credits, topUp.bonusCredits], [350000, 420, 70]);
+  assert.equal(recorded.at(-1).order_amount, 350000);
+  order = { order_status: 'CAPTURED', order_amount: '350000.00' };
+  assert.equal((await call(`/credits/topups/${topUp._id}/reconcile`, { method: 'POST', token })).body.result, 'granted');
+  assert.equal(await bal(e), 420);
+  const row = await t.models.CreditTransaction.findOne({ employerUserId: e._id, type: 'topup' });
+  assert.equal(row.reason, 'topup');
 });
