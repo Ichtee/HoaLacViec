@@ -29,6 +29,15 @@ export function isJobFeatured(job, now = new Date()) {
   return (!!job.featuredUntil && new Date(job.featuredUntil) > now) || job.featured === true;
 }
 
+/** Featured order: active boosts first (more credits spent first, then later end date), then legacy flag, then the rest by newest. */
+export function compareFeaturedFirst(a, b, now = new Date()) {
+  const until = (j) => (j.featuredUntil ? new Date(j.featuredUntil).getTime() : 0);
+  const rank = (j) => (!!j.featuredUntil && until(j) > now.getTime() ? 0 : isJobFeatured(j, now) ? 1 : 2);
+  return rank(a) - rank(b)
+    || (rank(a) === 0 ? (b.boostCredits || 0) - (a.boostCredits || 0) || until(b) - until(a) : 0)
+    || new Date(b.createdAt) - new Date(a.createdAt);
+}
+
 export function applyApprovalWindow(job, now = new Date()) {
   if (!job.closesAt) job.closesAt = addDays(now, LISTING_DAYS);
   if (job.featuredDaysPending > 0) {

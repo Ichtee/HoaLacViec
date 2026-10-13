@@ -49,7 +49,11 @@ export async function getBalance(employerUserId) {
 export async function refundJobPurchases(job, adminUserId, session) {
   const refunds = [];
   if (job.paidSlot) { refunds.push('extra_slot'); job.paidSlot = false; }
-  if (job.featuredDaysPending === 3 || job.featuredDaysPending === 7) { refunds.push(`featured_${job.featuredDaysPending}d`); job.featuredDaysPending = 0; }
+  if (job.featuredDaysPending === 3 || job.featuredDaysPending === 7) {
+    refunds.push(`featured_${job.featuredDaysPending}d`);
+    job.boostCredits = Math.max(0, (job.boostCredits || 0) - CREDIT_PRICES[`featured_${job.featuredDaysPending}d`]);
+    job.featuredDaysPending = 0;
+  }
   for (const reason of refunds) {
     await refundCredits({ employerUserId: job.employerUserId, reason, refType: 'Job', refId: job._id, createdBy: adminUserId, session });
   }

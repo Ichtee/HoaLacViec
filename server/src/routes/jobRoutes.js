@@ -15,7 +15,7 @@ import { isValidCoordinate, calculateHaversineDistanceMeters } from '../utils/ge
 import { geocodeAddress } from '../services/geocodingService.js';
 import { ensureApproxLocations } from '../services/approxLocationService.js';
 import { notifyJobAlerts, notifyFeaturedJob } from '../services/jobAlertService.js';
-import { countFreeActiveListings, applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
+import { countFreeActiveListings, applyApprovalWindow, isJobFeatured, compareFeaturedFirst } from '../services/listingService.js';
 import { spendCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
 import { httpError } from '../utils/httpError.js';
 import { FREE_ACTIVE_LISTINGS } from '../config/credits.js';
@@ -361,8 +361,8 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       sortObj = { salaryAmount: -1, createdAt: -1 };
     } else if (cleanSort === 'salary_asc') {
       sortObj = { salaryAmount: 1, createdAt: -1 };
-    } else if (cleanSort === 'featured' || featured === 'true') {
-      sortObj = { featuredUntil: -1, createdAt: -1 };
+    } else if (!cleanSort || cleanSort === 'newest' || cleanSort === 'featured' || featured === 'true') {
+      sortObj = { featuredUntil: -1, createdAt: -1 }; // active boosts first; exact credit order is applied below
     }
 
     let jobs = await Job.find(finalFilter)
@@ -371,11 +371,10 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       .limit(limitNum)
       .lean();
 
-    if (cleanSort === 'featured') {
+    // Default order: featured first, the more credits spent the higher; everything else newest first.
+    if (!cleanSort || cleanSort === 'newest' || cleanSort === 'featured') {
       const now = new Date();
-      const until = (j) => (j.featuredUntil ? new Date(j.featuredUntil).getTime() : 0);
-      const rank = (j) => (isJobFeatured(j, now) ? (until(j) > now.getTime() ? 0 : 1) : 2);
-      jobs.sort((a, b) => rank(a) - rank(b) || (rank(a) === 0 ? until(b) - until(a) : 0) || new Date(b.createdAt) - new Date(a.createdAt));
+      jobs.sort((a, b) => compareFeaturedFirst(a, b, now));
     }
 
     // Unpinned listings get an approximate map point (geocoded once, waits at most 2.5s so the list never stalls).
