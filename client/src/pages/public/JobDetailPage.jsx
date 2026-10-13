@@ -252,6 +252,9 @@ export default function JobDetailPage() {
           {/* Job header card */}
           <div className="card relative overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-1.5 bg-brand-gradient" aria-hidden="true" />
+            {job.coverImage && (
+              <img src={job.coverImage} alt={`Ảnh ${emp?.storeName || job.title}`} onError={(e) => { e.currentTarget.style.display = "none"; }} className="w-full aspect-video max-h-72 object-cover rounded-2xl mb-4 mt-2" />
+            )}
             <div className="flex items-start gap-4">
               <div className={clsx('w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-2xl flex-shrink-0', avatarColorClass(emp?.storeName))}>
                 {avatarInitial(emp?.storeName)}
@@ -371,11 +374,11 @@ export default function JobDetailPage() {
           {/* Description */}
           <div className="card">
             <h2 className="section-title mb-4">Mô tả công việc</h2>
-            <p className="text-text-muted leading-relaxed">{job.description}</p>
+            <p className="text-text-muted leading-relaxed whitespace-pre-line">{job.description}</p>
 
             {job.requirements?.length > 0 && (
               <>
-                <h3 className="font-semibold text-text-main mt-5 mb-3">Yêu cầu</h3>
+                <h3 className="font-semibold text-text-main mt-5 mb-3">Yêu cầu công việc</h3>
                 <ul className="space-y-2">
                   {job.requirements.map((r, i) => (
                     <li key={i} className="flex items-start gap-2 text-text-muted text-sm">

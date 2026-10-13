@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, DollarSign, Users, CheckCircle, Star, Bookmark, BookmarkCheck, Calendar, Navigation } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -8,6 +9,7 @@ import { avatarColorClass, avatarInitial } from '@/utils/avatarColor.js';
 import { formatDistanceLabel } from '@/utils/jobLocation.js';
 
 export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false, compact = false }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const typeLabel = JOB_TYPE_LABELS[job.type] || job.type;
   const unitLabel = SALARY_UNIT_LABELS[job.salaryUnit] || '';
   const employer = job.employer;
@@ -45,9 +47,13 @@ export function JobCard({ job, onSave, onToggleSave, isSaved, isSelected = false
           {/* Top header row: Avatar + Badges + Title + Store */}
           <div className="flex items-start gap-3.5 pr-8">
             {/* Store avatar */}
-            <div className={clsx('w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg flex-shrink-0', avatarColorClass(employer?.storeName || job.storeName))}>
-              {avatarInitial(employer?.storeName || job.storeName)}
-            </div>
+            {job.coverImage && !imgFailed ? (
+              <img src={job.coverImage} alt="" loading="lazy" onError={() => setImgFailed(true)} className="w-12 h-12 rounded-2xl object-cover flex-shrink-0" />
+            ) : (
+              <div className={clsx('w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg flex-shrink-0', avatarColorClass(employer?.storeName || job.storeName))}>
+                {avatarInitial(employer?.storeName || job.storeName)}
+              </div>
+            )}
 
             <div className="flex-1 min-w-0">
               {/* Badges container with min-height for uniform alignment */}

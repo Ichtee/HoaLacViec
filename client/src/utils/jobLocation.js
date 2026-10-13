@@ -26,7 +26,7 @@ export function getJobDistanceTarget(job) {
 
 /** "850m" / "2.1km", thêm "~" khi là ước tính. */
 export function formatDistanceLabel(meters, approximate = false) {
-  if (meters === null || meters === undefined || !Number.isFinite(Number(meters))) return '';
+  if (meters === null || meters === undefined || !Number.isFinite(Number(meters)) || Number(meters) < 0) return '';
   const n = Number(meters);
   const text = n < 1000 ? `${Math.round(n)}m` : `${(n / 1000).toFixed(1)}km`;
   return approximate ? `~${text}` : text;

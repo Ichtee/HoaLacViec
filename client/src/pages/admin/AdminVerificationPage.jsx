@@ -14,6 +14,7 @@ import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { clsx } from 'clsx';
 import { PageHeader } from '@/components/PageHeader.jsx';
+import { Pagination, usePagination } from '@/components/Pagination.jsx';
 
 export default function AdminVerificationPage() {
   const [requests, setRequests] = useState([]);
@@ -147,6 +148,8 @@ function getVerificationTargetType(req) {
     });
   }, [requests, activeTab, statusFilter, searchQuery]);
 
+  const pager = usePagination(filteredRequests, 10);
+
   // Counts
   const counts = useMemo(() => {
     const total = requests.length;
@@ -171,7 +174,7 @@ function getVerificationTargetType(req) {
   }, [requests]);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-12">
+    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-12">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {/* Header */}
@@ -179,7 +182,7 @@ function getVerificationTargetType(req) {
         icon={ShieldCheck}
         title="Duyệt hồ sơ Sinh viên, Lao động tự do & Cửa hàng"
         description="Đối soát danh tính sinh viên, người lao động và giấy phép đối tác trước khi kích hoạt tài khoản chính thức."
-        badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800"> {counts.pending} hồ sơ đang chờ xét duyệt </span>}
+        badge={<span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800"> {counts.pending} hồ sơ đang chờ xét duyệt </span>}
         actions={
           <>
             <button
@@ -246,7 +249,7 @@ function getVerificationTargetType(req) {
         {/* Sub-Filters: Status & Search */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
           <div className="flex items-center gap-1.5 overflow-x-auto text-xs">
-            <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-wider mr-1">
+            <span className="text-gray-500 text-xs font-semibold uppercase tracking-wider mr-1">
               Trạng thái:
             </span>
             {[
@@ -259,7 +262,7 @@ function getVerificationTargetType(req) {
                 key={st.id}
                 onClick={() => setStatusFilter(st.id)}
                 className={clsx(
-                  'px-3 py-1.5 rounded-xl font-medium transition-colors text-xs whitespace-nowrap',
+                  'px-3 py-2 rounded-xl font-medium transition-colors text-xs whitespace-nowrap',
                   statusFilter === st.id
                     ? 'bg-gray-900 text-white font-bold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -273,7 +276,8 @@ function getVerificationTargetType(req) {
           <div className="relative min-w-[220px]">
             <Search className="w-3.5 h-3.5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
-              type="text"
+              type="search"
+              aria-label="Tìm hồ sơ xác thực"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Tìm theo tên, MSSV, trường..."
@@ -294,7 +298,7 @@ function getVerificationTargetType(req) {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredRequests.map(req => {
+          {pager.pageItems.map(req => {
             const targetId = req._id || req.id;
             const targetType = getVerificationTargetType(req);
             const isWorker = targetType === 'worker';
@@ -321,7 +325,7 @@ function getVerificationTargetType(req) {
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={clsx(
-                        'px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1',
+                        'px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1',
                         isWorker
                           ? 'bg-blue-100 text-blue-800'
                           : isStudent
@@ -349,7 +353,7 @@ function getVerificationTargetType(req) {
                     </Badge>
 
                     {req.createdAt && (
-                      <span className="text-[11px] text-gray-500">
+                      <span className="text-xs text-gray-500">
                         {new Date(req.createdAt).toLocaleDateString('vi-VN', {
                           day: '2-digit',
                           month: '2-digit',
@@ -453,7 +457,7 @@ function getVerificationTargetType(req) {
                               alt="CCCD trước"
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                               <Eye className="w-3 h-3" /> Trước
                             </div>
                           </div>
@@ -468,14 +472,14 @@ function getVerificationTargetType(req) {
                               alt="CCCD sau"
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                               <Eye className="w-3 h-3" /> Sau
                             </div>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-xl border border-blue-100">
+                      <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-2 rounded-xl border border-blue-100">
                         Xác thực thông tin (Không kèm ảnh)
                       </span>
                     )
@@ -492,12 +496,12 @@ function getVerificationTargetType(req) {
                           alt="Ảnh thẻ SV"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                           <Eye className="w-3.5 h-3.5" /> Xem to
                         </div>
                       </div>
                     ) : (
-                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-100">
+                      <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-2 rounded-xl border border-emerald-100">
                         Xác thực MSSV (Không kèm ảnh)
                       </span>
                     )
@@ -514,12 +518,12 @@ function getVerificationTargetType(req) {
                           alt="Ảnh cửa hàng"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                           <Eye className="w-3.5 h-3.5" /> Xem to
                         </div>
                       </div>
                     ) : (
-                      <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2.5 py-1.5 rounded-xl border border-purple-100">
+                      <span className="text-xs font-semibold text-purple-700 bg-purple-50 px-2.5 py-2 rounded-xl border border-purple-100">
                         Cơ sở kinh doanh (Không kèm ảnh)
                       </span>
                     )
@@ -541,7 +545,7 @@ function getVerificationTargetType(req) {
                           isWorker
                             ? 'bg-blue-600 hover:bg-blue-700'
                             : isStudent
-                            ? 'bg-emerald-600 hover:bg-emerald-700'
+                            ? 'bg-emerald-700 hover:bg-emerald-800'
                             : 'bg-purple-700 hover:bg-purple-800'
                         )}
                       >
@@ -553,6 +557,7 @@ function getVerificationTargetType(req) {
               </div>
             );
           })}
+          <Pagination page={pager.page} totalPages={pager.totalPages} total={pager.total} pageSize={pager.pageSize} onPageChange={pager.setPage} className="rounded-2xl bg-white border border-green-100" />
         </div>
       )}
 

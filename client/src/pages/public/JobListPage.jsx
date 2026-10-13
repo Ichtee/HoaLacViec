@@ -194,7 +194,7 @@ export default function JobListPage() {
         if (!active) return;
         const nextDistances = {};
         (result?.entries || []).forEach((entry) => {
-          if (Number.isFinite(entry.distanceMeters)) {
+          if (Number.isFinite(entry.distanceMeters) && entry.distanceMeters >= 0) {
             nextDistances[String(entry.id)] = {
               distanceMeters: entry.distanceMeters,
               durationSeconds: Number.isFinite(entry.durationSeconds) ? entry.durationSeconds : null,

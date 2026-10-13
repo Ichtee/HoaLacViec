@@ -99,7 +99,7 @@ export default function AdminUsersPage() {
   const pendingCount = users.filter(u => u.role === 'pending' || u.status === 'pending').length;
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-10">
+    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <PageHeader
@@ -178,7 +178,7 @@ export default function AdminUsersPage() {
                   aria-label={`Vai trò của ${u.name}`}
                   value={u.role}
                   onChange={(e) => handleRoleChange(u._id || u.id, e.target.value)}
-                  className="text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-green-100 bg-white hover:border-green-main focus:outline-none focus:ring-2 focus:ring-green-main/30 cursor-pointer"
+                  className="text-xs font-semibold px-2.5 py-2 rounded-xl border border-green-100 bg-white hover:border-green-main focus:outline-none focus:ring-2 focus:ring-green-main/30 cursor-pointer"
                 >
                   {u.role === 'pending' && <option value="pending" disabled>Chờ phân vai</option>}
                   <option value="student">Sinh viên</option>
@@ -205,7 +205,7 @@ export default function AdminUsersPage() {
                 <button
                   onClick={() => handleToggleLock(u._id || u.id, u.status)}
                   className={clsx(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors',
+                    'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors',
                     u.status === 'locked' ? 'bg-green-50 text-green-dark hover:bg-green-100' : 'bg-red-50 text-red-700 hover:bg-red-100'
                   )}
                 >

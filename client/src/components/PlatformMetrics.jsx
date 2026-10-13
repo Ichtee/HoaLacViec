@@ -4,6 +4,12 @@ import { getAdminMetrics } from '@/services';
 
 const pct = (value) => (value == null ? '—' : `${value}%`);
 
+const FUNNEL_LABELS = {
+  submitted: 'Đã nộp', screening: 'Đang sàng lọc', shortlisted: 'Vào danh sách rút gọn', interview: 'Phỏng vấn',
+  offer_sent: 'Đã gửi offer', offer_accepted: 'Đã nhận offer', hired: 'Đã tuyển', rejected: 'Từ chối',
+  withdrawn: 'Ứng viên rút', offer_declined: 'Từ chối offer', offer_expired: 'Offer hết hạn', offer_rescinded: 'Thu hồi offer',
+};
+
 function formatDuration(hours) {
   if (hours == null) return '—';
   if (hours < 48) return `${hours} giờ`;
@@ -52,9 +58,17 @@ export function PlatformMetrics() {
             <Metric label="Người dùng hoạt động tuần" value={metrics.weeklyActiveUsers} hint="Ứng tuyển, đăng tin hoặc nhắn tin" />
           </div>
           {Object.keys(metrics.applicationFunnel || {}).length > 0 && (
-            <p className="text-xs text-text-muted">
-              Phễu đơn ứng tuyển: {Object.entries(metrics.applicationFunnel).map(([status, count]) => `${status} ${count}`).join(' · ')}
-            </p>
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold text-text-muted">Phễu đơn ứng tuyển</p>
+              <ul className="flex flex-wrap gap-2">
+                {Object.entries(metrics.applicationFunnel).map(([status, count]) => (
+                  <li key={status} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white ring-1 ring-green-100 text-xs text-text-main">
+                    {FUNNEL_LABELS[status] || status}
+                    <strong className="text-green-dark">{count}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </>
       )}

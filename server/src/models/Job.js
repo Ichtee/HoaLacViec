@@ -93,6 +93,7 @@ const jobSchema = new mongoose.Schema({
     index: true,
   },
   description: { type: String, default: '' },
+  coverImage: { type: String, default: '' },
   requirements: [{ type: String }],
   benefits: [{ type: String }],
   busRoutes: [{ type: String }],

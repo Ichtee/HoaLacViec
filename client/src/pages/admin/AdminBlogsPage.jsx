@@ -19,6 +19,8 @@ import { Input, Textarea, Select } from '@/components/Form.jsx';
 import { Button } from '@/components/Button.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { PageHeader } from '@/components/PageHeader.jsx';
+import { ImageUploadField } from '@/components/ImageUploadField.jsx';
+import { Pagination, usePagination } from '@/components/Pagination.jsx';
 
 const BLOG_CATEGORIES = [
   { value: 'all', label: 'Tất cả bài viết' },
@@ -188,6 +190,8 @@ export default function AdminBlogsPage() {
     });
   }, [blogs, categoryFilter, search]);
 
+  const pager = usePagination(filteredBlogs, 10);
+
   const countByCategory = useMemo(() => {
     const counts = { all: blogs.length };
     blogs.forEach(b => {
@@ -205,7 +209,7 @@ export default function AdminBlogsPage() {
         icon={BookOpen}
         title="Quản lý Blog Cẩm nang & Cảnh giác"
         description="Đăng tải cẩm nang việc làm, cảnh báo lừa đảo và tin tức chia sẻ kinh nghiệm cho sinh viên Hòa Lạc."
-        badge={<span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-800"> {blogs.length} bài viết hiện có </span>}
+        badge={<span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800"> {blogs.length} bài viết hiện có </span>}
         actions={
           <>
             <div className="flex items-center gap-3">
@@ -241,14 +245,14 @@ export default function AdminBlogsPage() {
                 key={cat.value}
                 onClick={() => setCategoryFilter(cat.value)}
                 className={clsx(
-                  'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5',
+                  'px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5',
                   isSelected
                     ? 'bg-green-dark text-white shadow-sm'
                     : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                 )}
               >
                 <span>{cat.label}</span>
-                <span className={clsx('text-[10px] px-1.5 py-0.2 rounded-full', isSelected ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700')}>
+                <span className={clsx('text-xs px-1.5 py-0.2 rounded-full', isSelected ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700')}>
                   {count}
                 </span>
               </button>
@@ -260,7 +264,8 @@ export default function AdminBlogsPage() {
         <div className="relative">
           <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
-            type="text"
+            type="search"
+            aria-label="Tìm bài viết"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm theo tiêu đề, nội dung tóm tắt hoặc thẻ tag..."
@@ -284,7 +289,7 @@ export default function AdminBlogsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredBlogs.map((blog) => {
+          {pager.pageItems.map((blog) => {
             const catInfo = CATEGORY_MAP[blog.category] || { label: 'Bài viết', color: 'bg-gray-50 text-gray-700 border-gray-200' };
             const blogSlug = blog.slug || blog._id;
 
@@ -302,16 +307,16 @@ export default function AdminBlogsPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                      <span className={clsx('px-2.5 py-0.5 rounded-full text-[10px] font-bold border backdrop-blur-md shadow-xs', catInfo.color)}>
+                      <span className={clsx('px-2.5 py-0.5 rounded-full text-xs font-bold border backdrop-blur-md shadow-xs', catInfo.color)}>
                         {catInfo.label}
                       </span>
                       {blog.featured && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white flex items-center gap-0.5 shadow-xs">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500 text-white flex items-center gap-0.5 shadow-xs">
                           <Star className="w-3 h-3 fill-white" /> Nổi bật
                         </span>
                       )}
                     </div>
-                    <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-black/60 text-white text-[10px] font-medium flex items-center gap-1">
+                    <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-lg bg-black/60 text-white text-xs font-medium flex items-center gap-1">
                       <Eye className="w-3 h-3" /> {blog.views || 0}
                     </div>
                   </div>
@@ -330,7 +335,7 @@ export default function AdminBlogsPage() {
                   <div className="flex items-center gap-2 truncate pr-2">
                     <span className="font-semibold text-gray-700 truncate">{blog.author?.name || 'Admin'}</span>
                     <span>•</span>
-                    <span className="text-[11px]">{new Date(blog.createdAt || Date.now()).toLocaleDateString('vi-VN')}</span>
+                    <span className="text-xs">{new Date(blog.createdAt || Date.now()).toLocaleDateString('vi-VN')}</span>
                   </div>
 
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -364,6 +369,7 @@ export default function AdminBlogsPage() {
               </div>
             );
           })}
+          <Pagination page={pager.page} totalPages={pager.totalPages} total={pager.total} pageSize={pager.pageSize} onPageChange={pager.setPage} className="md:col-span-2 rounded-2xl bg-white border border-green-100" />
         </div>
       )}
 
@@ -417,39 +423,36 @@ export default function AdminBlogsPage() {
           </div>
 
           <div className="space-y-1.5">
+            <ImageUploadField
+              label="Ảnh bìa bài viết"
+              hint="Tải ảnh từ máy lên, hoặc dán đường dẫn / chọn ảnh mẫu bên dưới."
+              folder="blogs"
+              value={formData.coverImage}
+              onChange={(url) => setFormData((prev) => ({ ...prev, coverImage: url }))}
+            />
             <Input
               id="blog-cover"
-              label="Đường dẫn ảnh bìa (Cover Image URL)"
+              label="Hoặc dán đường dẫn ảnh bìa (URL)"
               placeholder="https://images.unsplash.com/..."
-              value={formData.coverImage}
+              value={formData.coverImage.startsWith('data:') ? '' : formData.coverImage}
               onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
             />
 
             {/* Quick cover suggestions */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-gray-500">Gợi ý ảnh mẫu:</span>
+              <span className="text-xs text-gray-500">Gợi ý ảnh mẫu:</span>
               {SAMPLE_COVERS.map((sample, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setFormData({ ...formData, coverImage: sample.url })}
-                  className="text-[10px] px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-600 transition-colors"
+                  className="text-xs px-2 py-0.5 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-600 transition-colors"
                 >
                   {sample.label}
                 </button>
               ))}
             </div>
 
-            {formData.coverImage && (
-              <div className="mt-2 rounded-2xl overflow-hidden border border-gray-200 aspect-[21/9] max-h-36 bg-gray-50">
-                <img
-                  src={formData.coverImage}
-                  alt="Ảnh xem trước"
-                  className="w-full h-full object-cover"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

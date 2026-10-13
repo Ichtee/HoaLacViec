@@ -18,6 +18,7 @@ import { notifyJobAlerts, notifyFeaturedJob } from '../services/jobAlertService.
 import { countFreeActiveListings, applyApprovalWindow, isJobFeatured, compareFeaturedFirst } from '../services/listingService.js';
 import { spendCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
 import { httpError } from '../utils/httpError.js';
+import { persistImage } from '../services/imageStorageService.js';
 import { FREE_ACTIVE_LISTINGS } from '../config/credits.js';
 import { normalizeLocationInput, LOCATION_STATUSES } from '../utils/locationContract.js';
 
@@ -68,8 +69,15 @@ const EDITABLE_JOB_FIELDS = [
   'geocodingProvider', 'providerPlaceId', 'formattedAddress',
   'addressComponents', 'provinceCode', 'districtCode', 'wardCode',
   'schedule', 'positions', 'slots', 'description', 'requirements',
-  'benefits', 'busRoutes', 'tags', 'contactPhone', 'closesAt',
+  'benefits', 'busRoutes', 'tags', 'contactPhone', 'closesAt', 'coverImage',
 ];
+
+// Ảnh bìa chỉ nhận URL http(s) hoặc data URI hợp lệ; data URI được đẩy lên kho ảnh (Cloudinary nếu có cấu hình)
+async function normalizeCoverImage(data) {
+  if (!Object.hasOwn(data, 'coverImage')) return;
+  const value = typeof data.coverImage === 'string' ? data.coverImage.trim() : '';
+  data.coverImage = /^https?:\/\//i.test(value) || value.startsWith('data:') ? await persistImage(value, { folder: 'jobs' }) : '';
+}
 
 function pickEditableJobFields(body = {}) {
   return Object.fromEntries(
@@ -557,6 +565,7 @@ router.post('/', authenticate, async (req, res, next) => {
 
     const profile = await EmployerProfile.findOne({ userId: req.user._id });
     const data = pickEditableJobFields(req.body);
+    await normalizeCoverImage(data);
     if (req.user.role !== 'admin') delete data.closesAt; // only the approval window sets it for employers
 
     data.employerUserId = req.user._id;
@@ -852,6 +861,7 @@ router.put('/:id', authenticate, async (req, res, next) => {
     }
 
     const edits = pickEditableJobFields(req.body);
+    await normalizeCoverImage(edits);
     if (req.user.role !== 'admin') delete edits.closesAt;
     if (req.body.status === 'pending' && job.status === 'approved') {
       edits.status = 'pending';

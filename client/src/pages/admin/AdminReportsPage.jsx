@@ -5,6 +5,7 @@ import { Badge } from '@/components/Badge.jsx';
 import { Modal } from '@/components/Modal.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { PageHeader } from '@/components/PageHeader.jsx';
+import { Pagination, usePagination } from '@/components/Pagination.jsx';
 
 const STATUS_FILTERS = [
   { id: 'all', label: 'Tất cả trạng thái' },
@@ -38,11 +39,14 @@ export default function AdminReportsPage() {
   const [resolutionNote, setResolutionNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const pager = usePagination(reports, 10);
+
   useEffect(() => {
     let mounted = true;
     getReports({
       status: statusFilter !== 'all' ? statusFilter : undefined,
       targetType: typeFilter !== 'all' ? typeFilter : undefined,
+      limit: 100, // tối đa của server; phân trang ở client
     })
       .then((data) => {
         if (!mounted) return;
@@ -122,7 +126,7 @@ export default function AdminReportsPage() {
             <button
               key={f.id}
               onClick={() => setStatusFilter(f.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                 statusFilter === f.id
                   ? 'bg-green-main text-white shadow-sm'
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
@@ -136,6 +140,7 @@ export default function AdminReportsPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold text-gray-500">Đối tượng:</span>
           <select
+            aria-label="Lọc theo đối tượng"
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-400"
@@ -160,7 +165,7 @@ export default function AdminReportsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {reports.map((rep) => {
+          {pager.pageItems.map((rep) => {
             const reportId = rep.id || rep._id;
             const isPending = rep.status === 'pending';
             const isInvestigating = rep.status === 'investigating';
@@ -192,11 +197,11 @@ export default function AdminReportsPage() {
                       {isDismissed && 'Đã bác bỏ'}
                     </Badge>
 
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 uppercase tracking-wide border border-purple-100">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 uppercase tracking-wide border border-purple-100">
                       {rep.targetType}
                     </span>
 
-                    <span className="text-gray-500 text-[11px] flex items-center gap-1">
+                    <span className="text-gray-500 text-xs flex items-center gap-1">
                       <Clock className="w-3 h-3" /> {rep.createdAtFormatted || 'Gần đây'}
                     </span>
                   </div>
@@ -263,6 +268,7 @@ export default function AdminReportsPage() {
               </div>
             );
           })}
+          <Pagination page={pager.page} totalPages={pager.totalPages} total={pager.total} pageSize={pager.pageSize} onPageChange={pager.setPage} className="rounded-2xl bg-white border border-green-100" />
         </div>
       )}
 
@@ -327,6 +333,7 @@ export default function AdminReportsPage() {
                   Quyết định trạng thái công việc (MicroTask Resolution):
                 </label>
                 <select
+                  aria-label="Quyết định trạng thái công việc"
                   value={taskResolution}
                   onChange={(e) => setTaskResolution(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-purple-200 rounded-xl text-xs font-semibold text-purple-950 focus:outline-none focus:ring-2 focus:ring-purple-400"
@@ -335,7 +342,7 @@ export default function AdminReportsPage() {
                   <option value="completed">Công nhận hoàn thành (Completed) cho người làm</option>
                   <option value="cancelled">Hủy bỏ công việc (Cancelled) & Hoàn trả</option>
                 </select>
-                <p className="text-[11px] text-purple-700">
+                <p className="text-xs text-purple-700">
                   Lựa chọn này sẽ cập nhật trực tiếp trạng thái công việc trên hệ thống Chợ việc vặt.
                 </p>
               </div>

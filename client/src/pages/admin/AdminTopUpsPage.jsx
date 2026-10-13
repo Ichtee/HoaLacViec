@@ -72,7 +72,7 @@ export default function AdminTopUpsPage() {
     || (tab === 'cancelled' && r.status === 'voided'));
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-10">
+    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <PageHeader
@@ -147,7 +147,7 @@ export default function AdminTopUpsPage() {
                   type="button"
                   disabled={busyId === r._id}
                   onClick={() => reconcile(r)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-green-50 text-green-dark hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-green-50 text-green-dark hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {busyId === r._id ? 'Đang kiểm tra...' : 'Kiểm tra lại với SePay'}
                 </button>

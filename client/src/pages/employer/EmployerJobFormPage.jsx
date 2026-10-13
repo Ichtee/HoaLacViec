@@ -22,6 +22,7 @@ import { PageHeader } from '@/components/PageHeader.jsx';
 import { isValidCoordinate, getGoogleMapsDirectionsUrl } from '@/utils';
 import { getProvinces, getDistricts, getWards, resolveAreaCode } from '@/services/provinces';
 import { JobFormStepper } from './JobFormStepper.jsx';
+import { ImageUploadField } from '@/components/ImageUploadField.jsx';
 
 export const PRESET_SHIFTS = [
   'Ca sáng (07:00 - 12:00)',
@@ -100,6 +101,7 @@ export default function EmployerJobFormPage() {
     ],
     description: '',
     requirements: '',
+    coverImage: '',
     benefits: '',
     status: 'pending',
   });
@@ -218,6 +220,7 @@ export default function EmployerJobFormPage() {
           slots: computedSlots,
           description: job.description || '',
           requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : (job.requirements || ''),
+          coverImage: job.coverImage || '',
           benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : (job.benefits || ''),
           status: job.status || 'pending',
         });
@@ -441,6 +444,7 @@ export default function EmployerJobFormPage() {
         positions: finalPositions,
         shiftDetail: computedShiftDetail || formData.shiftDetail,
         description: formData.description,
+        coverImage: formData.coverImage,
         requirements: formData.requirements
           ? formData.requirements.split('\n').map(s => s.trim()).filter(Boolean)
           : [],
@@ -942,32 +946,49 @@ export default function EmployerJobFormPage() {
               4
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900">Mô tả công việc & Yêu cầu</h2>
-              <p className="text-[11px] text-gray-500">Nêu rõ nhiệm vụ hàng ngày và tiêu chuẩn tuyển dụng</p>
+              <h2 className="text-sm font-bold text-gray-900">Mô tả & Yêu cầu công việc</h2>
+              <p className="text-[11px] text-gray-500">Tách riêng nhiệm vụ hàng ngày và tiêu chuẩn tuyển dụng để ứng viên dễ đọc</p>
             </div>
           </div>
 
-          <div>
-            <label className="block font-bold text-gray-800 text-xs mb-1.5">Mô tả công việc chi tiết</label>
-            <textarea aria-label="Mô tả công việc chi tiết"
-              rows={3}
-              placeholder="Nêu rõ công việc hàng ngày: Pha chế đồ uống, dọn dẹp quầy bar, phục vụ khách, kiểm kê hàng hóa cuối ca..."
+          <div className="rounded-2xl border border-green-100 bg-green-50/30 p-4">
+            <label htmlFor="job-description" className="block font-bold text-gray-900 text-sm mb-0.5">
+              Mô tả công việc <span className="text-red-700">*</span>
+            </label>
+            <p className="text-[11px] text-gray-500 mb-2">Công việc hàng ngày, môi trường làm việc, lịch làm.</p>
+            <textarea
+              id="job-description"
+              required
+              rows={5}
+              placeholder="Ví dụ: Pha chế đồ uống, phục vụ khách, dọn dẹp quầy bar, kiểm kê hàng hóa cuối ca..."
               value={formData.description}
               onChange={e => setFormData({ ...formData, description: e.target.value })}
-              className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs resize-none"
+              className="w-full p-3 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs resize-y"
             />
           </div>
 
-          <div>
-            <label className="block font-bold text-gray-800 text-xs mb-1.5">Yêu cầu & Quyền lợi (mỗi ý 1 dòng)</label>
-            <textarea aria-label="Yêu cầu & Quyền lợi (mỗi ý 1 dòng)"
-              rows={3}
-              placeholder="Ví dụ:&#10;- Chăm chỉ, đúng giờ, giao tiếp thân thiện&#10;- Ưu tiên sinh viên có thể làm ca xoay&#10;- Bao cơm ca, thưởng doanh số theo tháng"
+          <div className="rounded-2xl border border-green-100 bg-green-50/30 p-4">
+            <label htmlFor="job-requirements" className="block font-bold text-gray-900 text-sm mb-0.5">
+              Yêu cầu công việc
+            </label>
+            <p className="text-[11px] text-gray-500 mb-2">Tiêu chuẩn với ứng viên, mỗi ý một dòng.</p>
+            <textarea
+              id="job-requirements"
+              rows={5}
+              placeholder="Ví dụ:&#10;Chăm chỉ, đúng giờ, giao tiếp thân thiện&#10;Ưu tiên sinh viên có thể làm ca xoay"
               value={formData.requirements}
               onChange={e => setFormData({ ...formData, requirements: e.target.value })}
-              className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-main text-xs resize-none"
+              className="w-full p-3 rounded-xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-green-main text-xs resize-y"
             />
           </div>
+
+          <ImageUploadField
+            label="Ảnh bìa tin tuyển dụng (không bắt buộc)"
+            hint="Ảnh quán hoặc nơi làm việc, hiển thị ở danh sách và trang chi tiết."
+            folder="jobs"
+            value={formData.coverImage}
+            onChange={url => setFormData(prev => ({ ...prev, coverImage: url }))}
+          />
         </div>
 
         {/* BOTTOM ACTION BAR */}
