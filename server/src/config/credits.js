@@ -8,7 +8,7 @@ export const EXPIRY_REMINDER_DAYS = 2;
 // Employers type how many credits they want; the price is credits x vndPerCredit, with bonus credits on bigger top-ups.
 export const TOPUP = {
   vndPerCredit: 1000,
-  min: 20,
+  min: 10,
   max: 1000,
   step: 10,
   quick: [50, 100, 200, 500],

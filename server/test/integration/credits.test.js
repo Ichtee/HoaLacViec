@@ -106,7 +106,7 @@ const reload = (id) => t.models.TopUpRequest.findById(id);
 test('GET /pricing is public', async () => {
   const r = await call('/credits/pricing');
   assert.equal(r.status, 200);
-  assert.deepEqual([r.body.topup.vndPerCredit, r.body.topup.min, r.body.topup.max, r.body.topup.step], [1000, 20, 1000, 10]);
+  assert.deepEqual([r.body.topup.vndPerCredit, r.body.topup.min, r.body.topup.max, r.body.topup.step], [1000, 10, 1000, 10]);
   assert.equal(r.body.prices.extra_slot, 30);
 });
 
@@ -815,14 +815,14 @@ test('featuring an approved job notifies alert matches and nearby students once 
 
 test('custom top-up: price = credits x 1000d, volume bonus, bad amounts rejected, paid grants the total', async () => {
   const { quoteTopUp } = await import('../../src/config/credits.js');
-  assert.deepEqual(quoteTopUp(20), { credits: 20, bonus: 0, total: 20, vnd: 20000 });
+  assert.deepEqual(quoteTopUp(10), { credits: 10, bonus: 0, total: 10, vnd: 10000 });
   assert.deepEqual(quoteTopUp(90), { credits: 90, bonus: 4, total: 94, vnd: 90000 });
   assert.deepEqual(quoteTopUp(40), { credits: 40, bonus: 0, total: 40, vnd: 40000 });
   assert.deepEqual(quoteTopUp(50), { credits: 50, bonus: 2, total: 52, vnd: 50000 });
   assert.deepEqual(quoteTopUp(100), { credits: 100, bonus: 7, total: 107, vnd: 100000 });
   assert.deepEqual(quoteTopUp(350), { credits: 350, bonus: 35, total: 385, vnd: 350000 });
   assert.deepEqual(quoteTopUp(1000), { credits: 1000, bonus: 100, total: 1100, vnd: 1000000 }); // capped at 10%
-  for (const bad of [0, 10, 25, 1010, -50, 50.5, '1e2x', null, undefined]) assert.equal(quoteTopUp(bad), null, String(bad));
+  for (const bad of [0, 5, 25, 1010, -50, 50.5, '1e2x', null, undefined]) assert.equal(quoteTopUp(bad), null, String(bad));
   setEnv(); useFake();
   const e = await newEmployer();
   const token = await login(e);
