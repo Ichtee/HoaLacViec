@@ -12,7 +12,7 @@ export const TOPUP = {
   max: 1000,
   step: 10,
   quick: [50, 100, 200, 500],
-  bonusTiers: [{ minCredits: 200, pct: 20 }, { minCredits: 100, pct: 10 }], // highest first
+  bonusTiers: [{ minCredits: 200, pct: 10 }, { minCredits: 100, pct: 7 }, { minCredits: 50, pct: 5 }], // highest first; the bonus never exceeds 10%
 };
 
 /** Validates a requested amount and returns what is charged and granted; null when invalid. */

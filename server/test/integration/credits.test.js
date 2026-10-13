@@ -144,7 +144,7 @@ test('IPN ORDER_PAID grants once; /me shows balance and ledger row', async () =>
   const { token, topUp } = await topUpFor(e);
   assert.equal((await rawIpn(topUp.invoiceNumber)).status, 200);
   const me = await call('/credits/me', { token });
-  assert.equal(me.body.balance, 110);
+  assert.equal(me.body.balance, 107);
   assert.equal(me.body.transactions.filter((x) => x.type === 'topup').length, 1);
   assert.equal((await reload(topUp._id)).status, 'paid');
   const note = await t.models.EmployerProfile.db.collection('notifications').findOne({ userId: e._id, type: 'credit' });
@@ -157,12 +157,12 @@ test('IPN replay (sequential and parallel) credits once', async () => {
   const { topUp } = await topUpFor(e);
   await rawIpn(topUp.invoiceNumber);
   await rawIpn(topUp.invoiceNumber);
-  assert.equal(await bal(e), 110);
+  assert.equal(await bal(e), 107);
   const e2 = await newEmployer();
   const second = await topUpFor(e2);
   const rs = await Promise.all([1, 2, 3, 4].map(() => rawIpn(second.topUp.invoiceNumber)));
   assert.ok(rs.every((x) => x.status === 200));
-  assert.equal(await bal(e2), 110);
+  assert.equal(await bal(e2), 107);
   assert.equal(await t.models.CreditTransaction.countDocuments({ employerUserId: e2._id, type: 'topup' }), 1);
 });
 
@@ -213,10 +213,10 @@ test('reconcile: owner grants once, other employer 404, student 403', async () =
   const r = await call(`/credits/topups/${topUp._id}/reconcile`, { method: 'POST', token });
   assert.equal(r.status, 200);
   assert.equal(r.body.result, 'granted');
-  assert.equal(r.body.balance, 110);
+  assert.equal(r.body.balance, 107);
   assert.equal((await call(`/credits/topups/${topUp._id}/reconcile`, { method: 'POST', token })).body.result, 'already_paid');
-  assert.equal(await bal(e), 110);
-  assert.equal((await call(`/credits/topups/${topUp._id}`, { token })).body.balance, 110);
+  assert.equal(await bal(e), 107);
+  assert.equal((await call(`/credits/topups/${topUp._id}`, { token })).body.balance, 107);
   assert.equal((await call('/credits/topups/mine', { token })).body.topUps.length, 1);
 });
 
@@ -265,10 +265,10 @@ test('TRANSACTION_VOID after paid -> voided, no clawback; on failed stays failed
   const e = await newEmployer();
   const paid = await topUpFor(e);
   await rawIpn(paid.topUp.invoiceNumber);
-  assert.equal(await bal(e), 110);
+  assert.equal(await bal(e), 107);
   assert.equal((await rawIpn(paid.topUp.invoiceNumber, SECRET, 'TRANSACTION_VOID')).status, 200);
   assert.equal((await reload(paid.topUp._id)).status, 'voided');
-  assert.equal(await bal(e), 110);
+  assert.equal(await bal(e), 107);
   const failed = await topUpFor(e);
   await t.models.TopUpRequest.updateOne({ _id: failed.topUp._id }, { status: 'failed' });
   await rawIpn(failed.topUp.invoiceNumber, SECRET, 'TRANSACTION_VOID');
@@ -743,7 +743,7 @@ test('polling grants a paid pending top-up once, skips unpaid and older than 24h
   assert.equal((await reload(topUp._id)).status, 'paid');
   assert.equal((await reload(stale._id)).status, 'pending');
   await reconcilePendingTopUps();
-  assert.equal(await bal(e), 110);
+  assert.equal(await bal(e), 107);
 });
 
 test('closing starts the cooldown; reopen/renew of the same job do not need an extra slot', async () => {
@@ -816,9 +816,12 @@ test('featuring an approved job notifies alert matches and nearby students once 
 test('custom top-up: price = credits x 1000d, volume bonus, bad amounts rejected, paid grants the total', async () => {
   const { quoteTopUp } = await import('../../src/config/credits.js');
   assert.deepEqual(quoteTopUp(20), { credits: 20, bonus: 0, total: 20, vnd: 20000 });
-  assert.deepEqual(quoteTopUp(90), { credits: 90, bonus: 0, total: 90, vnd: 90000 });
-  assert.deepEqual(quoteTopUp(100), { credits: 100, bonus: 10, total: 110, vnd: 100000 });
-  assert.deepEqual(quoteTopUp(350), { credits: 350, bonus: 70, total: 420, vnd: 350000 });
+  assert.deepEqual(quoteTopUp(90), { credits: 90, bonus: 4, total: 94, vnd: 90000 });
+  assert.deepEqual(quoteTopUp(40), { credits: 40, bonus: 0, total: 40, vnd: 40000 });
+  assert.deepEqual(quoteTopUp(50), { credits: 50, bonus: 2, total: 52, vnd: 50000 });
+  assert.deepEqual(quoteTopUp(100), { credits: 100, bonus: 7, total: 107, vnd: 100000 });
+  assert.deepEqual(quoteTopUp(350), { credits: 350, bonus: 35, total: 385, vnd: 350000 });
+  assert.deepEqual(quoteTopUp(1000), { credits: 1000, bonus: 100, total: 1100, vnd: 1000000 }); // capped at 10%
   for (const bad of [0, 10, 25, 1010, -50, 50.5, '1e2x', null, undefined]) assert.equal(quoteTopUp(bad), null, String(bad));
   setEnv(); useFake();
   const e = await newEmployer();
@@ -826,11 +829,11 @@ test('custom top-up: price = credits x 1000d, volume bonus, bad amounts rejected
   assert.equal((await call('/credits/topups', { method: 'POST', token, body: { credits: 25 } })).status, 400);
   assert.equal((await call('/credits/topups', { method: 'POST', token, body: { packId: 'p50' } })).status, 400);
   const { topUp } = await topUpFor(e, 350);
-  assert.deepEqual([topUp.amountVnd, topUp.credits, topUp.bonusCredits], [350000, 420, 70]);
+  assert.deepEqual([topUp.amountVnd, topUp.credits, topUp.bonusCredits], [350000, 385, 35]);
   assert.equal(recorded.at(-1).order_amount, 350000);
   order = { order_status: 'CAPTURED', order_amount: '350000.00' };
   assert.equal((await call(`/credits/topups/${topUp._id}/reconcile`, { method: 'POST', token })).body.result, 'granted');
-  assert.equal(await bal(e), 420);
+  assert.equal(await bal(e), 385);
   const row = await t.models.CreditTransaction.findOne({ employerUserId: e._id, type: 'topup' });
   assert.equal(row.reason, 'topup');
 });
