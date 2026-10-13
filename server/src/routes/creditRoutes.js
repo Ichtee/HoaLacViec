@@ -9,7 +9,7 @@ import { Notification } from '../models/Notification.js';
 import { Job } from '../models/Job.js';
 import { authenticate, authorize, requireActiveUser } from '../middlewares/auth.js';
 import { httpError } from '../utils/httpError.js';
-import { CREDIT_PACKS, CREDIT_PRICES, FREE_ACTIVE_LISTINGS, LISTING_DAYS, SLOT_COOLDOWN_DAYS, WELCOME_CREDITS } from '../config/credits.js';
+import { TOPUP, quoteTopUp, CREDIT_PRICES, FREE_ACTIVE_LISTINGS, LISTING_DAYS, SLOT_COOLDOWN_DAYS, WELCOME_CREDITS } from '../config/credits.js';
 import { SEPAY_NOTIFICATION } from '../config/sepay.js';
 import { getSepayClient } from '../services/sepayClient.js';
 import { applySepayOrderPaid } from '../services/topUpService.js';
@@ -60,7 +60,7 @@ async function reconcile(topUp) {
 }
 
 router.get('/pricing', (req, res) => {
-  res.json({ packs: CREDIT_PACKS, prices: CREDIT_PRICES, freeActiveListings: FREE_ACTIVE_LISTINGS, listingDays: LISTING_DAYS, slotCooldownDays: SLOT_COOLDOWN_DAYS, welcomeCredits: WELCOME_CREDITS });
+  res.json({ topup: TOPUP, prices: CREDIT_PRICES, freeActiveListings: FREE_ACTIVE_LISTINGS, listingDays: LISTING_DAYS, slotCooldownDays: SLOT_COOLDOWN_DAYS, welcomeCredits: WELCOME_CREDITS });
 });
 
 router.get('/me', ...employerOnly, async (req, res, next) => {
@@ -76,13 +76,13 @@ router.get('/me', ...employerOnly, async (req, res, next) => {
 
 router.post('/topups', ...employerOnly, requireActiveUser, async (req, res, next) => {
   try {
-    const pack = CREDIT_PACKS.find((p) => p.id === req.body?.packId);
-    if (!pack) throw httpError(400, 'INVALID_PACK', 'Gói nạp không hợp lệ.');
+    const quote = quoteTopUp(req.body?.credits);
+    if (!quote) throw httpError(400, 'INVALID_AMOUNT', `Số credit nạp phải từ ${TOPUP.min} đến ${TOPUP.max}, là bội số của ${TOPUP.step}.`);
     if (!process.env.PUBLIC_APP_URL) throw httpError(503, 'TOPUP_UNAVAILABLE', 'Tính năng nạp credit tạm thời chưa khả dụng.');
     const sepay = getSepayClient(); // 503 before any row is created
     const pending = await TopUpRequest.countDocuments({ employerUserId: req.user._id, status: 'pending', createdAt: { $gte: new Date(Date.now() - PENDING_WINDOW_MS) } });
     if (pending >= MAX_PENDING) throw httpError(429, 'TOO_MANY_PENDING_TOPUPS', 'Bạn đang có quá nhiều yêu cầu nạp chưa hoàn tất. Vui lòng hoàn tất hoặc chờ hết hạn.');
-    const topUp = await createTopUp({ employerUserId: req.user._id, packId: pack.id, amountVnd: pack.vnd, credits: pack.credits });
+    const topUp = await createTopUp({ employerUserId: req.user._id, packId: 'custom', amountVnd: quote.vnd, credits: quote.total, bonusCredits: quote.bonus });
     const back = `${process.env.PUBLIC_APP_URL}/employer/credits?topup=${topUp._id}`;
     const fields = sepay.initOneTimePaymentFields({
       operation: 'PURCHASE',
@@ -90,7 +90,7 @@ router.post('/topups', ...employerOnly, requireActiveUser, async (req, res, next
       order_invoice_number: topUp.invoiceNumber,
       order_amount: topUp.amountVnd,
       currency: 'VND',
-      order_description: `Nap ${topUp.credits} credit Hoa Lac Viec`,
+      order_description: `Nap ${topUp.credits - topUp.bonusCredits} credit Hoa Lac Viec`,
       customer_id: String(req.user._id),
       success_url: back,
       error_url: `${back}&result=error`,

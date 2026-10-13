@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Coins } from 'lucide-react';
+import { Coins, Minus, Plus } from 'lucide-react';
 import {
   apiGetCreditPricing, apiGetMyCredits, apiCreateTopUp, apiGetTopUp, apiReconcileTopUp,
 } from '@/services';
@@ -22,7 +22,7 @@ const POLL_MAX = 10; // 30 s
 const vnd = (n) => `${Number(n).toLocaleString('vi-VN')}đ`;
 const describe = (tx) => {
   const label = REASON_LABEL[tx.reason];
-  if (tx.type === 'topup') return `Nạp credit${tx.reason ? ` (gói ${tx.reason})` : ''}`;
+  if (tx.type === 'topup') return 'Nạp credit';
   if (tx.type === 'refund') return `Hoàn credit${label ? `: ${label}` : ''}`;
   return label || tx.note || 'Giao dịch credit';
 };
@@ -43,6 +43,17 @@ function submitCheckout({ url, fields }) {
   form.remove();
 }
 
+// Mirrors quoteTopUp in server/src/config/credits.js; the server stays the authority.
+function quote(topup, raw) {
+  const n = Number(raw);
+  if (!raw || !Number.isInteger(n)) return { error: 'Nhập số credit muốn nạp.' };
+  if (n < topup.min || n > topup.max) return { error: `Số credit từ ${topup.min} đến ${topup.max}.` };
+  if (n % topup.step !== 0) return { error: `Số credit phải là bội số của ${topup.step}.` };
+  const tier = topup.bonusTiers.find((t) => n >= t.minCredits);
+  const bonus = tier ? Math.floor((n * tier.pct) / 100) : 0;
+  return { credits: n, bonus, total: n + bonus, vnd: n * topup.vndPerCredit };
+}
+
 export default function EmployerCreditsPage() {
   const [params] = useSearchParams();
   const topupId = params.get('topup');
@@ -50,7 +61,8 @@ export default function EmployerCreditsPage() {
   const [pricing, setPricing] = useState(null);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [buying, setBuying] = useState('');
+  const [buying, setBuying] = useState(false);
+  const [amount, setAmount] = useState('100');
   const [toast, setToast] = useState(null);
   // idle | polling | paid | error | cancel | pending (still unconfirmed after 30 s)
   const [returnState, setReturnState] = useState(topupId ? (result === 'error' || result === 'cancel' ? result : 'polling') : 'idle');
@@ -117,15 +129,15 @@ export default function EmployerCreditsPage() {
     }
   }
 
-  async function buy(packId) {
-    setBuying(packId);
+  async function buy(credits) {
+    setBuying(true);
     try {
-      const { checkout } = await apiCreateTopUp(packId);
+      const { checkout } = await apiCreateTopUp(credits);
       submitCheckout(checkout);
-      setBuying(''); // page may be restored from bfcache
+      setBuying(false); // page may be restored from bfcache
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Không thể tạo yêu cầu nạp credit.' });
-      setBuying('');
+      setBuying(false);
     }
   }
 
@@ -162,17 +174,67 @@ export default function EmployerCreditsPage() {
         <>
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-text-main">Nạp credit</h2>
-            <div className="grid gap-4 sm:grid-cols-3">
-              {pricing.packs.map((p) => (
-                <div key={p.id} className="card p-5 space-y-3">
-                  <p className="text-2xl font-extrabold text-text-main">{p.credits} credit</p>
-                  <p className="text-sm text-text-muted">{vnd(p.vnd)}</p>
-                  <button className="btn btn-primary btn-md w-full" disabled={Boolean(buying)} onClick={() => buy(p.id)}>
-                    {buying === p.id ? 'Đang chuyển đến cổng thanh toán...' : 'Nạp ngay'}
+            {(() => {
+              const t = pricing.topup;
+              const q = quote(t, amount);
+              const stepBy = (d) => setAmount(String(Math.min(t.max, Math.max(t.min, (Number(amount) || 0) + d * t.step))));
+              return (
+                <form className="card p-5 space-y-4" onSubmit={(e) => { e.preventDefault(); if (!q.error && !buying) buy(q.credits); }}>
+                  <div>
+                    <label htmlFor="topup-amount" className="block text-sm font-semibold text-text-main mb-2">Số credit muốn nạp</label>
+                    <div className="flex items-center gap-2">
+                      <button type="button" aria-label={`Giảm ${t.step} credit`} onClick={() => stepBy(-1)} className="w-11 h-11 shrink-0 rounded-xl border border-stone-300 bg-white flex items-center justify-center hover:bg-stone-50">
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <input
+                        id="topup-amount"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                        aria-invalid={Boolean(q.error)}
+                        aria-describedby="topup-hint"
+                        className="h-11 w-full min-w-0 rounded-xl border border-stone-300 px-4 text-center text-xl font-extrabold text-text-main focus:outline-none focus:ring-2 focus:ring-green-main"
+                      />
+                      <button type="button" aria-label={`Tăng ${t.step} credit`} onClick={() => stepBy(1)} className="w-11 h-11 shrink-0 rounded-xl border border-stone-300 bg-white flex items-center justify-center hover:bg-stone-50">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3" role="group" aria-label="Chọn nhanh">
+                      {t.quick.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          aria-pressed={Number(amount) === n}
+                          onClick={() => setAmount(String(n))}
+                          className={`h-10 px-4 rounded-full border text-sm font-semibold ${Number(amount) === n ? 'bg-green-main text-white border-green-main' : 'bg-white text-text-main border-stone-300 hover:border-green-main'}`}
+                        >
+                          {n} credit
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div id="topup-hint" aria-live="polite" className="rounded-2xl bg-green-50 border border-green-100 px-4 py-3 text-sm">
+                    {q.error ? (
+                      <p className="text-red-700 font-semibold">{q.error}</p>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className="flex justify-between gap-3"><span className="text-text-muted">Bạn thanh toán</span><strong className="text-text-main text-base">{vnd(q.vnd)}</strong></p>
+                        <p className="flex justify-between gap-3"><span className="text-text-muted">Bạn nhận được</span><strong className="text-green-dark text-base">{q.total} credit{q.bonus ? ` (tặng ${q.bonus})` : ''}</strong></p>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-text-muted">
+                    1 credit = {vnd(t.vndPerCredit)}. {t.bonusTiers.slice().reverse().map((b) => `Nạp từ ${b.minCredits} credit tặng thêm ${b.pct}%`).join('; ')}.
+                  </p>
+                  <button type="submit" className="btn btn-primary btn-md w-full" disabled={Boolean(q.error) || buying}>
+                    {buying ? 'Đang chuyển đến cổng thanh toán...' : q.error ? 'Nạp credit' : `Nạp ${vnd(q.vnd)}`}
                   </button>
-                </div>
-              ))}
-            </div>
+                </form>
+              );
+            })()}
             <p className="text-xs text-text-muted">{NOTE}</p>
           </section>
 

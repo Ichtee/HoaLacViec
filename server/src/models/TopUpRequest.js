@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 
 const topUpRequestSchema = new mongoose.Schema({
   employerUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  packId: { type: String, required: true },
+  packId: { type: String, default: 'custom' }, // legacy: p50/p100/p200 before free-amount top-ups
+  bonusCredits: { type: Number, default: 0 }, // part of `credits` that is a volume bonus
   amountVnd: { type: Number, required: true },
   credits: { type: Number, required: true },
   invoiceNumber: { type: String, required: true, unique: true, match: /^HLV[A-Z0-9]{8}$/ }, // sent to SePay as order_invoice_number

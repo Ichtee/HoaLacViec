@@ -23,7 +23,7 @@ export async function applySepayOrderPaid(invoiceNumber, { source }) {
       { new: true, session },
     );
     if (!claimed) return null;
-    await grantCredits({ employerUserId: topUp.employerUserId, amount: topUp.credits, type: 'topup', reason: topUp.packId, refType: 'TopUpRequest', refId: topUp._id, session });
+    await grantCredits({ employerUserId: topUp.employerUserId, amount: topUp.credits, type: 'topup', reason: topUp.packId === 'custom' ? 'topup' : topUp.packId, refType: 'TopUpRequest', refId: topUp._id, session });
     return claimed;
   });
   return paid ? { status: 'granted', topUp: paid } : { status: 'already_paid', topUp: await TopUpRequest.findById(topUp._id) };

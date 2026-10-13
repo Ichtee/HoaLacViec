@@ -1043,8 +1043,8 @@ export async function apiGetMyCredits() {
   return request('/credits/me');
 }
 
-export async function apiCreateTopUp(packId) {
-  return request('/credits/topups', { method: 'POST', body: JSON.stringify({ packId }) });
+export async function apiCreateTopUp(credits) {
+  return request('/credits/topups', { method: 'POST', body: JSON.stringify({ credits }) });
 }
 
 export async function apiGetMyTopUps() {
