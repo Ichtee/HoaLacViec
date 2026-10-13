@@ -290,7 +290,7 @@ export function JobMap({
         } catch {}
       });
 
-      const marker = new vietmapgl.Marker({ element: el })
+      const marker = new vietmapgl.Marker({ element: el, anchor: 'bottom' }) // mũi ghim nằm đúng tọa độ
         .setLngLat([nLng, nLat])
         .addTo(map);
 

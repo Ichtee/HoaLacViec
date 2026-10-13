@@ -30,7 +30,7 @@ function createPickerPinElement() {
   el.className = 'vietmap-picker-pin';
   el.style.cursor = 'grab';
   el.innerHTML = `
-    <div style="position: relative; transform: translate(-50%, -100%);">
+    <div style="position: relative;">
       <div style="width: 34px; height: 34px; border-radius: 50%; background: #db2777; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(219, 39, 119, 0.4); border: 2.5px solid white;">
         <span style="font-size: 16px;">📍</span>
       </div>
@@ -345,6 +345,7 @@ export default function LocationPicker({
       if (!markerRef.current) {
         const marker = new vietmapgl.Marker({
           element: createPickerPinElement(),
+          anchor: 'bottom', // mũi ghim nằm đúng tọa độ
           draggable: true,
         })
           .setLngLat(lngLat)

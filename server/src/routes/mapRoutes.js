@@ -329,8 +329,9 @@ router.post('/matrix', authGuard, async (req, res, next) => {
       batch.forEach((destination, index) => {
         entries.push({
           id: destination.id,
-          distanceMeters: Number.isFinite(distanceRow[index]) ? distanceRow[index] : null,
-          durationSeconds: Number.isFinite(durationRow[index]) ? durationRow[index] : null,
+          // Vietmap trả -1 (hoặc null) khi điểm đến không có đường tới: coi như không có số liệu thay vì khoảng cách âm
+          distanceMeters: Number.isFinite(distanceRow[index]) && distanceRow[index] >= 0 ? distanceRow[index] : null,
+          durationSeconds: Number.isFinite(durationRow[index]) && durationRow[index] >= 0 ? durationRow[index] : null,
         });
       });
     }
