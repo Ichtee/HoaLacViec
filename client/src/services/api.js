@@ -61,7 +61,28 @@ function refreshAccessToken() {
   return refreshPromise;
 }
 
-async function request(endpoint, options = {}) {
+// Cache GET ngắn hạn: gộp các lần gọi trùng khi chuyển trang và cho dữ liệu dùng lại ngay. Mọi thao tác ghi xóa sạch cache.
+const GET_CACHE_TTL_MS = 15000;
+const NEVER_CACHE = /^\/(auth|notifications|chats|push|credits\/topups)(\/|\?|$)/; // số đếm, hội thoại, thanh toán: luôn lấy bản mới
+const getCache = new Map(); // "token|endpoint" -> { expires, promise }
+
+function request(endpoint, options = {}) {
+  const method = String(options.method || 'GET').toUpperCase();
+  if (method !== 'GET') {
+    getCache.clear();
+    return rawRequest(endpoint, options);
+  }
+  if (NEVER_CACHE.test(endpoint) || options.signal) return rawRequest(endpoint, options);
+  const key = `${localStorage.getItem('token') || ''}|${endpoint}`;
+  const hit = getCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.promise;
+  const promise = rawRequest(endpoint, options);
+  getCache.set(key, { expires: Date.now() + GET_CACHE_TTL_MS, promise });
+  promise.catch(() => getCache.delete(key));
+  return promise;
+}
+
+async function rawRequest(endpoint, options = {}) {
   const { _retried, ...fetchOptions } = options;
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, {
@@ -89,7 +110,7 @@ async function request(endpoint, options = {}) {
       throw Object.assign(new Error(data?.error || data?.message || `Yêu cầu thất bại (Mã lỗi: ${res.status})`), { code: data?.code, data });
     }
     // Anything that can spend, refund or grant credits tells the header chip to refresh.
-    if (/^\/(credits\/(?!me\b|pricing\b)|jobs\b|quick-shifts\b)/.test(endpoint)) window.dispatchEvent(new CustomEvent('credits:changed'));
+    if (/^\/(credits\/(?!me\b|pricing\b)|jobs\b|quick-shifts\b)/.test(endpoint)) { getCache.clear(); window.dispatchEvent(new CustomEvent('credits:changed')); }
     return data;
   } catch (err) {
     if (err.name === 'TypeError' && (err.message.includes('fetch') || err.message.includes('NetworkError'))) {
@@ -1079,4 +1100,17 @@ export async function apiAdminReconcileTopUp(id) {
 export async function apiUploadImage(image, folder = 'jobs') {
   const data = await request('/uploads/image', { method: 'POST', body: JSON.stringify({ image, folder }) });
   return data.url;
+}
+
+export async function apiGetUnreadSummary() {
+  return request('/notifications/summary');
+}
+
+// ─── ADMIN: tổng quan & ảnh hồ sơ ────────────────────────────────
+export async function apiGetAdminOverview() {
+  return request('/admin/overview');
+}
+
+export async function apiGetVerificationImage(id, field) {
+  return request(`/admin/verifications/${id}/image${buildQueryString({ field })}`);
 }

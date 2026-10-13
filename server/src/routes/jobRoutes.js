@@ -79,6 +79,20 @@ async function normalizeCoverImage(data) {
   data.coverImage = /^https?:\/\//i.test(value) || value.startsWith('data:') ? await persistImage(value, { folder: 'jobs' }) : '';
 }
 
+// Danh sách công khai (không kèm studentId) giống nhau với mọi người: cache ngắn để các lần mở trang liên tiếp không đụng DB
+const PUBLIC_LIST_TTL_MS = 15000;
+const publicListCache = new Map();
+function readPublicListCache(key) {
+  const hit = publicListCache.get(key);
+  if (hit && hit.expires > Date.now()) return hit.body;
+  publicListCache.delete(key);
+  return null;
+}
+function writePublicListCache(key, body) {
+  if (publicListCache.size >= 100) publicListCache.delete(publicListCache.keys().next().value);
+  publicListCache.set(key, { body, expires: Date.now() + PUBLIC_LIST_TTL_MS });
+}
+
 function pickEditableJobFields(body = {}) {
   return Object.fromEntries(
     EDITABLE_JOB_FIELDS.filter(key => Object.hasOwn(body, key)).map(key => [key, body[key]])
@@ -262,6 +276,10 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       sort,
     } = req.query;
 
+    const cacheKey = studentId || process.env.NODE_ENV === 'test' ? null : req.originalUrl; // test: luôn đọc dữ liệu mới
+    const cached = cacheKey && readPublicListCache(cacheKey);
+    if (cached) return res.json(cached);
+
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 50));
     const skip = (pageNum - 1) * limitNum;
@@ -359,8 +377,6 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
 
     const finalFilter = { $and: andConditions };
 
-    const total = await Job.countDocuments(finalFilter);
-
     // Sorting
     let sortObj = { createdAt: -1 };
     if (cleanSort === 'oldest') {
@@ -373,11 +389,10 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       sortObj = { featuredUntil: -1, createdAt: -1 }; // active boosts first; exact credit order is applied below
     }
 
-    let jobs = await Job.find(finalFilter)
-      .sort(sortObj)
-      .skip(skip)
-      .limit(limitNum)
-      .lean();
+    let [total, jobs] = await Promise.all([
+      Job.countDocuments(finalFilter),
+      Job.find(finalFilter).sort(sortObj).skip(skip).limit(limitNum).lean(),
+    ]);
 
     // Default order: featured first, the more credits spent the higher; everything else newest first.
     if (!cleanSort || cleanSort === 'newest' || cleanSort === 'featured') {
@@ -385,8 +400,8 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       jobs.sort((a, b) => compareFeaturedFirst(a, b, now));
     }
 
-    // Unpinned listings get an approximate map point (geocoded once, waits at most 2.5s so the list never stalls).
-    await Promise.race([ensureApproxLocations(jobs), new Promise((r) => setTimeout(r, 2500))]);
+    // Unpinned listings get an approximate map point (geocoded once, waits at most 0.6s so the list never stalls; the rest finishes in the background).
+    await Promise.race([ensureApproxLocations(jobs).catch(() => {}), new Promise((r) => setTimeout(r, 600))]);
 
     // Attach real employer profile info — NO FAKE FALLBACKS!
     try {
@@ -398,7 +413,7 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
           { _id: { $in: employerProfileIds } },
           { userId: { $in: employerUserIds } },
         ],
-      }).lean();
+      }).select('storeName address area verified rating ratingCount userId').lean();
 
       const empMap = new Map();
       employerProfiles.forEach(p => {
@@ -460,7 +475,7 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
       }
     }
 
-    res.json({
+    const body = {
       items: jobs,
       jobs,
       total,
@@ -470,7 +485,9 @@ router.get('/', optionalAuthenticate, async (req, res, next) => {
         total,
         totalPages: Math.ceil(total / limitNum) || 1,
       },
-    });
+    };
+    if (cacheKey) writePublicListCache(cacheKey, body);
+    res.json(body);
   } catch (err) {
     next(err);
   }

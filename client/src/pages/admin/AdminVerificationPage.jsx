@@ -8,13 +8,25 @@ import {
   X,
   RefreshCw,
   Search,
+  Image as ImageIcon,
 } from 'lucide-react';
-import { getVerificationRequests, reviewVerification } from '@/services';
+import { getVerificationRequests, getVerificationImage, reviewVerification } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 import { Toast } from '@/components/Feedback.jsx';
 import { clsx } from 'clsx';
 import { PageHeader } from '@/components/PageHeader.jsx';
 import { Pagination, usePagination } from '@/components/Pagination.jsx';
+
+// Ảnh base64 không đi kèm danh sách (server chỉ báo "có ảnh"); chỉ ảnh đã lưu ngoài DB mới có URL để hiện thumbnail ngay.
+const hasImage = (req, field) => (field === 'documents.0'
+  ? Boolean(req.documents?.[0]?.url || req.documents?.[0]?.lazy)
+  : Boolean(req[field] || req.lazyImages?.includes(field)));
+
+function Thumb({ url, alt }) {
+  return url
+    ? <img src={url} alt={alt} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+    : <div className="w-full h-full flex items-center justify-center text-gray-400" aria-label={alt} role="img"><ImageIcon className="w-6 h-6" /></div>;
+}
 
 export default function AdminVerificationPage() {
   const [requests, setRequests] = useState([]);
@@ -39,6 +51,20 @@ export default function AdminVerificationPage() {
       setToast({ type: 'error', message: 'Lỗi khi tải danh sách xác thực: ' + (err.message || 'Lỗi server') });
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Mở ảnh lớn; ảnh chưa có sẵn URL được tải riêng theo hồ sơ
+  async function openImage(req, field, title) {
+    const direct = field === 'documents.0' ? req.documents?.[0]?.url : req[field];
+    if (direct) return setPreviewImage({ url: direct, title });
+    setPreviewImage({ url: '', title, loading: true });
+    try {
+      const { url } = await getVerificationImage(req._id || req.id, field);
+      setPreviewImage({ url, title });
+    } catch (err) {
+      setPreviewImage(null);
+      setToast({ type: 'error', message: err.message || 'Không tải được ảnh.' });
     }
   }
 
@@ -445,33 +471,25 @@ function getVerificationTargetType(req) {
                 <div className="flex flex-col sm:items-end justify-between gap-3 shrink-0">
                   {/* Photo thumbnail(s) or Info badges */}
                   {isWorker && (
-                    req.idCardFrontPhoto || req.idCardBackPhoto ? (
+                    hasImage(req, 'idCardFrontPhoto') || hasImage(req, 'idCardBackPhoto') ? (
                       <div className="flex items-center gap-2">
-                        {req.idCardFrontPhoto && (
+                        {hasImage(req, 'idCardFrontPhoto') && (
                           <div
-                            onClick={() => setPreviewImage({ url: req.idCardFrontPhoto, title: `CCCD Mặt trước: ${req.user?.name || req.idCardNumber}` })}
+                            onClick={() => openImage(req, 'idCardFrontPhoto', `CCCD Mặt trước: ${req.user?.name || req.idCardNumber}`)}
                             className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
                           >
-                            <img
-                              src={req.idCardFrontPhoto}
-                              alt="CCCD trước"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
+                            <Thumb url={req.idCardFrontPhoto} alt="CCCD trước" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                               <Eye className="w-3 h-3" /> Trước
                             </div>
                           </div>
                         )}
-                        {req.idCardBackPhoto && (
+                        {hasImage(req, 'idCardBackPhoto') && (
                           <div
-                            onClick={() => setPreviewImage({ url: req.idCardBackPhoto, title: `CCCD Mặt sau: ${req.user?.name || req.idCardNumber}` })}
+                            onClick={() => openImage(req, 'idCardBackPhoto', `CCCD Mặt sau: ${req.user?.name || req.idCardNumber}`)}
                             className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-24 h-16 shadow-sm"
                           >
-                            <img
-                              src={req.idCardBackPhoto}
-                              alt="CCCD sau"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
+                            <Thumb url={req.idCardBackPhoto} alt="CCCD sau" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                               <Eye className="w-3 h-3" /> Sau
                             </div>
@@ -486,16 +504,12 @@ function getVerificationTargetType(req) {
                   )}
 
                   {isStudent && (
-                    req.studentCardPhoto ? (
+                    hasImage(req, 'studentCardPhoto') ? (
                       <div
-                        onClick={() => setPreviewImage({ url: req.studentCardPhoto, title: `Thẻ SV: ${req.user?.name || req.studentCode}` })}
+                        onClick={() => openImage(req, 'studentCardPhoto', `Thẻ SV: ${req.user?.name || req.studentCode}`)}
                         className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-32 h-20 shadow-sm"
                       >
-                        <img
-                          src={req.studentCardPhoto}
-                          alt="Ảnh thẻ SV"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
+                        <Thumb url={req.studentCardPhoto} alt="Ảnh thẻ SV" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                           <Eye className="w-3.5 h-3.5" /> Xem to
                         </div>
@@ -508,16 +522,12 @@ function getVerificationTargetType(req) {
                   )}
 
                   {isEmployer && (
-                    req.documents?.[0]?.url ? (
+                    hasImage(req, 'documents.0') ? (
                       <div
-                        onClick={() => setPreviewImage({ url: req.documents[0].url, title: `Cơ sở: ${req.storeName}` })}
+                        onClick={() => openImage(req, 'documents.0', `Cơ sở: ${req.storeName}`)}
                         className="cursor-pointer group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 w-32 h-20 shadow-sm"
                       >
-                        <img
-                          src={req.documents[0].url}
-                          alt="Ảnh cửa hàng"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        />
+                        <Thumb url={req.documents[0].url} alt="Ảnh cửa hàng" />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
                           <Eye className="w-3.5 h-3.5" /> Xem to
                         </div>
@@ -581,11 +591,15 @@ function getVerificationTargetType(req) {
               </button>
             </div>
             <div className="rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 max-h-[75vh] flex items-center justify-center">
-              <img
-                src={previewImage.url}
-                alt="Ảnh xác minh"
-                className="max-h-[70vh] w-auto object-contain rounded-xl"
-              />
+              {previewImage.loading ? (
+                <p className="p-10 text-sm text-gray-500" role="status">Đang tải ảnh...</p>
+              ) : (
+                <img
+                  src={previewImage.url}
+                  alt="Ảnh xác minh"
+                  className="max-h-[70vh] w-auto object-contain rounded-xl"
+                />
+              )}
             </div>
           </div>
         </div>

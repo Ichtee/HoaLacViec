@@ -268,7 +268,9 @@ export function JobMap({
 
       const nLat = Number(lat);
       const nLng = Number(lng);
-      bounds.extend([nLng, nLat]);
+      // Khung nhìn chỉ ôm các tin trong 25km quanh Hòa Lạc: một tin ghim xa không kéo cả bản đồ thu nhỏ (marker vẫn vẽ)
+      const nearHoaLac = haversineDistance(nLat, nLng, DEFAULT_HOALAC_CENTER[0], DEFAULT_HOALAC_CENTER[1]) <= 25000;
+      if (nearHoaLac || singleJob) bounds.extend([nLng, nLat]);
       validCount++;
       nextJobIds.add(id);
 

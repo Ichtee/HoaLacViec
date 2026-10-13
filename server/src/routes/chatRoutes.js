@@ -131,6 +131,19 @@ async function countUnread(conversation, userId) {
   });
 }
 
+/** Tổng tin chưa đọc của một người: MỘT truy vấn (OR theo từng cuộc trò chuyện) thay vì mỗi cuộc một truy vấn. */
+export async function countUnreadMessages(userId) {
+  const conversations = await Conversation.find({ 'participants.userId': userId }).select('participants').limit(100).lean();
+  if (conversations.length === 0) return 0;
+  return Message.countDocuments({
+    senderId: { $ne: userId },
+    $or: conversations.map((conversation) => {
+      const me = conversation.participants.find((p) => sameId(p.userId, userId));
+      return { conversationId: conversation._id, createdAt: { $gt: me?.lastReadAt || new Date(0) } };
+    }),
+  });
+}
+
 // POST /api/chats/open { kind, refId } - tìm hoặc tạo cuộc trò chuyện
 router.post('/open', async (req, res, next) => {
   try {
@@ -169,11 +182,8 @@ router.get('/', async (req, res, next) => {
     const conversations = await Conversation.find({ 'participants.userId': req.user._id })
       .sort({ lastMessageAt: -1, updatedAt: -1 })
       .limit(50);
-    const result = [];
-    for (const conversation of conversations) {
-      result.push(toDTO(conversation, req.user._id, await countUnread(conversation, req.user._id)));
-    }
-    res.json(result);
+    const unread = await Promise.all(conversations.map((conversation) => countUnread(conversation, req.user._id)));
+    res.json(conversations.map((conversation, i) => toDTO(conversation, req.user._id, unread[i])));
   } catch (err) {
     next(err);
   }
@@ -182,10 +192,7 @@ router.get('/', async (req, res, next) => {
 // GET /api/chats/unread-count
 router.get('/unread-count', async (req, res, next) => {
   try {
-    const conversations = await Conversation.find({ 'participants.userId': req.user._id }).limit(100);
-    let total = 0;
-    for (const conversation of conversations) total += await countUnread(conversation, req.user._id);
-    res.json({ count: total });
+    res.json({ count: await countUnreadMessages(req.user._id) });
   } catch (err) {
     next(err);
   }

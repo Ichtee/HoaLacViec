@@ -2,6 +2,7 @@ import express from 'express';
 import mongoose from 'mongoose';
 import { Notification } from '../models/Notification.js';
 import { authenticate } from '../middlewares/auth.js';
+import { countUnreadMessages } from './chatRoutes.js';
 
 const router = express.Router();
 
@@ -18,6 +19,19 @@ router.get('/', async (req, res) => {
       .lean();
 
     res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/notifications/summary: số chưa đọc của chuông thông báo và tin nhắn trong MỘT request (thay cho 2 lượt gọi riêng)
+router.get('/summary', async (req, res) => {
+  try {
+    const [unreadCount, messages] = await Promise.all([
+      Notification.countDocuments({ userId: req.user._id, read: false }),
+      countUnreadMessages(req.user._id),
+    ]);
+    res.json({ unreadCount, messages });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -4,32 +4,22 @@ import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import {
   apiGetNotifications,
-  apiGetUnreadNotificationCount,
   apiMarkNotificationRead,
   apiMarkAllNotificationsRead,
   apiDeleteNotification,
 } from '@/services';
 import { PushToggle } from '@/components/PushToggle.jsx';
+import { useUnreadSummary, refreshUnreadSummary } from '@/hooks/useUnreadSummary.js';
 
 export function NotificationDropdown() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount } = useUnreadSummary();
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
-  // Fetch unread count on mount & every 30 seconds
-  const fetchCount = async () => {
-    try {
-      const res = await apiGetUnreadNotificationCount();
-      if (typeof res?.unreadCount === 'number') {
-        setUnreadCount(res.unreadCount);
-      }
-    } catch {
-      // ignore
-    }
-  };
+  const fetchCount = refreshUnreadSummary;
 
   const fetchList = async () => {
     try {
@@ -44,12 +34,6 @@ export function NotificationDropdown() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchCount();
-    const timer = setInterval(fetchCount, 30000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     if (open) {
@@ -78,7 +62,7 @@ export function NotificationDropdown() {
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, read: true } : n))
       );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      fetchCount();
     } catch (err) {
       console.error(err);
     }
@@ -88,7 +72,7 @@ export function NotificationDropdown() {
     try {
       await apiMarkAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      setUnreadCount(0);
+      fetchCount();
     } catch (err) {
       console.error(err);
     }
@@ -101,7 +85,7 @@ export function NotificationDropdown() {
       const deleted = notifications.find((n) => n._id === id);
       setNotifications((prev) => prev.filter((n) => n._id !== id));
       if (deleted && !deleted.read) {
-        setUnreadCount((prev) => Math.max(0, prev - 1));
+        fetchCount();
       }
     } catch (err) {
       console.error(err);

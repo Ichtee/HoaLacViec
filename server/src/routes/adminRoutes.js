@@ -12,11 +12,64 @@ import { getPlatformMetrics } from '../services/metricsService.js';
 import { grantCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
 import { applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
 import { WELCOME_CREDITS } from '../config/credits.js';
+import { Report } from '../models/Report.js';
+import { Blog } from '../models/Blog.js';
 
 const router = express.Router();
 
 // Enforce admin-only access for all /api/admin routes
 router.use(authenticate, authorize('admin'));
+
+// Hồ sơ chờ duyệt: cùng định nghĩa với danh sách /verifications (nháp đã nộp thông tin nhưng chưa verified cũng là chờ duyệt)
+const STUDENT_PENDING_FILTER = {
+  verified: { $ne: true },
+  $or: [
+    { verificationStatus: 'pending' },
+    {
+      verificationStatus: 'draft',
+      $or: [{ studentCardPhoto: { $nin: ['', null] } }, { studentCode: { $nin: ['', null] } }, { idCardFrontPhoto: { $nin: ['', null] } }, { idCardNumber: { $nin: ['', null] } }],
+    },
+  ],
+};
+
+// GET /api/admin/overview: toàn bộ số liệu trang tổng quan bằng các phép đếm (không tải danh sách đầy đủ)
+router.get('/overview', async (req, res, next) => {
+  try {
+    const [roles, locked, runningJobs, pendingJobs, pendingEmployerVerifications, pendingStudentVerifications, pendingReports, blogs, employerQueue, studentQueue, reportQueue] = await Promise.all([
+      User.aggregate([{ $group: { _id: '$role', n: { $sum: 1 } } }]),
+      User.countDocuments({ status: 'locked' }),
+      Job.countDocuments({ status: 'approved' }),
+      Job.countDocuments({ status: 'pending' }),
+      EmployerVerification.countDocuments({ status: 'pending' }),
+      StudentProfile.countDocuments(STUDENT_PENDING_FILTER),
+      Report.countDocuments({ status: 'pending' }),
+      Blog.countDocuments(),
+      EmployerVerification.find({ status: 'pending' }).select('storeName createdAt').sort({ createdAt: -1 }).limit(3).lean(),
+      StudentProfile.find(STUDENT_PENDING_FILTER).select('profileType studentCode idCardNumber userId updatedAt').populate('userId', 'name').sort({ updatedAt: -1 }).limit(3).lean(),
+      Report.find({ status: 'pending' }).select('reason reporterName target createdAt').sort({ createdAt: -1 }).limit(3).lean(),
+    ]);
+    const byRole = Object.fromEntries(roles.map((r) => [r._id, r.n]));
+    const pendingQueue = [
+      ...employerQueue.map((v) => ({ id: v._id, type: 'employer', title: v.storeName, at: v.createdAt })),
+      ...studentQueue.map((v) => ({ id: v._id, type: v.profileType === 'worker' || (v.idCardNumber && !v.studentCode) ? 'worker' : 'student', title: v.userId?.name || v.studentCode || '', at: v.updatedAt })),
+    ].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 3);
+    res.json({
+      users: {
+        total: roles.reduce((sum, r) => sum + r.n, 0),
+        employer: byRole.employer || 0,
+        student: byRole.student || 0,
+        worker: (byRole.worker || 0) + (byRole.freelancer || 0),
+        locked,
+      },
+      jobs: { running: runningJobs, pending: pendingJobs },
+      verifications: { pending: pendingEmployerVerifications + pendingStudentVerifications, queue: pendingQueue },
+      reports: { pending: pendingReports, queue: reportQueue.map((r) => ({ id: r._id, reason: r.reason, reporterName: r.reporterName, target: r.target })) },
+      blogs,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // GET /api/admin/stats (Tổng quan thống kê quản trị)
 router.get('/stats', async (req, res, next) => {
@@ -284,6 +337,30 @@ router.delete('/jobs/:id', async (req, res, next) => {
 });
 
 // GET /api/admin/verifications (Lấy danh sách hồ sơ xác minh doanh nghiệp & sinh viên)
+const isInlineImage = (value) => typeof value === 'string' && value.startsWith('data:');
+const STUDENT_IMAGE_FIELDS = ['studentCardPhoto', 'idCardFrontPhoto', 'idCardBackPhoto'];
+
+// GET /api/admin/verifications/:id/image?field=studentCardPhoto|idCardFrontPhoto|idCardBackPhoto|documents.N
+// Ảnh base64 rất nặng nên danh sách không mang theo; tải riêng khi admin bấm xem.
+router.get('/verifications/:id/image', async (req, res, next) => {
+  try {
+    const { field } = req.query;
+    const docMatch = /^documents\.(\d+)$/.exec(String(field || ''));
+    if (docMatch) {
+      const ev = await EmployerVerification.findById(req.params.id).select('documents');
+      const url = ev?.documents?.[Number(docMatch[1])]?.url;
+      if (!url) return res.status(404).json({ error: 'Không tìm thấy ảnh.', code: 'IMAGE_NOT_FOUND' });
+      return res.json({ url });
+    }
+    if (!STUDENT_IMAGE_FIELDS.includes(field)) return res.status(400).json({ error: 'Trường ảnh không hợp lệ.', code: 'INVALID_FIELD' });
+    const sp = await StudentProfile.findById(req.params.id).select(field);
+    if (!sp?.[field]) return res.status(404).json({ error: 'Không tìm thấy ảnh.', code: 'IMAGE_NOT_FOUND' });
+    res.json({ url: sp[field] });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/verifications', async (req, res, next) => {
   try {
     const { status, type } = req.query; // type: 'all' | 'employer' | 'student'
@@ -316,7 +393,7 @@ router.get('/verifications', async (req, res, next) => {
           idCardNumber: ev.idCardNumber,
           businessAddress: ev.businessAddress,
           contactPhone: ev.contactPhone,
-          documents: ev.documents,
+          documents: (ev.documents || []).map((d) => ({ name: d.name, type: d.type, url: isInlineImage(d.url) ? '' : d.url, lazy: isInlineImage(d.url) })),
           status: ev.status,
           verified: ev.status === 'approved',
           rejectionReason: ev.rejectionReason,
@@ -405,11 +482,12 @@ router.get('/verifications', async (req, res, next) => {
           studentCode: sp.studentCode,
           university: sp.university,
           major: sp.major,
-          studentCardPhoto: sp.studentCardPhoto,
+          studentCardPhoto: isInlineImage(sp.studentCardPhoto) ? '' : sp.studentCardPhoto,
           // Worker CCCD fields
           idCardNumber: sp.idCardNumber,
-          idCardFrontPhoto: sp.idCardFrontPhoto,
-          idCardBackPhoto: sp.idCardBackPhoto,
+          idCardFrontPhoto: isInlineImage(sp.idCardFrontPhoto) ? '' : sp.idCardFrontPhoto,
+          idCardBackPhoto: isInlineImage(sp.idCardBackPhoto) ? '' : sp.idCardBackPhoto,
+          lazyImages: STUDENT_IMAGE_FIELDS.filter((f) => isInlineImage(sp[f])),
           profession: sp.profession,
           // Shared fields
           transport: sp.transport,
