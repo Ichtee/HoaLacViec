@@ -51,7 +51,8 @@ export default function AdminDashboardPage() {
     return () => { active = false; };
   }, []);
 
-  const pendingVerifications = verifications.filter(v => v.status === 'pending');
+  // Cùng định nghĩa với trang Xác thực: hồ sơ đã verified không tính là chờ duyệt
+  const pendingVerifications = verifications.filter(v => v.status === 'pending' && v.verified !== true);
   const pendingReports = reports.filter(r => r.status === 'pending');
   const countRole = (role) => users.filter(u => u.role === role).length;
   const accountStats = [
@@ -70,7 +71,7 @@ export default function AdminDashboardPage() {
       <div className="relative overflow-hidden bg-brand-gradient text-white p-6 sm:p-8 rounded-3xl shadow-modal ring-1 ring-white/10"><div className="absolute bottom-0 left-1/3 w-56 h-56 rounded-full bg-white/10 blur-3xl pointer-events-none" aria-hidden="true" />
         <h1 className="text-2xl sm:text-3xl font-bold">Tổng quan Quản trị Hoa Lạc Việc</h1>
         <p className="text-xs sm:text-sm text-green-200 mt-1">
-          Hệ thống giám sát chất lượng tin tuyển dụng, xác thực doanh nghiệp địa phương và xử lý tranh chấp.
+          Hệ thống giám sát chất lượng tin tuyển dụng, xác thực doanh nghiệp địa phương và xử lý phản hồi.
         </p>
       </div>
 
@@ -210,7 +211,7 @@ export default function AdminDashboardPage() {
         <div className="bg-white p-6 rounded-3xl ring-1 ring-green-100/70 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <Flag className="w-4 h-4 text-red-700" /> Phản hồi & Báo cáo tranh chấp
+              <Flag className="w-4 h-4 text-red-700" /> Phản hồi
             </h3>
             <Link to="/admin/reports" className="text-xs text-red-700 font-semibold hover:underline">
               Tất cả

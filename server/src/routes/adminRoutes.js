@@ -391,7 +391,7 @@ router.get('/verifications', async (req, res, next) => {
           : Boolean(sp.studentCardPhoto || sp.studentCode);
 
         const normalizedStatus = sp.verificationStatus === 'draft' 
-          ? (hasSubmission ? 'pending' : 'draft')
+          ? (hasSubmission ? (sp.verified ? 'approved' : 'pending') : 'draft') // hồ sơ đã xác thực không còn "chờ duyệt"
           : (sp.verificationStatus || (sp.verified ? 'approved' : 'pending'));
 
         // Skip drafts without submissions

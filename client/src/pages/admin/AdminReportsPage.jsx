@@ -112,7 +112,7 @@ export default function AdminReportsPage() {
       {/* Header */}
       <PageHeader
         icon={Flag}
-        title="Quản lý Báo cáo vi phạm & Giải quyết tranh chấp"
+        title="Quản lý Báo cáo vi phạm & Phản hồi"
         description="Xác minh khiếu nại về việc vặt, nợ lương, thái độ làm việc, check-in ảo hoặc bài đăng sai quy định."
       />
 
@@ -161,7 +161,7 @@ export default function AdminReportsPage() {
         <div className="bg-white p-12 text-center rounded-3xl ring-1 ring-green-100/70 shadow-card text-gray-500 space-y-2">
           <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto" />
           <p className="font-bold text-gray-700 text-sm">Tuyệt vời! Không có báo cáo nào tồn đọng</p>
-          <p className="text-xs text-gray-500">Mọi tranh chấp hoặc vi phạm cộng đồng hiện đã được xử lý.</p>
+          <p className="text-xs text-gray-500">Mọi phản hồi hoặc vi phạm cộng đồng hiện đã được xử lý.</p>
         </div>
       ) : (
         <div className="space-y-4">
