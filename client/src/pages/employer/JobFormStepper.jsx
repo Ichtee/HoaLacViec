@@ -99,7 +99,7 @@ export function JobFormStepper({ formData, previewJob, storeName }) {
           )}
           {formData.requirements?.trim() && (
             <div>
-              <h3 className="font-bold text-text-main mb-1">Yêu cầu & quyền lợi</h3>
+              <h3 className="font-bold text-text-main mb-1">Yêu cầu công việc</h3>
               <p className="text-text-muted whitespace-pre-line">{formData.requirements}</p>
             </div>
           )}

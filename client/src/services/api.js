@@ -1074,3 +1074,9 @@ export async function apiAdminListTopUps(status) {
 export async function apiAdminReconcileTopUp(id) {
   return request(`/credits/admin/topups/${id}/reconcile`, { method: 'POST' });
 }
+
+// ─── UPLOADS ──────────────────────────────────────────────────────
+export async function apiUploadImage(image, folder = 'jobs') {
+  const data = await request('/uploads/image', { method: 'POST', body: JSON.stringify({ image, folder }) });
+  return data.url;
+}

@@ -26,6 +26,7 @@ import RoleTabCard from './verify/RoleTabCard.jsx';
 import StudentVerificationPanel from './verify/StudentVerificationPanel.jsx';
 import WorkerVerificationPanel from './verify/WorkerVerificationPanel.jsx';
 import EmployerVerificationPanel from './verify/EmployerVerificationPanel.jsx';
+import { fileToImageDataUrl } from '@/utils/imageFile.js';
 
 // Nhãn trạng thái trên thẻ vai trò. Class viết sẵn để Tailwind nhận diện được.
 const BADGE_TONES = {
@@ -350,19 +351,16 @@ export default function VerifyAccountPage() {
   }
 
   // Handle employer store photo image upload
-  function handleEmployerImageUpload(e) {
+  async function handleEmployerImageUpload(e) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Kích thước ảnh quá lớn (tối đa 5MB).');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      setStorePhoto(uploadEvent.target.result);
+    try {
+      setStorePhoto(await fileToImageDataUrl(file));
       setError('');
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   // Submit employer verification

@@ -103,6 +103,7 @@ export {
   apiCreateShiftSwap as createShiftSwap,
   apiActOnShiftSwap as actOnShiftSwap,
   apiGetAdminMetrics as getAdminMetrics,
+  apiUploadImage as uploadImage,
   apiGetJobAlerts as getJobAlerts,
   apiCreateJobAlert as createJobAlert,
   apiDeleteJobAlert as deleteJobAlert,

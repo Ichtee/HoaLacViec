@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bookmark, BookmarkCheck, CheckCircle, Star } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -12,6 +13,7 @@ const Chip = ({ children }) => (
 
 /** Hàng tin tuyển dụng gọn (kiểu danh sách của các trang việc làm lớn). Tin nổi bật được tô nền + viền thương hiệu. */
 export function JobRow({ job, isSaved, onSave, isSelected = false }) {
+  const [imgFailed, setImgFailed] = useState(false);
   const jobId = job._id || job.id;
   const storeName = job.employer?.storeName || job.storeName || 'Đang cập nhật';
   const hasDistance = job.distanceMeters !== null && job.distanceMeters !== undefined;
@@ -25,9 +27,13 @@ export function JobRow({ job, isSaved, onSave, isSelected = false }) {
         isSelected && 'ring-2 ring-green-main'
       )}
     >
-      <div className={clsx('w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center font-bold text-xl shrink-0', avatarColorClass(storeName))} aria-hidden="true">
-        {avatarInitial(storeName)}
-      </div>
+      {job.coverImage && !imgFailed ? (
+        <img src={job.coverImage} alt="" loading="lazy" onError={() => setImgFailed(true)} className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl object-cover shrink-0" />
+      ) : (
+        <div className={clsx('w-12 h-12 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center font-bold text-xl shrink-0', avatarColorClass(storeName))} aria-hidden="true">
+          {avatarInitial(storeName)}
+        </div>
+      )}
 
       <div className="flex-1 min-w-0">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-0.5 sm:gap-3">
