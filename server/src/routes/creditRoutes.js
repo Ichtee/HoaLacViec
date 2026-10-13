@@ -125,6 +125,9 @@ router.post('/jobs/:id/feature', ...employerOnly, requireActiveUser, async (req,
     const days = req.body?.days;
     if (days !== 3 && days !== 7) throw httpError(400, 'INVALID_DAYS', 'Số ngày nổi bật phải là 3 hoặc 7.');
     const result = await buyForJob(req, (job, now) => {
+      // A new run starts from zero once the previous boost has lapsed; renewing an active run adds to it.
+      const running = job.featuredUntil && job.featuredUntil > now;
+      job.boostCredits = (running ? job.boostCredits || 0 : 0) + CREDIT_PRICES[`featured_${days}d`];
       if (job.status === 'approved') {
         job.featuredUntil = new Date(laterOf(job.featuredUntil, now).getTime() + days * DAY_MS);
       } else if (job.status === 'pending') {

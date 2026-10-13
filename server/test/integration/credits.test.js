@@ -837,3 +837,26 @@ test('custom top-up: price = credits x 1000d, volume bonus, bad amounts rejected
   const row = await t.models.CreditTransaction.findOne({ employerUserId: e._id, type: 'topup' });
   assert.equal(row.reason, 'topup');
 });
+
+test('default list order: featured first by credits spent, then end date, then newest; lapsed boost counts for nothing', async () => {
+  const e = await newEmployer();
+  await grantCredits({ employerUserId: e._id, amount: 200, type: 'welcome', reason: 'welcome' });
+  const token = await login(e);
+  const mk = (title, extra) => seedJob(e, { title, ...extra });
+  const plain = await mk('ord-plain', {});
+  const low = await mk('ord-low', {});
+  const high = await mk('ord-high', {});
+  const lapsed = await mk('ord-lapsed', { featuredUntil: new Date(Date.now() - DAY), boostCredits: 999 });
+  assert.equal((await call(`/credits/jobs/${low._id}/feature`, { method: 'POST', token, body: { days: 3 } })).status, 200); // 30
+  assert.equal((await call(`/credits/jobs/${high._id}/feature`, { method: 'POST', token, body: { days: 7 } })).status, 200); // 60
+  assert.equal((await t.models.Job.findById(high._id)).boostCredits, 60);
+  const titles = (await call('/jobs?limit=500')).body.jobs.map((j) => j.title).filter((x) => x.startsWith('ord-'));
+  assert.deepEqual(titles.slice(0, 2), ['ord-high', 'ord-low']);
+  assert.ok(titles.indexOf('ord-lapsed') > 1);
+  // renewing an active run adds to it; a fresh run after lapsing restarts from the new price
+  await call(`/credits/jobs/${low._id}/feature`, { method: 'POST', token, body: { days: 7 } }); // 30 + 60 = 90
+  assert.equal((await t.models.Job.findById(low._id)).boostCredits, 90);
+  assert.equal((await call('/jobs?limit=500')).body.jobs.map((j) => j.title).filter((x) => x.startsWith('ord-'))[0], 'ord-low');
+  await call(`/credits/jobs/${lapsed._id}/feature`, { method: 'POST', token, body: { days: 3 } });
+  assert.equal((await t.models.Job.findById(lapsed._id)).boostCredits, 30);
+});

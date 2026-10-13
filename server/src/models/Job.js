@@ -113,6 +113,7 @@ const jobSchema = new mongoose.Schema({
   featuredUntil: { type: Date, default: null },
   featuredDaysPending: { type: Number, default: 0, min: 0 },
   paidSlot: { type: Boolean, default: false },
+  boostCredits: { type: Number, default: 0, min: 0 }, // credits spent on the current featured run; higher ranks first
   viewCount: { type: Number, default: 0, min: 0 },
   featuredViewCount: { type: Number, default: 0, min: 0 }, // views while the job was featured
   featuredNotifiedAt: { type: Date, default: null },
