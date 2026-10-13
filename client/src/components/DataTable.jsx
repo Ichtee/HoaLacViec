@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { clsx } from 'clsx';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
+import { Pagination, usePagination, DEFAULT_PAGE_SIZE } from './Pagination.jsx';
 
 function compareValues(a, b) {
   if (a == null && b == null) return 0;
@@ -15,7 +16,7 @@ function compareValues(a, b) {
  * xếp thành thẻ có nhãn trên điện thoại.
  * columns: [{ key, label, sortValue?(row), render(row), className?, primary? }]
  */
-export function DataTable({ columns, rows, rowKey, emptyState, caption, initialSort }) {
+export function DataTable({ columns, rows, rowKey, emptyState, caption, initialSort, pageSize = DEFAULT_PAGE_SIZE }) {
   const [sort, setSort] = useState(initialSort || null); // { key, dir }
 
   const sortedRows = useMemo(() => {
@@ -25,6 +26,8 @@ export function DataTable({ columns, rows, rowKey, emptyState, caption, initialS
     const factor = sort.dir === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => factor * compareValues(column.sortValue(a), column.sortValue(b)));
   }, [rows, columns, sort]);
+
+  const pager = usePagination(sortedRows, pageSize);
 
   function toggleSort(column) {
     if (!column.sortValue) return;
@@ -64,7 +67,7 @@ export function DataTable({ columns, rows, rowKey, emptyState, caption, initialS
             </tr>
           </thead>
           <tbody className="divide-y divide-green-50">
-            {sortedRows.map((row) => (
+            {pager.pageItems.map((row) => (
               <tr key={rowKey(row)} className="hover:bg-green-50/40 transition-colors">
                 {columns.map((column) => (
                   <td key={column.key} className={clsx('px-4 py-3 align-middle', column.className)}>
@@ -79,7 +82,7 @@ export function DataTable({ columns, rows, rowKey, emptyState, caption, initialS
 
       {/* Thẻ: điện thoại */}
       <ul className="md:hidden divide-y divide-green-50">
-        {sortedRows.map((row) => (
+        {pager.pageItems.map((row) => (
           <li key={rowKey(row)} className="p-4 space-y-2.5">
             {columns.map((column) => (
               <div key={column.key} className={clsx(column.primary ? '' : 'flex items-center justify-between gap-3')}>
@@ -90,6 +93,8 @@ export function DataTable({ columns, rows, rowKey, emptyState, caption, initialS
           </li>
         ))}
       </ul>
+
+      <Pagination page={pager.page} totalPages={pager.totalPages} total={pager.total} pageSize={pager.pageSize} onPageChange={pager.setPage} />
     </div>
   );
 }

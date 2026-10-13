@@ -10,7 +10,7 @@ const ADMIN_NAV_GROUPS = [
   {
     title: 'Kiểm duyệt',
     items: [
-      { to: '/admin/verification', label: 'Xác thực nhà tuyển dụng', icon: ShieldCheck },
+      { to: '/admin/verification', label: 'Xác thực', icon: ShieldCheck },
       { to: '/admin/jobs', label: 'Kiểm duyệt tin', icon: Briefcase },
       { to: '/admin/reports', label: 'Báo cáo vi phạm', icon: Flag },
     ],
@@ -37,7 +37,7 @@ export default function AdminLayout() {
         </Link>
       </div>
       <div className="px-4 py-3 bg-green-50 mx-3 my-3 rounded-2xl border border-green-100/50">
-        <p className="text-[11px] font-semibold text-green-dark">Quản trị viên</p>
+        <p className="text-xs font-semibold text-green-dark">Quản trị viên</p>
         <p className="font-bold text-text-main text-sm truncate mt-0.5">{user?.name}</p>
       </div>
       <SidebarNav groups={ADMIN_NAV_GROUPS} onNavigate={() => setSidebarOpen(false)} />

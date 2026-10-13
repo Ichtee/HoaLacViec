@@ -219,9 +219,12 @@ router.post('/jobs/:id/reject', async (req, res, next) => {
   try {
     const { reason } = req.body;
     const defaultReason = reason || 'Nội dung tin tuyển dụng chưa đáp ứng tiêu chuẩn cộng đồng.';
+    // Từ chối tin chờ duyệt, hoặc gỡ tin đang hiển thị vi phạm; chỉ tin chờ duyệt mới được hoàn credit đã đặt trước
     const job = await withCreditTransaction(async (session) => {
+      const before = await Job.findById(req.params.id).session(session).select('status');
+      const wasPending = before?.status === 'pending';
       const rejected = await Job.findOneAndUpdate(
-        { _id: req.params.id, status: 'pending' },
+        { _id: req.params.id, status: { $in: ['pending', 'approved'] } },
         {
           status: 'rejected',
           moderatedBy: req.user._id,
@@ -230,10 +233,10 @@ router.post('/jobs/:id/reject', async (req, res, next) => {
         },
         { new: true, session }
       );
-      if (rejected) await refundJobPurchases(rejected, req.user._id, session);
+      if (rejected && wasPending) await refundJobPurchases(rejected, req.user._id, session);
       return rejected;
     });
-    if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt mới được từ chối.', code: 'INVALID_STATE' });
+    if (!job) return res.status(409).json({ error: 'Chỉ tin đang chờ duyệt hoặc đang hiển thị mới được từ chối / gỡ.', code: 'INVALID_STATE' });
 
     let employerUserId = job.employerUserId;
     if (!employerUserId && (job.employerProfileId || job.employerId)) {

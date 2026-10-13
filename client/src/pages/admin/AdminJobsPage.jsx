@@ -5,6 +5,7 @@ import { Badge } from '@/components/Badge.jsx';
 import { Toast, LoadingPage, EmptyState } from '@/components/Feedback.jsx';
 import { PageHeader } from '@/components/PageHeader.jsx';
 import { Tabs } from '@/components/Tabs.jsx';
+import { Modal } from '@/components/Modal.jsx';
 import { DataTable } from '@/components/DataTable.jsx';
 import { formatVND } from '@/utils';
 
@@ -22,6 +23,9 @@ export default function AdminJobsPage() {
   const [tab, setTab] = useState('all'); // 'all', 'pending', 'approved', 'rejected'
 
   const [fetchError, setFetchError] = useState(null);
+  const [rejecting, setRejecting] = useState(null); // job đang mở hộp thoại từ chối / gỡ
+  const [reason, setReason] = useState('');
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
     loadJobs();
@@ -43,27 +47,40 @@ export default function AdminJobsPage() {
   }
 
   async function handleApprove(job) {
+    const targetId = job._id || job.id;
+    if (busyId) return;
+    setBusyId(targetId);
     try {
-      const targetId = job._id || job.id;
       await apiApproveJob(targetId);
       setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? { ...j, status: 'approved', rejectionReason: '' } : j));
       setToast({ type: 'success', message: 'Đã duyệt bài đăng! Tin tuyển dụng đã chuyển sang mục "Đang hiển thị".' });
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi duyệt bài đăng.' });
+    } finally {
+      setBusyId(null);
     }
   }
 
-  async function handleReject(job) {
-    const reason = prompt('Nhập lý do từ chối / gỡ bỏ tin tuyển dụng này:', 'Thông tin việc làm chưa rõ ràng hoặc không phù hợp tiêu chuẩn.');
-    if (reason === null) return; // User cancelled prompt
+  function openReject(job) {
+    setReason('');
+    setRejecting(job);
+  }
 
+  async function confirmReject() {
+    const job = rejecting;
+    if (!job || busyId) return;
+    const targetId = job._id || job.id;
+    const finalReason = reason.trim() || 'Thông tin việc làm chưa rõ ràng hoặc không phù hợp tiêu chuẩn.';
+    setBusyId(targetId);
     try {
-      const targetId = job._id || job.id;
-      await apiRejectJob(targetId, reason);
-      setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? { ...j, status: 'rejected', rejectionReason: reason } : j));
-      setToast({ type: 'info', message: 'Đã từ chối / gỡ bỏ bài đăng tuyển dụng.' });
+      await apiRejectJob(targetId, finalReason);
+      setJobs(prev => prev.map(j => (j._id === targetId || j.id === targetId) ? { ...j, status: 'rejected', rejectionReason: finalReason } : j));
+      setToast({ type: 'info', message: job.status === 'approved' ? 'Đã gỡ bài đăng khỏi danh sách việc làm.' : 'Đã từ chối bài đăng tuyển dụng.' });
+      setRejecting(null);
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Lỗi khi từ chối bài đăng.' });
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -79,7 +96,7 @@ export default function AdminJobsPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto animate-fade-in pb-10">
+    <div className="space-y-6 max-w-6xl mx-auto animate-fade-in pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <PageHeader
@@ -171,19 +188,19 @@ export default function AdminJobsPage() {
                   <div className="flex items-center gap-2 justify-end flex-wrap">
                     {isPending ? (
                       <>
-                        <button onClick={() => handleReject(job)} className="px-3 py-1.5 rounded-xl bg-red-50 text-red-700 font-semibold text-xs hover:bg-red-100 transition-colors inline-flex items-center gap-1">
+                        <button onClick={() => openReject(job)} disabled={busyId === (job._id || job.id)} className="px-3 py-2 rounded-xl bg-red-50 text-red-700 font-semibold text-xs hover:bg-red-100 transition-colors inline-flex items-center gap-1">
                           <XCircle className="w-3.5 h-3.5" /> Từ chối
                         </button>
-                        <button onClick={() => handleApprove(job)} className="btn btn-primary btn-sm">
+                        <button onClick={() => handleApprove(job)} disabled={busyId === (job._id || job.id)} className="btn btn-primary btn-sm">
                           <CheckCircle className="w-3.5 h-3.5" /> Phê duyệt
                         </button>
                       </>
                     ) : isApproved ? (
-                      <button onClick={() => handleReject(job)} className="px-3 py-1.5 rounded-xl bg-red-50 text-red-700 font-semibold text-xs hover:bg-red-100 transition-colors">
+                      <button onClick={() => openReject(job)} disabled={busyId === (job._id || job.id)} className="px-3 py-2 rounded-xl bg-red-50 text-red-700 font-semibold text-xs hover:bg-red-100 transition-colors">
                         Gỡ bỏ bài đăng
                       </button>
                     ) : (
-                      <button onClick={() => handleApprove(job)} className="btn btn-outline btn-sm">
+                      <button onClick={() => handleApprove(job)} disabled={busyId === (job._id || job.id)} className="btn btn-outline btn-sm">
                         Duyệt lại bài này
                       </button>
                     )}
@@ -194,6 +211,30 @@ export default function AdminJobsPage() {
           ]}
         />
       )}
+
+      <Modal
+        isOpen={Boolean(rejecting)}
+        onClose={() => !busyId && setRejecting(null)}
+        title={rejecting?.status === 'approved' ? 'Gỡ bài đăng' : 'Từ chối bài đăng'}
+        size="md"
+      >
+        <p className="text-sm text-text-main font-semibold">{rejecting?.title}</p>
+        <label htmlFor="reject-reason" className="block text-xs font-bold text-gray-800 mt-4 mb-1.5">Lý do (nhà tuyển dụng sẽ nhận được thông báo)</label>
+        <textarea
+          id="reject-reason"
+          rows={4}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Ví dụ: Thông tin việc làm chưa rõ ràng hoặc không phù hợp tiêu chuẩn."
+          className="w-full p-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-main resize-none"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={() => setRejecting(null)} disabled={Boolean(busyId)} className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Hủy</button>
+          <button type="button" onClick={confirmReject} disabled={Boolean(busyId)} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60">
+            {busyId ? 'Đang xử lý...' : (rejecting?.status === 'approved' ? 'Gỡ bài' : 'Từ chối')}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
