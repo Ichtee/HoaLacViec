@@ -16,7 +16,9 @@
     "@vietmap/vietmap-gl-js": "^7.0.0-pre.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
+    "dompurify": "^3.4.17",
     "lucide-react": "^1.46.0",
+    "mammoth": "^1.13.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4"

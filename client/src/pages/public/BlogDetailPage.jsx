@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Eye, Share2, Tag, Clock
 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { getBlog } from '@/services';
 import { Badge } from '@/components/Badge.jsx';
 
@@ -125,9 +126,17 @@ export default function BlogDetailPage() {
       </div>
 
       {/* Main Content */}
-      <div className="prose max-w-none text-text-main leading-relaxed text-sm sm:text-base space-y-4 whitespace-pre-line">
-        {blog.content}
-      </div>
+      {/* Bài đăng từ file Word lưu dạng HTML; bài cũ là text thuần */}
+      {/^s*</.test(blog.content) ? (
+        <div
+          className="max-w-none text-text-main leading-relaxed text-sm sm:text-base [&_p]:my-3 [&_h1]:text-2xl [&_h2]:text-xl [&_h3]:text-lg [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-bold [&_h1]:mt-6 [&_h2]:mt-5 [&_h3]:mt-4 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-2xl [&_img]:my-4 [&_table]:border-collapse [&_td]:border [&_th]:border [&_td]:p-2 [&_th]:p-2 [&_a]:text-green-dark [&_a]:underline"
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(blog.content) }}
+        />
+      ) : (
+        <div className="prose max-w-none text-text-main leading-relaxed text-sm sm:text-base space-y-4 whitespace-pre-line">
+          {blog.content}
+        </div>
+      )}
 
       {/* Tags */}
       {blog.tags && blog.tags.length > 0 && (

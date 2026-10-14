@@ -516,6 +516,7 @@ export default function JobListPage() {
                 <label htmlFor="sort-select" className="text-sm text-text-muted hidden 2xl:inline whitespace-nowrap">Sắp xếp theo</label>
                 <Select
                   id="sort-select"
+                  aria-label="Sắp xếp theo"
                   value={sort}
                   onChange={(e) => handleSortChange(e.target.value)}
                   className="!h-10 !py-0 !rounded-xl !border-stone-300 sm:min-w-[150px]"

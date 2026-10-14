@@ -56,6 +56,7 @@ const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage.j
 const AdminVerificationPage = lazy(() => import('@/pages/admin/AdminVerificationPage.jsx'));
 const AdminJobsPage = lazy(() => import('@/pages/admin/AdminJobsPage.jsx'));
 const AdminBlogsPage = lazy(() => import('@/pages/admin/AdminBlogsPage.jsx'));
+const AdminBlogFormPage = lazy(() => import('@/pages/admin/AdminBlogFormPage.jsx'));
 const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage.jsx'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage.jsx'));
 const AdminTopUpsPage = lazy(() => import('@/pages/admin/AdminTopUpsPage.jsx'));
@@ -203,6 +204,8 @@ export default function App() {
           <Route path="verification" element={<AdminVerificationPage />} />
           <Route path="jobs" element={<AdminJobsPage />} />
           <Route path="blogs" element={<AdminBlogsPage />} />
+          <Route path="blogs/new" element={<AdminBlogFormPage />} />
+          <Route path="blogs/:id/edit" element={<AdminBlogFormPage />} />
           <Route path="reports" element={<AdminReportsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="topups" element={<AdminTopUpsPage />} />
