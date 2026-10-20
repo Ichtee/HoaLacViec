@@ -14,6 +14,7 @@ import { applyApprovalWindow, isJobFeatured } from '../services/listingService.j
 import { WELCOME_CREDITS } from '../config/credits.js';
 import { Report } from '../models/Report.js';
 import { Blog } from '../models/Blog.js';
+import { MicroTask } from '../models/MicroTask.js';
 
 const router = express.Router();
 
@@ -115,6 +116,27 @@ router.get('/stats', async (req, res, next) => {
 router.get('/metrics', async (req, res, next) => {
   try {
     res.json(await getPlatformMetrics());
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/tasks: lịch sử nhận việc vặt (mọi việc đã có người nhận, kể cả đã hủy/hoàn thành)
+router.get('/tasks', async (req, res, next) => {
+  try {
+    const filter = { assigneeId: { $ne: null } };
+    const q = String(req.query.q || '').trim().slice(0, 100);
+    if (q) {
+      const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ assigneeName: rx }, { requesterName: rx }, { title: rx }];
+    }
+    const tasks = await MicroTask.find(filter)
+      .select('title category reward status requesterName assigneeId assigneeName assigneePhone history createdAt updatedAt')
+      .populate('history.changedBy', 'name')
+      .sort({ updatedAt: -1 })
+      .limit(200)
+      .lean();
+    res.json({ tasks });
   } catch (err) {
     next(err);
   }

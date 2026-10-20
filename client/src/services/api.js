@@ -1096,6 +1096,10 @@ export async function apiAdminReconcileTopUp(id) {
   return request(`/credits/admin/topups/${id}/reconcile`, { method: 'POST' });
 }
 
+export async function apiAdminListTaskHistory(q) {
+  return request(`/admin/tasks${buildQueryString(q ? { q } : {})}`);
+}
+
 // ─── UPLOADS ──────────────────────────────────────────────────────
 export async function apiUploadImage(image, folder = 'jobs') {
   const data = await request('/uploads/image', { method: 'POST', body: JSON.stringify({ image, folder }) });

@@ -59,6 +59,7 @@ const AdminBlogsPage = lazy(() => import('@/pages/admin/AdminBlogsPage.jsx'));
 const AdminBlogFormPage = lazy(() => import('@/pages/admin/AdminBlogFormPage.jsx'));
 const AdminReportsPage = lazy(() => import('@/pages/admin/AdminReportsPage.jsx'));
 const AdminUsersPage = lazy(() => import('@/pages/admin/AdminUsersPage.jsx'));
+const AdminTaskHistoryPage = lazy(() => import('@/pages/admin/AdminTaskHistoryPage.jsx'));
 const AdminTopUpsPage = lazy(() => import('@/pages/admin/AdminTopUpsPage.jsx'));
 
 // Common Account Pages
@@ -209,6 +210,7 @@ export default function App() {
           <Route path="reports" element={<AdminReportsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="topups" element={<AdminTopUpsPage />} />
+          <Route path="tasks" element={<AdminTaskHistoryPage />} />
         </Route>
 
         {/* Fallback 404 */}

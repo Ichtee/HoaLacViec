@@ -1,6 +1,6 @@
 import { Outlet, Link } from 'react-router-dom';
 import { useState } from 'react';
-import { LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, BookOpen, Coins, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ShieldCheck, Briefcase, Flag, Users, BookOpen, Coins, ClipboardList, Menu, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth.jsx';
 import { UserDropdown } from '@/components/UserDropdown.jsx';
 import { SidebarNav } from '@/components/NavMenu.jsx';
@@ -20,6 +20,7 @@ const ADMIN_NAV_GROUPS = [
     items: [
       { to: '/admin/users', label: 'Tài khoản', icon: Users },
       { to: '/admin/topups', label: 'Nạp credit', icon: Coins },
+      { to: '/admin/tasks', label: 'Lịch sử nhận việc vặt', icon: ClipboardList },
       { to: '/admin/blogs', label: 'Quản lý Blog', icon: BookOpen },
     ],
   },
