@@ -71,6 +71,7 @@ const ChangePasswordPage = lazy(() => import('@/pages/common/ChangePasswordPage.
 // Geolocation Bootstrap
 import { LocationPermissionBootstrap } from '@/components/LocationPermissionBootstrap.jsx';
 import { ErrorBoundary } from '@/components/ErrorBoundary.jsx';
+import { AnalyticsTracker } from '@/components/AnalyticsTracker.jsx';
 
 function PageLoader() {
   return (
@@ -84,6 +85,7 @@ export default function App() {
   return (
     <Router>
       <LocationPermissionBootstrap />
+      <AnalyticsTracker />
       <PendingRouteEnforcer />
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
