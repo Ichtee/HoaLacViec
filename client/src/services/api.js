@@ -1115,6 +1115,10 @@ export async function apiGetAdminOverview() {
   return request('/admin/overview');
 }
 
+export async function apiGetAdminAnalytics() {
+  return request('/admin/analytics');
+}
+
 export async function apiGetVerificationImage(id, field) {
   return request(`/admin/verifications/${id}/image${buildQueryString({ field })}`);
 }

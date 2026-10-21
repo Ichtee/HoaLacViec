@@ -9,6 +9,7 @@ import { Notification } from '../models/Notification.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
 import { notifyJobAlerts, notifyFeaturedJob } from '../services/jobAlertService.js';
 import { getPlatformMetrics } from '../services/metricsService.js';
+import { getAnalyticsSummary, isAnalyticsConfigured } from '../services/analyticsService.js';
 import { grantCredits, refundJobPurchases, withCreditTransaction } from '../services/creditService.js';
 import { applyApprovalWindow, isJobFeatured } from '../services/listingService.js';
 import { WELCOME_CREDITS } from '../config/credits.js';
@@ -69,6 +70,17 @@ router.get('/overview', async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+});
+
+// GET /api/admin/analytics: lượt truy cập & thời gian sử dụng từ GA4 (30 ngày gần nhất)
+router.get('/analytics', async (req, res, next) => {
+  try {
+    if (!isAnalyticsConfigured()) return res.json({ configured: false });
+    res.json({ configured: true, ...(await getAnalyticsSummary()) });
+  } catch (err) {
+    console.error('GA4 report failed:', err.message);
+    res.status(502).json({ message: 'Không lấy được số liệu từ Google Analytics' });
   }
 });
 

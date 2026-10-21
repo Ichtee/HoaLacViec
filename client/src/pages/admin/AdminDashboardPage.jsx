@@ -6,14 +6,11 @@ import {
   Flag,
   Users,
   BookOpen,
-  Store,
-  GraduationCap,
-  HardHat,
-  UserCog,
 } from 'lucide-react';
 import { getAdminOverview } from '@/services';
 
 import { PlatformMetrics } from '@/components/PlatformMetrics.jsx';
+import { AnalyticsMetrics } from '@/components/AnalyticsMetrics.jsx';
 
 const EMPTY_OVERVIEW = {
   users: { total: 0, employer: 0, student: 0, worker: 0, locked: 0 },
@@ -39,13 +36,6 @@ export default function AdminDashboardPage() {
   }, []);
 
   const { users, jobs, verifications, reports, blogs } = overview;
-  const accountStats = [
-    { key: 'employer', label: 'Nhà tuyển dụng', icon: Store, tone: 'text-green-dark bg-green-50', count: users.employer },
-    { key: 'student', label: 'Sinh viên', icon: GraduationCap, tone: 'text-blue-700 bg-blue-50', count: users.student },
-    { key: 'worker', label: 'Lao động tự do', icon: HardHat, tone: 'text-amber-700 bg-amber-50', count: users.worker },
-  ];
-  const otherAccounts = users.total - users.employer - users.student - users.worker;
-  const lockedAccounts = users.locked;
   const runningJobs = jobs.running;
   const pendingJobs = jobs.pending;
 
@@ -125,36 +115,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Thống kê tài khoản theo vai trò */}
-      <section className="space-y-3" aria-labelledby="account-stats-title">
-        <div className="flex items-center justify-between">
-          <h2 id="account-stats-title" className="text-lg font-bold text-text-main flex items-center gap-2">
-            <Users className="w-5 h-5 text-green-dark" /> Thống kê tài khoản
-          </h2>
-          <Link to="/admin/users" className="text-xs text-green-dark font-semibold hover:underline">Quản lý tài khoản →</Link>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {accountStats.map(({ key, label, icon: Icon, tone, count }) => (
-            <div key={key} className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card flex items-center gap-3">
-              <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tone}`}><Icon className="w-5 h-5" aria-hidden="true" /></span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-gray-500 truncate">{label}</p>
-                <p className="text-2xl font-bold text-gray-900">{count}</p>
-              </div>
-            </div>
-          ))}
-          <div className="bg-white p-4 rounded-2xl ring-1 ring-green-100/70 shadow-card flex items-center gap-3">
-            <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-purple-700 bg-purple-50"><UserCog className="w-5 h-5" aria-hidden="true" /></span>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-gray-500 truncate">Quản trị / chờ phân vai</p>
-              <p className="text-2xl font-bold text-gray-900">{otherAccounts}</p>
-            </div>
-          </div>
-        </div>
-        <p className="text-xs text-text-muted">
-          Tổng {users.total} tài khoản{lockedAccounts > 0 ? `, trong đó ${lockedAccounts} đang bị khóa` : ''}.
-        </p>
-      </section>
+      <AnalyticsMetrics />
 
       {/* Pending Items Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -106,6 +106,7 @@ export {
   apiUploadImage as uploadImage,
   apiGetUnreadSummary as getUnreadSummary,
   apiGetAdminOverview as getAdminOverview,
+  apiGetAdminAnalytics as getAdminAnalytics,
   apiGetVerificationImage as getVerificationImage,
   apiGetJobAlerts as getJobAlerts,
   apiCreateJobAlert as createJobAlert,
