@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BarChart3 } from 'lucide-react';
 import { getAdminAnalytics } from '@/services';
+import { pageName } from '@/utils/pageNames.js';
 
 function formatSeconds(total) {
   const minutes = Math.floor(total / 60);
@@ -43,6 +44,13 @@ export function AnalyticsMetrics() {
         <p className="text-sm text-text-muted">Chưa kết nối Google Analytics (thiếu GA_PROPERTY_ID / GA_SERVICE_ACCOUNT_JSON trên server).</p>
       ) : (
         <>
+          {data.realtime && (
+            <div className="grid grid-cols-2 gap-3">
+              <Metric label="Đang online (30 phút qua)" value={data.realtime.activeUsers} />
+              <Metric label="Lượt xem trang (30 phút qua)" value={data.realtime.pageViews} />
+            </div>
+          )}
+          <p className="text-xs text-text-muted">Số liệu 30 ngày bên dưới Google cập nhật chậm 12–48 giờ.</p>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Metric label="Người dùng" value={data.activeUsers} />
             <Metric label="Lượt truy cập" value={data.sessions} />
@@ -55,7 +63,7 @@ export function AnalyticsMetrics() {
               <ul className="space-y-1">
                 {data.topPages.map((page) => (
                   <li key={page.path} className="flex justify-between text-sm">
-                    <span className="truncate text-text-main">{page.path}</span>
+                    <span className="truncate text-text-main" title={page.path}>{pageName(page.path)}</span>
                     <span className="font-semibold text-gray-900 ml-3">{page.views}</span>
                   </li>
                 ))}
